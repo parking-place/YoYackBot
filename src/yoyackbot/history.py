@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from itertools import pairwise
 from typing import Protocol
 
 import discord
@@ -129,7 +130,7 @@ class HistoryAdapter:
                         or getattr(message.channel, "id", None) != channel_id
                         or getattr(getattr(message, "guild", None), "id", None) != guild_id
                         for message in page
-                    ) or any(left.id <= right.id for left, right in zip(page, page[1:])):
+                    ) or any(left.id <= right.id for left, right in pairwise(page)):
                         raise HistoryError(HistoryFailure.INVALID_PAGE)
                     oldest = min(message.id for message in page)
                     for message in page:
