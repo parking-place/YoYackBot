@@ -66,12 +66,22 @@ def service_sample(input_root: Path, db_path: Path, previous_cpu: int | None,
         "-p", "CPUUsageNSec", "-p", "TasksCurrent", "-p", "NRestarts", "-p", "ActiveState",
     )
     values = dict(line.split("=", 1) for line in props.splitlines())
-    pid = int(values["MainPID"])
+    def number(key: str) -> int:
+        try:
+            return int(values[key])
+        except (KeyError, ValueError):
+            return 0
+
+    pid = number("MainPID")
     rss = 0
     if pid > 0:
-        status = Path(f"/proc/{pid}/status").read_text()
-        rss = int(re.search(r"^VmRSS:\s+(\d+)", status, re.MULTILINE).group(1)) * 1024
-    cpu_ns = int(values["CPUUsageNSec"])
+        try:
+            status = Path(f"/proc/{pid}/status").read_text()
+            match = re.search(r"^VmRSS:\s+(\d+)", status, re.MULTILINE)
+            rss = int(match.group(1)) * 1024 if match else 0
+        except OSError:
+            pass
+    cpu_ns = number("CPUUsageNSec")
     cpu_percent = 0.0 if previous_cpu is None or elapsed_since_last <= 0 else (
         max(0, cpu_ns - previous_cpu) / (elapsed_since_last * 1_000_000_000) * 100
     )
@@ -79,12 +89,12 @@ def service_sample(input_root: Path, db_path: Path, previous_cpu: int | None,
     return {
         "ready": values["ActiveState"] == "active" and alive and gateway,
         "rss_bytes": rss,
-        "cgroup_bytes": int(values["MemoryCurrent"]),
+        "cgroup_bytes": number("MemoryCurrent"),
         "cpu_ns": cpu_ns,
         "cpu_percent": round(cpu_percent, 2),
-        "tasks": int(values["TasksCurrent"]),
-        "restart_count": int(values["NRestarts"]),
-        "db_bytes": db_path.stat().st_size,
+        "tasks": number("TasksCurrent"),
+        "restart_count": number("NRestarts"),
+        "db_bytes": db_path.stat().st_size if db_path.exists() else 0,
         "journal_bytes": _journal_size(),
         "request_dirs": len(list(input_root.glob("request-*"))),
     }
@@ -217,6 +227,18 @@ async def main() -> int:
     workflow_module.valid_channel = lambda _guild, _id: True
     assert command("git", "-C", str(REPO), "rev-parse", "HEAD") == args.expected_sha
     db_initial = args.db.stat().st_size
+    started_at = datetime.now(UTC).isoformat()
+    manifest = args.report_dir / "manifest.json"
+    manifest.write_text(json.dumps({
+        "start_utc": started_at,
+        "expected_sha": args.expected_sha,
+        "duration_seconds": args.duration_seconds,
+        "interval_seconds": args.interval_seconds,
+        "limits": LIMITS,
+        "test_mode": args.test_mode,
+        "db_initial_bytes": db_initial,
+    }, indent=2, sort_keys=True) + "\n")
+    manifest.chmod(0o600)
     synthetic = SummaryWorkflow(
         Collector(), Engine(), Publisher(),
         ChannelStates(SQLiteCooldownStore(args.report_dir / "state.db")),
@@ -233,39 +255,47 @@ async def main() -> int:
     next_tick = start
     tick = 0
     samples_file = args.report_dir / "samples.jsonl"
-    with samples_file.open("x", encoding="utf-8") as stream:
-        os.chmod(samples_file, 0o600)
-        while time.monotonic() - start < args.duration_seconds:
-            elapsed = time.monotonic() - start
-            if command("git", "-C", str(REPO), "rev-parse", "HEAD") != args.expected_sha:
-                failures.append("sha_changed")
-                break
-            if not args.test_mode and not restarted and elapsed >= 14400:
-                await asyncio.to_thread(
-                    subprocess.run, ["systemctl", "restart", SERVICE], check=True,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                )
-                restarted = True
-            if not args.test_mode:
-                for index, mark in enumerate(probe_marks):
-                    if elapsed >= mark and len(probes) == index:
-                        probes.append(asyncio.create_task(model_probe()))
-            notices = await exercise(synthetic, 1 + tick % 6)
-            if not notices:
-                assert await exercise(synthetic, 1 + tick % 6)
-            if tick % 15 == 0:
-                await fault_drill(args.report_dir, tick)
-            now = time.monotonic()
-            sample = service_sample(args.input_root, args.db, previous_cpu, now - previous_time)
-            sample.update({"elapsed_seconds": round(now - start, 3), "synthetic_cycle": tick + 1})
-            stream.write(json.dumps(sample, separators=(",", ":")) + "\n")
-            stream.flush()
-            samples.append(sample)
-            previous_cpu = int(sample["cpu_ns"])
-            previous_time = now
-            tick += 1
-            next_tick += args.interval_seconds
-            await asyncio.sleep(max(0, next_tick - time.monotonic()))
+    try:
+        with samples_file.open("x", encoding="utf-8") as stream:
+            os.chmod(samples_file, 0o600)
+            while time.monotonic() - start < args.duration_seconds:
+                elapsed = time.monotonic() - start
+                if command("git", "-C", str(REPO), "rev-parse", "HEAD") != args.expected_sha:
+                    failures.append("sha_changed")
+                    break
+                if not args.test_mode and not restarted and elapsed >= 14400:
+                    await asyncio.to_thread(
+                        subprocess.run, ["systemctl", "restart", SERVICE], check=True,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    )
+                    restarted = True
+                if not args.test_mode:
+                    for index, mark in enumerate(probe_marks):
+                        if elapsed >= mark and len(probes) == index:
+                            probes.append(asyncio.create_task(model_probe()))
+                notices = await exercise(synthetic, 1 + tick % 6)
+                if not notices:
+                    assert await exercise(synthetic, 1 + tick % 6)
+                if tick % 15 == 0:
+                    await fault_drill(args.report_dir, tick)
+                now = time.monotonic()
+                sample = service_sample(args.input_root, args.db, previous_cpu, now - previous_time)
+                sample.update({
+                    "timestamp_utc": datetime.now(UTC).isoformat(),
+                    "sha": args.expected_sha,
+                    "elapsed_seconds": round(now - start, 3),
+                    "synthetic_cycle": tick + 1,
+                })
+                stream.write(json.dumps(sample, separators=(",", ":")) + "\n")
+                stream.flush()
+                samples.append(sample)
+                previous_cpu = int(sample["cpu_ns"])
+                previous_time = now
+                tick += 1
+                next_tick += args.interval_seconds
+                await asyncio.sleep(max(0, next_tick - time.monotonic()))
+    except Exception as exc:  # noqa: BLE001
+        failures.append(type(exc).__name__)
     duration = time.monotonic() - start
     probe_results = await asyncio.gather(*probes)
     await synthetic.shutdown()
@@ -282,6 +312,8 @@ async def main() -> int:
     )
     aggregate = {
         "sha": args.expected_sha,
+        "start_utc": started_at,
+        "end_utc": datetime.now(UTC).isoformat(),
         "duration_seconds": round(duration, 3),
         "samples": len(samples),
         "synthetic_cycles": tick,
