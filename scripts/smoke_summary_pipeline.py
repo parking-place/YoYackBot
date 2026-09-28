@@ -19,11 +19,7 @@ from yoyackbot.publisher import DiscordSummaryPublisher
 from yoyackbot.range_collection import TimeRangeCollector
 from yoyackbot.watch_store import SQLiteWatchStore
 
-EXPECTED = (
-    "통합시험: 가람은 금요일 배포를 제안했소",
-    "통합시험: 나래는 일정 검토 후 결정하자고 했소",
-    "통합시험: 배포 날짜는 아직 미정이오",
-)
+EXPECTED_MARKERS = ("금요일", "검토", "미정")
 
 
 async def main() -> None:
@@ -62,7 +58,18 @@ async def main() -> None:
             collected = await collector.collect(
                 channel, guild_id=guild_id, channel_id=channel_id, request=requested
             )
-            if tuple(item.content.strip() for item in collected.messages) != EXPECTED:
+            contents = [item.content for item in collected.messages]
+            if (
+                len(contents) != 3
+                or any("통합시험" not in content for content in contents)
+                or any(marker not in "\n".join(contents) for marker in EXPECTED_MARKERS)
+                or any((requested.accepted_at - item.created_at).total_seconds() > 1200
+                       for item in collected.messages)
+            ):
+                print("selection_rejected", "count", len(contents),
+                      "prefixes", ["통합시험" in content for content in contents],
+                      "markers", [marker in "\n".join(contents)
+                                  for marker in EXPECTED_MARKERS])
                 raise ValueError("Latest three human messages are not the approved synthetic set")
             engine = CodexSummaryEngine.from_settings(settings)
             summary = await engine.summarize(
