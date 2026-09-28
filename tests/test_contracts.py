@@ -15,7 +15,6 @@ from yoyackbot.domain import (
 )
 from yoyackbot.errors import FailureKind, message_for
 
-
 NOW = datetime(2026, 9, 28, 12, tzinfo=UTC)
 
 
