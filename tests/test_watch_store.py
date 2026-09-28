@@ -16,6 +16,7 @@ def test_two_guilds_are_isolated_and_restore_after_restart(tmp_path) -> None:
     assert store.replace(1, frozenset({10, 11}), expected_version=0) == 1
     assert store.replace(2, frozenset({20}), expected_version=0) == 1
     restored = SQLiteWatchStore(path)
+    assert restored.snapshot(1) == (1, frozenset({10, 11}))
     assert restored.get(1) == frozenset({10, 11})
     assert restored.get(2) == frozenset({20})
     assert restored.replace(1, frozenset({11}), expected_version=1) == 2
