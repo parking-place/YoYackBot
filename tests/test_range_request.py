@@ -9,7 +9,6 @@ from yoyackbot.domain import MessageRecord, RequestKind
 from yoyackbot.parser import CommandLimitError
 from yoyackbot.range_request import eligible_message, message_sort_key, resolve_range
 
-
 SETTINGS = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
 
 
