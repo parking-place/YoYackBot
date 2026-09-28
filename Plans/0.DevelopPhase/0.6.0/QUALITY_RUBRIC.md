@@ -1,7 +1,7 @@
 # 0.6.0 합성 대화 품질 평가 기준
 
-- 프롬프트 버전: `0.6.0-p1-v1` (`src/yoyackbot/summary_prompt.py`)
-- 합성 자료: `tests/fixtures/summary_quality.json`의 20개 사례
+- 프롬프트 버전: 최초 평가 `0.6.0-p1-v1`, 통합 시험 후 보강 `0.6.0-p5-v2` (`src/yoyackbot/summary_prompt.py`)
+- 합성 자료: `tests/fixtures/summary_quality.json`의 21개 사례 (처음 20개 + 간접 인용 회귀 1개)
 - 모델 계약: Codex CLI `0.158.0`, `gpt-6-luna`, reasoning `low`
 - 평가 환경: 실제 모델 호출은 LXC의 전용 계정에서만 수행한다.
 
