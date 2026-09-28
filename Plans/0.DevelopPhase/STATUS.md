@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-28. **55개 단계 모두 PLANNED**. 개발 완료 0 / 55. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-28. 개발 완료 **1 / 55**. 0.0.0-P1은 문서 검증과 원격 게시 확인을 마쳤고 나머지 54개 단계는 PLANNED. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -21,7 +21,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 
 | 단계 | 작업 | 상태 | 구현 C SHA | 원격 증거 E | 제약/차단 사유 |
 |---|---|---|---|---|---|
-| 0.0.0-P1 | [요구사항·범위·완료 규칙 확정](0.0.0/01-requirements.md) | PUSH_PENDING | `e6322e1e4c4c1bd2a471ed3aef5da52cec5024aa` | — | 문서 검증 통과, 원격 게시 확인 전 |
+| 0.0.0-P1 | [요구사항·범위·완료 규칙 확정](0.0.0/01-requirements.md) | DONE | `e6322e1e4c4c1bd2a471ed3aef5da52cec5024aa` | [evidence E](https://github.com/parking-place/YoYackBot/commit/e7598b208d0260e40569fc6791849cb926d69a64) | 문서 검사 PASS; 제품 검사 NOT_RUN |
 | 0.0.0-P2 | [프로젝트 구조·런타임·의존성 고정](0.0.0/02-project-baseline.md) | PLANNED | — | — | 미착수 |
 | 0.0.0-P3 | [LXC·Discord·Codex 선행 조건 확인](0.0.0/03-environment-preflight.md) | PLANNED | — | — | 미착수 |
 | 0.0.0-P4 | [설정·인터페이스·오류 계약 정의](0.0.0/04-interfaces-config.md) | PLANNED | — | — | 미착수 |
