@@ -43,7 +43,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.3.0-P5 | [캐시 동시성·장애·버전 검증](0.3.0/05-cache-acceptance.md) | DONE | `25a702434b84a42e33774ed405dc1888be941c75` | [evidence E](https://github.com/parking-place/YoYackBot/commit/a640cb2cb2248ca2f6e1aab705415a7148315b79) | OpenJevLXC Python 3.13.5 격리 장애·동시성 DB + 실제 개발 DB migration·Gateway 검증; 세부 결과는 증거 파일 |
 | 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | DONE | `175c4131aef2de9ad46ebb1f9e2cc774c0e34bf7` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3ec5875b55546f8a0a4ad37f03d0ffc538b74ca1) | OpenJevLXC Python 3.13.5, 개발 Discord 주시 채널 실제 History 검증; 세부 결과는 증거 파일 |
 | 0.4.0-P2 | [시간 범위 차집합 조회·완료 확정](0.4.0/02-cache-gaps.md) | DONE | `8a28f56ba69dab7509fd8acdbbe1810a572f0260` | [evidence E](https://github.com/parking-place/YoYackBot/commit/4f0315554f3724ca062629adb5e9f5deafa8e95d) | OpenJevLXC Python 3.13.5, 격리 SQLite 및 합성 History 검증; 세부 결과는 증거 파일 |
-| 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | IN_PROGRESS | — | — | 장기 범위 분리·비영속 수집 구현 중 |
+| 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | PUSH_PENDING | `795a0e2384fde2c73b864f79d1cb0448f59f96cb` | — | 검증 통과, 원격 확인 대기 |
 | 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | PLANNED | — | — | 미착수 |
 | 0.4.0-P5 | [캐시 fallback·빈 대화·수집 통합 게이트](0.4.0/05-collection-acceptance.md) | PLANNED | — | — | 미착수 |
 | 0.5.0-P1 | [CLI·인증·GPT-6 Luna Light 확인](0.5.0/01-cli-model-contract.md) | PLANNED | — | — | 미착수 |
