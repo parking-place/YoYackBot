@@ -12,7 +12,7 @@ from yoyackbot.discord import MessageClass, YoYackClient, classify_message, requ
 
 def sample_message(**changes: object) -> SimpleNamespace:
     attrs = {
-        "guild": object(),
+        "guild": SimpleNamespace(id=1),
         "channel": SimpleNamespace(type=discord.ChannelType.text, id=99),
         "author": SimpleNamespace(bot=False),
         "webhook_id": None,
