@@ -10,6 +10,7 @@ from discord import app_commands
 
 from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
 from yoyackbot.config import Settings
+from yoyackbot.watch_gate import ChannelLease, WatchGate
 from yoyackbot.watch_store import SQLiteWatchStore
 
 LOGGER = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ class YoYackClient(discord.Client):
         self.nonempty_content_events = 0
         self.connection_count = 0
         self.watch_store = watch_store or MemoryWatchStore()
+        self.watch_gate = WatchGate(self.watch_store)
         self.dev_guild_id = dev_guild_id
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store)
@@ -114,7 +116,16 @@ class YoYackClient(discord.Client):
             self.nonempty_content_events += 1
         if self.observe_channel_id is not None and message.channel.id == self.observe_channel_id:
             LOGGER.info("gateway_test_human_event has_content=%s", bool(message.content))
-        # Watched-channel persistence is added in 0.3.0.
+        assert message.guild is not None
+        await self.watch_gate.ingest(
+            message.guild.id,
+            message.channel.id,
+            message,
+            self.on_watched_message,
+        )
+
+    async def on_watched_message(self, message: discord.Message, lease: ChannelLease) -> None:
+        """Cache ingestion hook; persistence is implemented in 0.3.0."""
 
 
 async def run_gateway(
