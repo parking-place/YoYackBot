@@ -16,7 +16,7 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [0.7.0-P1 — 채널별 원자적 상태·명령 연결](01-channel-state.md) | `T070-P1-A/B` | DONE |
-| 2 | [0.7.0-P2 — 게시 성공 기준 300초·남은 시간](02-success-cooldown.md) | `T070-P2-A/B` | IN_PROGRESS |
+| 2 | [0.7.0-P2 — 게시 성공 기준 300초·남은 시간](02-success-cooldown.md) | `T070-P2-A/B` | DONE |
 | 3 | [0.7.0-P3 — 실패·주시 해제·취소 시 상태 복구](03-failure-recovery.md) | `T070-P3-A/B` | PLANNED |
 | 4 | [0.7.0-P4 — 전역 실행 제한·대기열·재시작](04-global-queue.md) | `T070-P4-A/B` | PLANNED |
 | 5 | [0.7.0-P5 — 전체 명령·상태 실환경 회귀 게이트](05-workflow-acceptance.md) | `T070-P5-A/B` | PLANNED |
