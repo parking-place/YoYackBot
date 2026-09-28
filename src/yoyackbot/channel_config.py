@@ -44,7 +44,9 @@ def valid_channel(guild: discord.Guild, channel_id: int) -> bool:
     if not isinstance(channel, discord.TextChannel) or member is None:
         return False
     permissions = channel.permissions_for(member)
-    return bool(permissions.view_channel and permissions.read_message_history)
+    return bool(
+        permissions.view_channel and permissions.read_message_history and permissions.send_messages
+    )
 
 
 def valid_selection(guild: discord.Guild, channel_ids: Iterable[int]) -> bool:
@@ -125,12 +127,16 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
         if guild is None or not valid_selection(guild, view.draft):
             await reject(interaction, INVALID)
             return
+        if view.store.get(view.guild_id) != view.original:
+            await reject(interaction, "다른 관리자가 설정을 바꾸었소. 명령을 다시 열어 확인하시오.")
+            return
         try:
             view.store.replace(view.guild_id, frozenset(view.draft))
         except Exception:
             LOGGER.exception("watched_channel_save_failed")
             await reject(interaction, "설정을 저장하지 못했소. 잠시 후 다시 시도하시오.")
             return
+        LOGGER.info("watched_channel_saved count=%d", len(view.draft))
         view.stop()
         for item in view.children:
             item.disabled = True
@@ -158,11 +164,22 @@ class ChannelSettingsView(discord.ui.View):
         self.guild_id = guild_id
         self.owner_id = owner_id
         self.draft = set(store.get(guild_id))
+        self.original = frozenset(self.draft)
+        self.message: discord.Message | None = None
         self.add_item(AddChannels())
         self.add_item(RemoveChannels())
         self.add_item(ClearChannels())
         self.add_item(SaveChannels())
         self.add_item(CancelChannels())
+
+    async def on_timeout(self) -> None:
+        for item in self.children:
+            item.disabled = True
+        if self.message is not None:
+            try:
+                await self.message.edit(content="설정 시간이 지났소. 명령을 다시 여시오.", view=self)
+            except discord.HTTPException:
+                LOGGER.warning("watched_channel_view_expired_edit_failed")
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if (
@@ -197,5 +214,6 @@ def install_channel_commands(tree: app_commands.CommandTree, store: WatchStore) 
             view=view,
             ephemeral=True,
         )
+        view.message = await interaction.original_response()
 
     tree.add_command(group)

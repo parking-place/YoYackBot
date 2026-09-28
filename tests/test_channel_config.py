@@ -39,11 +39,11 @@ def test_store_replaces_only_one_guild_and_can_clear() -> None:
 def test_channel_must_be_visible_text_channel() -> None:
     text = Mock(spec=discord.TextChannel)
     text.permissions_for.return_value = SimpleNamespace(
-        view_channel=True, read_message_history=True
+        view_channel=True, read_message_history=True, send_messages=True
     )
     hidden = Mock(spec=discord.TextChannel)
     hidden.permissions_for.return_value = SimpleNamespace(
-        view_channel=False, read_message_history=True
+        view_channel=False, read_message_history=True, send_messages=True
     )
     guild = SimpleNamespace(me=object(), get_channel=lambda cid: {10: text, 11: hidden}.get(cid))
     assert valid_selection(guild, {10})
