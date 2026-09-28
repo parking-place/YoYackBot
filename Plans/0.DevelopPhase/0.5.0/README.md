@@ -19,7 +19,7 @@
 | 2 | [0.5.0-P2 — 요청 입력 파일·표시명 정규화](02-input-files.md) | `T050-P2-A/B` | DONE |
 | 3 | [0.5.0-P3 — 비대화형 subprocess·파일/도구 격리](03-subprocess-isolation.md) | `T050-P3-A/B` | DONE |
 | 4 | [0.5.0-P4 — 시간·입력 제한·취소·잔여 파일 정리](04-timeouts-cleanup.md) | `T050-P4-A/B` | DONE |
-| 5 | [0.5.0-P5 — 실제 모델 연동·실패 회귀 게이트](05-engine-acceptance.md) | `T050-P5-A/B` | PLANNED |
+| 5 | [0.5.0-P5 — 실제 모델 연동·실패 회귀 게이트](05-engine-acceptance.md) | `T050-P5-A/B` | IN_PROGRESS |
 
 ## 버전 완료 조건
 
