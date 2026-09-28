@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-28. 개발 완료 **2 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 53개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-28. 개발 완료 **3 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 53개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -23,7 +23,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 |---|---|---|---|---|---|
 | 0.0.0-P1 | [요구사항·범위·완료 규칙 확정](0.0.0/01-requirements.md) | DONE | `e6322e1e4c4c1bd2a471ed3aef5da52cec5024aa` | [evidence E](https://github.com/parking-place/YoYackBot/commit/e7598b208d0260e40569fc6791849cb926d69a64) | 문서 검사 PASS; 제품 검사 NOT_RUN |
 | 0.0.0-P2 | [프로젝트 구조·런타임·의존성 고정](0.0.0/02-project-baseline.md) | DONE | `afaa0e0251ef7a947baee4f0c515cdccb796abb7` | [evidence E](https://github.com/parking-place/YoYackBot/commit/6197806221314345792f89ec90fc63db5d660864) | OpenJevLXC Debian 13 x86_64, Python 3.13.5, 격리 venv; 실제 Discord/Codex 호출 없음 검증; 세부 결과는 증거 파일 |
-| 0.0.0-P3 | [LXC·Discord·Codex 선행 조건 확인](0.0.0/03-environment-preflight.md) | PUSH_PENDING | `1fcd9952460ea515228d898a313577c79d73040a` | — | 검증 통과, 원격 확인 대기 |
+| 0.0.0-P3 | [LXC·Discord·Codex 선행 조건 확인](0.0.0/03-environment-preflight.md) | DONE | `1fcd9952460ea515228d898a313577c79d73040a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/ddd0a36d7cfdab231e362def5d70f9a9f9685781) | OpenJevLXC와 실제 Discord REST 읽기 점검; 공개 문서 비밀정보 검사 검증; 세부 결과는 증거 파일 |
 | 0.0.0-P4 | [설정·인터페이스·오류 계약 정의](0.0.0/04-interfaces-config.md) | PLANNED | — | — | 미착수 |
 | 0.0.0-P5 | [검증 실행 기반·초기 버전 게이트](0.0.0/05-verification-baseline.md) | PLANNED | — | — | 미착수 |
 | 0.1.0-P1 | [Discord 연결·이벤트 경계 구현](0.1.0/01-gateway.md) | PLANNED | — | — | 미착수 |
