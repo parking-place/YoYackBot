@@ -22,7 +22,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 단계 | 작업 | 상태 | 구현 C SHA | 원격 증거 E | 제약/차단 사유 |
 |---|---|---|---|---|---|
 | 0.0.0-P1 | [요구사항·범위·완료 규칙 확정](0.0.0/01-requirements.md) | DONE | `e6322e1e4c4c1bd2a471ed3aef5da52cec5024aa` | [evidence E](https://github.com/parking-place/YoYackBot/commit/e7598b208d0260e40569fc6791849cb926d69a64) | 문서 검사 PASS; 제품 검사 NOT_RUN |
-| 0.0.0-P2 | [프로젝트 구조·런타임·의존성 고정](0.0.0/02-project-baseline.md) | PLANNED | — | — | 미착수 |
+| 0.0.0-P2 | [프로젝트 구조·런타임·의존성 고정](0.0.0/02-project-baseline.md) | PUSH_PENDING | `afaa0e0251ef7a947baee4f0c515cdccb796abb7` | — | 검증 통과, 원격 확인 대기 |
 | 0.0.0-P3 | [LXC·Discord·Codex 선행 조건 확인](0.0.0/03-environment-preflight.md) | PLANNED | — | — | 미착수 |
 | 0.0.0-P4 | [설정·인터페이스·오류 계약 정의](0.0.0/04-interfaces-config.md) | PLANNED | — | — | 미착수 |
 | 0.0.0-P5 | [검증 실행 기반·초기 버전 게이트](0.0.0/05-verification-baseline.md) | PLANNED | — | — | 미착수 |
