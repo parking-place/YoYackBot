@@ -26,7 +26,7 @@ class SQLiteWatchStore:
             os.chmod(path, 0o600)
             with self._connection() as connection:
                 version = connection.execute("PRAGMA user_version").fetchone()[0]
-                if version > 1:
+                if version > 2:
                     raise WatchStoreError("Unsupported settings schema version")
                 if version == 0:
                     with connection:
@@ -44,6 +44,31 @@ class SQLiteWatchStore:
                             "ON DELETE CASCADE)"
                         )
                         connection.execute("PRAGMA user_version=1")
+                if version in (0, 1):
+                    with connection:
+                        connection.execute(
+                            "CREATE TABLE messages ("
+                            "message_id INTEGER PRIMARY KEY CHECK(message_id > 0), "
+                            "guild_id INTEGER NOT NULL CHECK(guild_id > 0), "
+                            "channel_id INTEGER NOT NULL CHECK(channel_id > 0), "
+                            "author_id INTEGER NOT NULL CHECK(author_id > 0), "
+                            "author_name TEXT NOT NULL, content TEXT NOT NULL, "
+                            "created_at_us INTEGER NOT NULL, edited_at_us INTEGER, "
+                            "cached_at_us INTEGER NOT NULL)"
+                        )
+                        connection.execute(
+                            "CREATE INDEX messages_guild_channel_time "
+                            "ON messages(guild_id, channel_id, created_at_us, message_id)"
+                        )
+                        connection.execute(
+                            "CREATE TABLE coverage ("
+                            "guild_id INTEGER NOT NULL CHECK(guild_id > 0), "
+                            "channel_id INTEGER NOT NULL CHECK(channel_id > 0), "
+                            "start_us INTEGER NOT NULL, end_us INTEGER NOT NULL, "
+                            "verified_at_us INTEGER NOT NULL, CHECK(start_us < end_us), "
+                            "PRIMARY KEY(guild_id, channel_id, start_us, end_us))"
+                        )
+                        connection.execute("PRAGMA user_version=2")
         except (OSError, sqlite3.Error) as exc:
             raise WatchStoreError("Settings database unavailable") from exc
 
@@ -140,6 +165,8 @@ class SQLiteWatchStore:
         try:
             with self._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
+                connection.execute("DELETE FROM messages WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM coverage WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc
