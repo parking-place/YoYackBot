@@ -115,3 +115,24 @@ def test_wrong_guild_and_permission_loss_fail_before_send(
         asyncio.run(publisher.publish(request, result, selected))
     assert raised.value.reason is PublicationFailure.PERMISSION
     assert channel.sent == []
+
+
+def test_permission_loss_between_chunks_preserves_sent_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checks = 0
+
+    def permission(_guild: object, _id: int) -> bool:
+        nonlocal checks
+        checks += 1
+        return checks == 1
+
+    monkeypatch.setattr("yoyackbot.publisher.valid_channel", permission)
+    publisher, request, result, selected, channel, _watch = fixture()
+    with pytest.raises(PartialPublicationError) as raised:
+        asyncio.run(publisher.publish(request, result, selected))
+    assert raised.value.reason is PublicationFailure.PERMISSION
+    assert raised.value.failed_index == 2
+    assert raised.value.sent_ids == (101,)
+    assert raised.value.last_success_at == NOW + timedelta(seconds=1)
+    assert len(channel.sent) == 1
