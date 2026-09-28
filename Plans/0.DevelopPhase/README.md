@@ -25,7 +25,7 @@
 | [0.2.0](0.2.0/README.md) | 명령 해석과 요청 범위 | 5 | DONE |
 | [0.3.0](0.3.0/README.md) | SQLite 메시지 캐시 | 5 | DONE |
 | [0.4.0](0.4.0/README.md) | Discord History와 캐시 보충 | 5 | DONE |
-| [0.5.0](0.5.0/README.md) | Codex CLI 안전 연동 | 5 | PLANNED |
+| [0.5.0](0.5.0/README.md) | Codex CLI 안전 연동 | 5 | DONE |
 | [0.6.0](0.6.0/README.md) | 화자 중심 요약과 Discord 출력 | 5 | PLANNED |
 | [0.7.0](0.7.0/README.md) | 작업 상태·동시성·성공 쿨타임 | 5 | PLANNED |
 | [0.8.0](0.8.0/README.md) | LXC 운영 안정화 | 5 | PLANNED |

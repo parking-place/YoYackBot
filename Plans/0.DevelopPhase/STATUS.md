@@ -89,6 +89,8 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 
 0.4.0의 다섯 단계는 [PR #5](https://github.com/parking-place/YoYackBot/pull/5)로 `main`에 통합했다(검증 브랜치 D `cea5832f0d752fb1027073ea744f020b9e248729`, merge `f3a2c51c1ae368cbefdd860344a2992e8d063261`). 개발 Discord 주시 채널 실제 History와 격리 DB 사본에서 시간형 3건 수집·개수형 캐시 무조회 2건을 확인했다. 실제 권한 회수와 Codex 모델 호출은 후속 검증이다.
 
+0.5.0의 다섯 단계는 [PR #6](https://github.com/parking-place/YoYackBot/pull/6)으로 `main`에 통합했다(검증 브랜치 D `92aeb8a39881dae2f8c343d2e23681dd70907c67`, merge `a2a05e63fb518637d228e533e927f6b6f095a90e`). 봇 전용 계정에서 고정된 GPT-6 Luna low 모델로 합성 대화를 실제 요약했고 인증 실패·timeout·비정상 종료 뒤 재시도를 확인했다. 입력·인증 상태는 요청별 격리 폴더에서 정리한다. 요약 품질 평가는 0.6.0, 실제 Discord 명령·게시 연결은 0.7.0의 검증 대상이다.
+
 ## 실행 증거
 
 실행을 시작한 뒤에만 `evidence/<version>-P<n>.md`를 작성한다. raw Discord 대화, 실제 서버 주소, 앱/사용자 식별값, 인증정보와 DB는 증거 파일에 넣지 않는다.
