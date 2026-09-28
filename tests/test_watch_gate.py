@@ -4,7 +4,7 @@ import asyncio
 from unittest.mock import AsyncMock
 
 from yoyackbot.channel_config import MemoryWatchStore
-from yoyackbot.watch_gate import GateResult, UNWATCHED_NOTICE, WatchGate
+from yoyackbot.watch_gate import UNWATCHED_NOTICE, GateResult, WatchGate
 
 
 def test_unwatched_never_calls_expensive_or_persistent_adapters() -> None:

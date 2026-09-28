@@ -10,8 +10,8 @@ from discord import app_commands
 
 from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
 from yoyackbot.config import Settings
-from yoyackbot.watch_store import SQLiteWatchStore
 from yoyackbot.watch_gate import ChannelLease, WatchGate
+from yoyackbot.watch_store import SQLiteWatchStore
 
 LOGGER = logging.getLogger(__name__)
 
