@@ -22,6 +22,7 @@ class CodexFailure(Enum):
     PROCESS = "process"
     TIMEOUT = "timeout"
     OUTPUT_LIMIT = "output_limit"
+    OUTPUT_INVALID = "output_invalid"
     INPUT_LIMIT = "input_limit"
 
 
