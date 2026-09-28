@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from yoyackbot.coverage import merge_intervals, missing_intervals
 from yoyackbot.config import Settings
+from yoyackbot.coverage import merge_intervals, missing_intervals
 from yoyackbot.discord import YoYackClient
 from yoyackbot.domain import CoverageInterval, MessageRecord
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
