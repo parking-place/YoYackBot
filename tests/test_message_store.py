@@ -17,7 +17,7 @@ def _record(message_id: int, *, guild_id: int = 1, channel_id: int = 10) -> Mess
     return MessageRecord(message_id, guild_id, channel_id, 3, "test author", "synthetic", NOW)
 
 
-def test_new_database_keeps_settings_and_uses_schema_two(tmp_path) -> None:
+def test_new_database_keeps_settings_and_uses_current_schema(tmp_path) -> None:
     path = tmp_path / "private" / "messages.db"
     watched = SQLiteWatchStore(path)
     watched.replace(1, frozenset({10, 11}))
@@ -30,7 +30,7 @@ def test_new_database_keeps_settings_and_uses_schema_two(tmp_path) -> None:
     assert SQLiteWatchStore(path).get(2) == frozenset({20})
     assert path.stat().st_mode & 0o777 == 0o600
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
 
 
 def test_version_one_migrates_forward_without_losing_existing_watch_state(tmp_path) -> None:
@@ -48,10 +48,28 @@ def test_version_one_migrates_forward_without_losing_existing_watch_state(tmp_pa
         connection.execute("PRAGMA user_version=1")
     assert SQLiteWatchStore(path).snapshot(1) == (7, frozenset({10}))
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
         assert {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")} >= {
-            "messages", "coverage", "watched_channels"
+            "messages", "coverage", "coverage_recheck", "watched_channels"
         }
+
+
+def test_version_two_migration_preserves_messages_and_verified_coverage(tmp_path) -> None:
+    path = tmp_path / "messages.db"
+    watched = SQLiteWatchStore(path)
+    watched.replace(1, frozenset({10}))
+    messages = SQLiteMessageStore(path)
+    messages.upsert(_record(100), cached_at=NOW)
+    interval = CoverageInterval(10, NOW, NOW + timedelta(hours=1))
+    messages.mark_covered(1, interval, verified_at=NOW)
+    with sqlite3.connect(path) as connection:
+        connection.execute("DROP TABLE coverage_recheck")
+        connection.execute("PRAGMA user_version=2")
+    assert SQLiteWatchStore(path).get(1) == frozenset({10})
+    assert [item.message_id for item in messages.recent(1, 10, NOW, NOW + timedelta(hours=1))] == [100]
+    assert messages.coverage(1, 10) == [interval]
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
 
 
 def test_failed_migration_keeps_version_one_and_watch_settings(tmp_path) -> None:

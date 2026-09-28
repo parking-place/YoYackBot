@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from yoyackbot.coverage import missing_intervals
 from yoyackbot.domain import CoverageInterval, MessageRecord
 from yoyackbot.watch_store import SQLiteWatchStore
 
@@ -168,6 +169,13 @@ class SQLiteMessageStore:
                     "UPDATE OR REPLACE coverage SET start_us=? WHERE start_us<?",
                     (cutoff_us, cutoff_us),
                 )
+                connection.execute(
+                    "DELETE FROM coverage_recheck WHERE end_us<=?", (cutoff_us,)
+                )
+                connection.execute(
+                    "UPDATE OR REPLACE coverage_recheck SET start_us=? WHERE start_us<?",
+                    (cutoff_us, cutoff_us),
+                )
                 return deleted
         except sqlite3.Error as exc:
             raise MessageStoreError("Cache cleanup failed") from exc
@@ -240,3 +248,125 @@ class SQLiteMessageStore:
         except sqlite3.Error as exc:
             raise MessageStoreError("Coverage read failed") from exc
         return [CoverageInterval(channel_id, _datetime(start), _datetime(end)) for start, end in rows]
+
+    def recheck(self, guild_id: int, channel_id: int) -> Sequence[CoverageInterval]:
+        try:
+            with self._connection() as connection:
+                rows = connection.execute(
+                    "SELECT start_us, end_us FROM coverage_recheck "
+                    "WHERE guild_id=? AND channel_id=? ORDER BY start_us, end_us",
+                    (guild_id, channel_id),
+                ).fetchall()
+        except sqlite3.Error as exc:
+            raise MessageStoreError("Recheck read failed") from exc
+        return [CoverageInterval(channel_id, _datetime(start), _datetime(end)) for start, end in rows]
+
+    def missing(self, guild_id: int, request: CoverageInterval) -> list[CoverageInterval]:
+        return missing_intervals(
+            request,
+            self.coverage(guild_id, request.channel_id),
+            recheck=self.recheck(guild_id, request.channel_id),
+        )
+
+    def mark_all_watched_recheck(
+        self, start: datetime, end: datetime, *, reason: str
+    ) -> int:
+        """Require History revalidation after startup or a Gateway gap."""
+        start_us, end_us = _microseconds(start), _microseconds(end)
+        if start_us >= end_us:
+            raise ValueError("recheck range must be nonempty")
+        try:
+            with self._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                channels = connection.execute(
+                    "SELECT guild_id, channel_id FROM watched_channels"
+                ).fetchall()
+                connection.executemany(
+                    "INSERT INTO coverage_recheck "
+                    "(guild_id, channel_id, start_us, end_us, reason) VALUES (?, ?, ?, ?, ?) "
+                    "ON CONFLICT(guild_id, channel_id, start_us, end_us) "
+                    "DO UPDATE SET reason=excluded.reason",
+                    ((guild_id, channel_id, start_us, end_us, reason) for guild_id, channel_id in channels),
+                )
+                return len(channels)
+        except sqlite3.Error as exc:
+            raise MessageStoreError("Recheck write failed") from exc
+
+    def commit_history_complete(
+        self,
+        guild_id: int,
+        interval: CoverageInterval,
+        records: Sequence[MessageRecord],
+        *,
+        exhausted: bool,
+        expected_version: int,
+        verified_at: datetime,
+    ) -> bool:
+        """Publish records and coverage together only after full History exhaustion."""
+        if not exhausted:
+            return False
+        if any(
+            record.guild_id != guild_id
+            or record.channel_id != interval.channel_id
+            or not interval.start <= record.created_at < interval.end
+            for record in records
+        ):
+            raise ValueError("History messages must belong to the completed interval")
+        start_us, end_us, verified_us = (
+            _microseconds(interval.start),
+            _microseconds(interval.end),
+            _microseconds(verified_at),
+        )
+        try:
+            with self._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                row = connection.execute(
+                    "SELECT version FROM guild_watch_meta WHERE guild_id=?", (guild_id,)
+                ).fetchone()
+                watched = connection.execute(
+                    "SELECT 1 FROM watched_channels WHERE guild_id=? AND channel_id=?",
+                    (guild_id, interval.channel_id),
+                ).fetchone()
+                if row is None or row[0] != expected_version or watched is None:
+                    return False
+                for record in records:
+                    self._upsert(connection, record, verified_at)
+                connection.execute(
+                    "INSERT INTO coverage "
+                    "(guild_id, channel_id, start_us, end_us, verified_at_us) "
+                    "VALUES (?, ?, ?, ?, ?) "
+                    "ON CONFLICT(guild_id, channel_id, start_us, end_us) "
+                    "DO UPDATE SET verified_at_us=excluded.verified_at_us",
+                    (guild_id, interval.channel_id, start_us, end_us, verified_us),
+                )
+                stale = connection.execute(
+                    "SELECT start_us, end_us, reason FROM coverage_recheck "
+                    "WHERE guild_id=? AND channel_id=? AND end_us>? AND start_us<?",
+                    (guild_id, interval.channel_id, start_us, end_us),
+                ).fetchall()
+                for stale_start, stale_end, reason in stale:
+                    connection.execute(
+                        "DELETE FROM coverage_recheck WHERE guild_id=? AND channel_id=? "
+                        "AND start_us=? AND end_us=?",
+                        (guild_id, interval.channel_id, stale_start, stale_end),
+                    )
+                    for remaining_start, remaining_end in (
+                        (stale_start, min(stale_end, start_us)),
+                        (max(stale_start, end_us), stale_end),
+                    ):
+                        if remaining_start < remaining_end:
+                            connection.execute(
+                                "INSERT OR IGNORE INTO coverage_recheck "
+                                "(guild_id, channel_id, start_us, end_us, reason) "
+                                "VALUES (?, ?, ?, ?, ?)",
+                                (
+                                    guild_id,
+                                    interval.channel_id,
+                                    remaining_start,
+                                    remaining_end,
+                                    reason,
+                                ),
+                            )
+                return True
+        except sqlite3.Error as exc:
+            raise MessageStoreError("History completion failed") from exc

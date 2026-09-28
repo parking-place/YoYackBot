@@ -91,6 +91,7 @@ class YoYackClient(discord.Client):
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(UTC))
         self._cleanup_task: asyncio.Task[None] | None = None
+        self._disconnected_at: datetime | None = None
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store)
@@ -98,6 +99,7 @@ class YoYackClient(discord.Client):
     async def setup_hook(self) -> None:
         if self.message_store is not None and self.settings is not None:
             await self._prune_once()
+            await self._mark_recheck("startup")
             self._cleanup_task = asyncio.create_task(self._prune_loop())
         if self.dev_guild_id is not None:
             await self._sync_guild_commands(discord.Object(id=self.dev_guild_id))
@@ -117,6 +119,9 @@ class YoYackClient(discord.Client):
         self.connection_count += 1
         self.ready_event.set()
         LOGGER.info("gateway_ready guild_count=%d", len(self.guilds))
+        if self._disconnected_at is not None:
+            await self._mark_recheck("gateway_gap")
+            self._disconnected_at = None
         if self.dev_guild_id is not None:
             for guild in self.guilds:
                 try:
@@ -133,9 +138,13 @@ class YoYackClient(discord.Client):
 
     async def on_resumed(self) -> None:
         LOGGER.info("gateway_resumed")
+        if self._disconnected_at is not None:
+            await self._mark_recheck("gateway_gap")
+            self._disconnected_at = None
 
     async def on_disconnect(self) -> None:
         LOGGER.info("gateway_disconnected")
+        self._disconnected_at = self.clock()
 
     async def close(self) -> None:
         if self._cleanup_task is not None:
@@ -153,6 +162,19 @@ class YoYackClient(discord.Client):
             LOGGER.info("cache_cleanup deleted=%d", deleted)
         except MessageStoreError:
             LOGGER.exception("cache_cleanup_failed")
+
+    async def _mark_recheck(self, reason: str) -> None:
+        if self.message_store is None or self.settings is None:
+            return
+        end = self.clock()
+        start = end - timedelta(days=self.settings.cache_retention_days)
+        try:
+            count = await asyncio.to_thread(
+                self.message_store.mark_all_watched_recheck, start, end, reason=reason
+            )
+            LOGGER.info("cache_recheck_marked count=%d reason=%s", count, reason)
+        except MessageStoreError:
+            LOGGER.exception("cache_recheck_mark_failed")
 
     async def _prune_loop(self) -> None:
         assert self.settings is not None
