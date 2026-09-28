@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-28. 개발 완료 **17 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 38개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-28. 개발 완료 **18 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 37개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -38,7 +38,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.2.0-P5 | [명령 전체 회귀·Discord 안내 검증](0.2.0/05-parser-acceptance.md) | DONE | `2747eed67029ba0a6ca92592f6a95f61f1fd2bd1` | [evidence E](https://github.com/parking-place/YoYackBot/commit/435539d68aa5f437b486b4333412fcf147a0553d) | OpenJevLXC Python 3.13.5 합성 회귀 + 개발 Discord 실제 사용자 입력·출력 확인 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P1 | [메시지·범위 schema와 migration](0.3.0/01-message-schema.md) | DONE | `8933210ecee55156c6382ae19eb121624f3e9042` | [evidence E](https://github.com/parking-place/YoYackBot/commit/c8d1f2f9116861b98b474730751b5a51e6f670ca) | OpenJevLXC Python 3.13.5 실제 설정 DB 격리 복사본 + 합성 SQLite 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P2 | [주시 채널 실시간 upsert·필터](0.3.0/02-realtime-ingest.md) | DONE | `7471afd4ef7b120e4db247e2ee9fc58180c0afbe` | [evidence E](https://github.com/parking-place/YoYackBot/commit/171cc545dbd7ee98f8f2992386470798c14baf90) | OpenJevLXC Python 3.13.5 합성 필터·원자 트랜잭션 + 개발 Discord 실제 사용자 메시지 검증; 세부 결과는 증거 파일 |
-| 0.3.0-P3 | [수정·삭제·7일 자동 정리](0.3.0/03-edits-retention.md) | PUSH_PENDING | `40787acd7f063c29b0a3baaf6ff6cc5ab1f78c8a` | — | 검증 통과, 원격 확인 대기 |
+| 0.3.0-P3 | [수정·삭제·7일 자동 정리](0.3.0/03-edits-retention.md) | DONE | `40787acd7f063c29b0a3baaf6ff6cc5ab1f78c8a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/ea037a767c2a3f23654adf5bee94eb666ed1d272) | OpenJevLXC Python 3.13.5 격리 SQLite + 개발 Gateway 재시작 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P4 | [완료 구간·빈 구간·연결 공백](0.3.0/04-coverage.md) | PLANNED | — | — | 미착수 |
 | 0.3.0-P5 | [캐시 동시성·장애·버전 검증](0.3.0/05-cache-acceptance.md) | PLANNED | — | — | 미착수 |
 | 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | PLANNED | — | — | 미착수 |
