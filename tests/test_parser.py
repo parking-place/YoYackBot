@@ -1,6 +1,7 @@
 """Included trigger and help priority contracts."""
 
 import asyncio
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -9,7 +10,7 @@ import pytest
 
 from yoyackbot.channel_config import MemoryWatchStore
 from yoyackbot.config import Settings
-from yoyackbot.discord import YoYackClient
+from yoyackbot.discord import PREVIEW_NOTICE, YoYackClient
 from yoyackbot.parser import (
     HELP_TEXT,
     CommandLimitError,
@@ -21,6 +22,7 @@ from yoyackbot.parser import (
     route_trigger,
     validate_option,
 )
+from yoyackbot.watch_gate import UNWATCHED_NOTICE
 
 
 def test_included_trigger_uses_only_text_after_first_marker() -> None:
@@ -151,6 +153,95 @@ def test_help_in_unwatched_channel_sends_without_ingestion() -> None:
             sent.assert_awaited_once()
             assert sent.await_args.args[0] == HELP_TEXT
             assert called == []
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
+
+
+def test_all_command_forms_reach_normalized_request_and_invalid_options_stop() -> None:
+    async def scenario() -> None:
+        store = MemoryWatchStore()
+        store.replace(1, frozenset({99}))
+        sent = AsyncMock()
+        channel = SimpleNamespace(type=discord.ChannelType.text, id=99, send=sent)
+        accepted = datetime(2026, 9, 28, 12, tzinfo=UTC)
+        requests = []
+
+        class SpyClient(YoYackClient):
+            async def on_summary_request(self, message, request, lease) -> None:
+                assert lease.valid()
+                requests.append(request)
+
+        client = SpyClient(
+            watch_store=store,
+            settings=Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"}),
+            clock=lambda: accepted,
+        )
+
+        def message(content: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                id=500,
+                guild=SimpleNamespace(id=1),
+                channel=channel,
+                author=SimpleNamespace(bot=False),
+                webhook_id=None,
+                type=discord.MessageType.default,
+                content=content,
+            )
+
+        try:
+            for content in (
+                "!!요약좀", "!!요약좀 3", "!!요약좀 30분", "!!요약좀 2시간",
+                "!!요약좀 100개", "!!요약좀 오늘", "!!요약좀 2일", "!!요약좀 1주",
+            ):
+                await client.on_message(message(content))
+            assert len(requests) == 8
+            assert all(request.accepted_at == accepted and request.trigger_message_id == 500 for request in requests)
+            assert requests[4].count == 100 and requests[4].start is None
+            assert requests[5].start == datetime(2026, 9, 27, 15, tzinfo=UTC)
+
+            await client.on_message(message("!!요약좀 0분"))
+            assert "!!요약좀 도움" in sent.await_args.args[0]
+            await client.on_message(message("!!요약좀 1.5시간"))
+            assert "!!요약좀 도움" in sent.await_args.args[0]
+            assert len(requests) == 8
+
+            store.replace(1, frozenset())
+            await client.on_message(message("!!요약좀 3"))
+            assert sent.await_args.args[0] == UNWATCHED_NOTICE
+            assert len(requests) == 8
+            await client.on_message(message("!!요약좀 도움"))
+            assert sent.await_args.args[0] == HELP_TEXT
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
+
+
+def test_preview_reply_never_claims_a_model_summary() -> None:
+    async def scenario() -> None:
+        store = MemoryWatchStore()
+        store.replace(1, frozenset({99}))
+        sent = AsyncMock()
+        client = YoYackClient(
+            watch_store=store,
+            settings=Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"}),
+        )
+        message = SimpleNamespace(
+            id=500,
+            guild=SimpleNamespace(id=1),
+            channel=SimpleNamespace(type=discord.ChannelType.text, id=99, send=sent),
+            author=SimpleNamespace(bot=False),
+            webhook_id=None,
+            type=discord.MessageType.default,
+            content="!!요약좀 5분",
+        )
+        try:
+            await client.on_message(message)
+            sent.assert_awaited_once()
+            assert sent.await_args.args[0] == PREVIEW_NOTICE
+            assert sent.await_args.kwargs["allowed_mentions"].everyone is False
         finally:
             await client.close()
 

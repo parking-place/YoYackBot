@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Protocol
 
@@ -10,11 +12,20 @@ from discord import app_commands
 
 from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
 from yoyackbot.config import Settings
-from yoyackbot.parser import HELP_TEXT, RouteKind, route_trigger
-from yoyackbot.watch_gate import ChannelLease, WatchGate
+from yoyackbot.domain import RangeRequest
+from yoyackbot.parser import (
+    HELP_TEXT,
+    CommandLimitError,
+    CommandSyntaxError,
+    RouteKind,
+    route_trigger,
+)
+from yoyackbot.range_request import resolve_range
+from yoyackbot.watch_gate import UNAVAILABLE_NOTICE, ChannelLease, WatchGate
 from yoyackbot.watch_store import SQLiteWatchStore
 
 LOGGER = logging.getLogger(__name__)
+PREVIEW_NOTICE = "요약 요청을 해석했소. 실제 요약 기능은 아직 준비 중이오."
 
 
 class MessageCandidate(Protocol):
@@ -62,6 +73,8 @@ class YoYackClient(discord.Client):
         observe_channel_id: int | None = None,
         watch_store: WatchStore | None = None,
         dev_guild_id: int | None = None,
+        settings: Settings | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(intents=required_intents(), member_cache_flags=discord.MemberCacheFlags.none())
         self.observe_channel_id = observe_channel_id
@@ -72,6 +85,8 @@ class YoYackClient(discord.Client):
         self.watch_store = watch_store or MemoryWatchStore()
         self.watch_gate = WatchGate(self.watch_store)
         self.dev_guild_id = dev_guild_id
+        self.settings = settings
+        self.clock = clock or (lambda: datetime.now(UTC))
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store)
@@ -142,6 +157,38 @@ class YoYackClient(discord.Client):
             await message.channel.send(HELP_TEXT, allowed_mentions=discord.AllowedMentions.none())
             return
         assert message.guild is not None
+        if route.kind is RouteKind.SUMMARY:
+            accepted_at = self.clock()
+
+            async def send_notice(notice: str) -> None:
+                await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
+
+            async def handle_request(lease: ChannelLease) -> None:
+                if self.settings is None:
+                    await send_notice(UNAVAILABLE_NOTICE)
+                    return
+                try:
+                    request = resolve_range(
+                        route.options,
+                        self.settings,
+                        accepted_at,
+                        trigger_message_id=getattr(message, "id", None),
+                    )
+                except (CommandSyntaxError, CommandLimitError) as exc:
+                    await send_notice(str(exc))
+                    return
+                await self.on_summary_request(message, request, lease)
+
+            await self.watch_gate.request(
+                message.guild.id,
+                message.channel.id,
+                is_help=False,
+                help_reply=lambda: send_notice(HELP_TEXT),
+                unwatched_reply=send_notice,
+                unavailable_reply=send_notice,
+                summarize=handle_request,
+            )
+            return
         await self.watch_gate.ingest(
             message.guild.id,
             message.channel.id,
@@ -151,6 +198,13 @@ class YoYackClient(discord.Client):
 
     async def on_watched_message(self, message: discord.Message, lease: ChannelLease) -> None:
         """Cache ingestion hook; persistence is implemented in 0.3.0."""
+
+    async def on_summary_request(
+        self, message: discord.Message, request: RangeRequest, lease: ChannelLease
+    ) -> None:
+        """Acknowledge parsed commands until the summary workflow is implemented."""
+        LOGGER.info("summary_request_parsed kind=%s", request.kind.value)
+        await message.channel.send(PREVIEW_NOTICE, allowed_mentions=discord.AllowedMentions.none())
 
 
 async def run_gateway(
@@ -164,6 +218,7 @@ async def run_gateway(
         observe_channel_id=observe_channel_id,
         watch_store=SQLiteWatchStore(settings.database_path),
         dev_guild_id=settings.dev_guild_id,
+        settings=settings,
     )
     async with client:
         if smoke_seconds is None:
