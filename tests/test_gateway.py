@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import discord
 import pytest
 
+from yoyackbot.channel_config import MemoryWatchStore
 from yoyackbot.discord import MessageClass, YoYackClient, classify_message, required_intents
 
 
@@ -60,6 +61,30 @@ def test_on_message_never_stores_or_logs_bot_events(caplog: pytest.LogCaptureFix
             )
             assert "gateway_test_human_event has_content=True" in caplog.text
             assert "only synthetic content" not in caplog.text
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
+
+
+def test_gateway_handler_stops_watched_processing_after_removal() -> None:
+    async def scenario() -> None:
+        store = MemoryWatchStore()
+        store.replace(1, frozenset({99}))
+        delivered: list[int] = []
+
+        class SpyClient(YoYackClient):
+            async def on_watched_message(self, message, lease) -> None:
+                assert lease.valid()
+                delivered.append(message.channel.id)
+
+        client = SpyClient(watch_store=store)
+        try:
+            await client.on_message(sample_message())
+            assert delivered == [99]
+            store.replace(1, frozenset())
+            await client.on_message(sample_message())
+            assert delivered == [99]
         finally:
             await client.close()
 
