@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 
 from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
+from yoyackbot.codex import CodexContractError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryRequest
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
@@ -357,7 +358,7 @@ class YoYackClient(discord.Client):
                 self.summary_workflow = build_workflow(
                     self.settings, self, self.watch_store, self.message_store
                 )
-            except Exception as exc:
+            except CodexContractError as exc:
                 LOGGER.warning("summary_workflow_unavailable type=%s", type(exc).__name__)
                 await message.channel.send(
                     UNAVAILABLE_NOTICE, allowed_mentions=discord.AllowedMentions.none()

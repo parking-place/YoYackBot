@@ -7,9 +7,15 @@ from types import SimpleNamespace
 import discord
 import pytest
 
-from yoyackbot.collection import CollectionOutcome, EMPTY_NOTICE
-from yoyackbot.domain import MessageRecord, PublicationReceipt, RangeRequest, RequestKind
-from yoyackbot.domain import SummaryRequest, SummaryResult
+from yoyackbot.collection import EMPTY_NOTICE, CollectionOutcome
+from yoyackbot.domain import (
+    MessageRecord,
+    PublicationReceipt,
+    RangeRequest,
+    RequestKind,
+    SummaryRequest,
+    SummaryResult,
+)
 from yoyackbot.state import ChannelStates, ChannelStatus
 from yoyackbot.workflow import BUSY_NOTICE, SummaryWorkflow
 

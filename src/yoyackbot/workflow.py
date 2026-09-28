@@ -9,7 +9,7 @@ import discord
 
 from yoyackbot.channel_config import valid_channel
 from yoyackbot.codex_engine import CodexSummaryEngine
-from yoyackbot.collection import CollectionCoordinator, EMPTY_NOTICE
+from yoyackbot.collection import EMPTY_NOTICE, CollectionCoordinator
 from yoyackbot.config import Settings
 from yoyackbot.count_collection import CountCollector
 from yoyackbot.domain import SummaryRequest
@@ -70,7 +70,7 @@ class SummaryWorkflow:
                 await send_notice(FAILED_NOTICE)
                 return
             await self.publisher.publish(request, result, outcome.messages)
-        except Exception as exc:  # Error-specific recovery is added in P3.
+        except Exception as exc:  # noqa: BLE001
             LOGGER.warning("summary_job_failed type=%s", type(exc).__name__)
             await send_notice(FAILED_NOTICE)
         finally:
