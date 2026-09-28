@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools==80.10.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yoyackbot"
+version = "0.0.0"
+description = "Discord channel summarization bot"
+requires-python = ">=3.13,<3.14"
+dependencies = ["discord.py==2.7.1"]
+
+[project.scripts]
+yoyackbot = "yoyackbot.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
