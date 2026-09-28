@@ -1,6 +1,6 @@
 # 0.6.0 — 화자 중심 요약과 Discord 출력
 
-- 상태: **PLANNED**
+- 상태: **DONE** — [PR #7](https://github.com/parking-place/YoYackBot/pull/7)으로 `main` 통합
 - 단계 수: **5단계**
 
 ## 목표
