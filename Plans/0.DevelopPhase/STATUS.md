@@ -51,7 +51,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.5.0-P3 | [비대화형 subprocess·파일/도구 격리](0.5.0/03-subprocess-isolation.md) | DONE | `abb7d700acdc1ebe1bc7e29432b2eed20cf11ffb` | [evidence E](https://github.com/parking-place/YoYackBot/commit/778f545d02e72325493e0940ed80d52271c07460) | OpenJevLXC dedicated bot account; pinned Codex CLI and code-mode host 0.158.0; bubblewrap namespace 검증; 세부 결과는 증거 파일 |
 | 0.5.0-P4 | [시간·입력 제한·취소·잔여 파일 정리](0.5.0/04-timeouts-cleanup.md) | DONE | `c4f9fbacb90b702de695805c126b7d60424584c3` | [evidence E](https://github.com/parking-place/YoYackBot/commit/31fc4b054098e2c06ef9353d3357cf5a1c396ea0) | OpenJevLXC Python 3.13.5; dedicated bot account and isolated synthetic Codex runs 검증; 세부 결과는 증거 파일 |
 | 0.5.0-P5 | [실제 모델 연동·실패 회귀 게이트](0.5.0/05-engine-acceptance.md) | DONE | `6053f209b3d8ee4dd72df99d7b5c5a1fb8017cd2` | [evidence E](https://github.com/parking-place/YoYackBot/commit/b49a9dc0ee24286d090f8e659270aa65769c0ac5) | OpenJevLXC dedicated bot account; isolated real gpt-6-luna low calls; synthetic Discord records 검증; 세부 결과는 증거 파일 |
-| 0.6.0-P1 | [화자·결정·미해결 중심 프롬프트](0.6.0/01-summary-prompt.md) | PLANNED | — | — | 미착수 |
+| 0.6.0-P1 | [화자·결정·미해결 중심 프롬프트](0.6.0/01-summary-prompt.md) | IN_PROGRESS | — | — | 구현·검증 중 |
 | 0.6.0-P2 | [사실성·화자 귀속·하오체 평가](0.6.0/02-quality-evaluation.md) | PLANNED | — | — | 미착수 |
 | 0.6.0-P3 | [머리말·실제 범위·긴 메시지 분할](0.6.0/03-format-split.md) | PLANNED | — | — | 미착수 |
 | 0.6.0-P4 | [같은 채널 전송·부분 실패 처리](0.6.0/04-delivery.md) | PLANNED | — | — | 미착수 |
