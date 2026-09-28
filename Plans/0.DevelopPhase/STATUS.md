@@ -54,7 +54,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.6.0-P1 | [화자·결정·미해결 중심 프롬프트](0.6.0/01-summary-prompt.md) | DONE | `838e3195c3815e16a304e8adae1ce3c2529b7d2a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/73b1e9a593b612f53e235115e7bbc77c3e821c1c) | OpenJevLXC Python 3.13.5; synthetic fixture and prompt checks 검증; 세부 결과는 증거 파일 |
 | 0.6.0-P2 | [사실성·화자 귀속·하오체 평가](0.6.0/02-quality-evaluation.md) | DONE | `b989a4738455a3f7d8144c654c43b19a458da206` | [evidence E](https://github.com/parking-place/YoYackBot/commit/fc007e6205a2f500e9cdcac52dac0902fecb9b8b) | OpenJevLXC dedicated bot account; 20 synthetic real gpt-6-luna calls 검증; 세부 결과는 증거 파일 |
 | 0.6.0-P3 | [머리말·실제 범위·긴 메시지 분할](0.6.0/03-format-split.md) | DONE | `fa9584434c0a00116acfa7fa634bbbe4862c361a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/55705f7522ec1220e2d0a01d67e1f46e04c6b534) | OpenJevLXC Python 3.13.5; synthetic formatter tests 검증; 세부 결과는 증거 파일 |
-| 0.6.0-P4 | [같은 채널 전송·부분 실패 처리](0.6.0/04-delivery.md) | PLANNED | — | — | 미착수 |
+| 0.6.0-P4 | [같은 채널 전송·부분 실패 처리](0.6.0/04-delivery.md) | IN_PROGRESS | — | — | 개발 채널 게시 경로 구현 중 |
 | 0.6.0-P5 | [수집부터 게시까지 출력 통합 게이트](0.6.0/05-output-acceptance.md) | PLANNED | — | — | 미착수 |
 | 0.7.0-P1 | [채널별 원자적 상태·명령 연결](0.7.0/01-channel-state.md) | PLANNED | — | — | 미착수 |
 | 0.7.0-P2 | [게시 성공 기준 300초·남은 시간](0.7.0/02-success-cooldown.md) | PLANNED | — | — | 미착수 |
