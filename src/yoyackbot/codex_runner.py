@@ -69,11 +69,15 @@ class SandboxedCodex:
         )
         return [
             str(self.bwrap_executable), "--die-with-parent", "--unshare-all", "--share-net",
-            "--new-session", "--tmpfs", "/", "--dir", "/bin", "--dir", "/etc",
+            "--new-session", "--tmpfs", "/", "--dir", "/bin", "--dir", "/lib",
+            "--dir", "/lib64", "--dir", "/etc",
             "--dir", "/etc/ssl", "--dir", "/auth", "--dir", "/work",
             "--dir", "/output", "--dir", "/empty", "--dir", "/tmp",
             "--dev", "/dev", "--proc", "/proc",
             "--ro-bind", self.contract.executable, "/bin/codex",
+            "--ro-bind", str(self.bwrap_executable), "/bin/bwrap",
+            "--ro-bind", "/lib", "/lib",
+            "--ro-bind", "/lib64", "/lib64",
             "--ro-bind", "/etc/ssl/certs", "/etc/ssl/certs",
             "--ro-bind", "/etc/resolv.conf", "/etc/resolv.conf",
             "--ro-bind", "/etc/hosts", "/etc/hosts",
