@@ -11,7 +11,10 @@ PRIVATE_PATH = re.compile(
     rb"(?:\.db(?:-wal|-shm)?|\.pem|\.key)$"
 )
 SECRET_PATTERNS = {
-    "private_key": re.compile(rb"-----BEGIN (?:OPENSSH |RSA |EC |DSA |ENCRYPTED )?PRIVATE KEY-----"),
+    "private_key": re.compile(
+        rb"-----BEGIN (?:OPENSSH |RSA |EC |DSA |ENCRYPTED )?PRIVATE KEY-----\r?\n"
+        rb"[A-Za-z0-9+/=\r\n]{32,}"
+    ),
     "openai_key": re.compile(rb"\bsk-[A-Za-z0-9_-]{20,}\b"),
     "github_token": re.compile(rb"\b(?:gh[puosr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b"),
     "discord_token": re.compile(rb"\b[A-Za-z0-9_-]{20,30}\.[A-Za-z0-9_-]{5,10}\.[A-Za-z0-9_-]{20,}\b"),

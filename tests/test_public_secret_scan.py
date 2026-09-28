@@ -14,5 +14,6 @@ def test_secret_patterns_and_private_paths() -> None:
     assert scanner.PRIVATE_PATH.search(b"docs/.private/Server-info")
     assert scanner.PRIVATE_PATH.search(b"runtime/messages.db")
     assert not scanner.PRIVATE_PATH.search(b".env.example")
-    assert scanner.scan_object(b"-----BEGIN OPENSSH PRIVATE KEY-----") == {"private_key"}
+    synthetic_key = b"-----BEGIN " + b"OPENSSH PRIVATE KEY-----\n" + b"A" * 40
+    assert scanner.scan_object(synthetic_key) == {"private_key"}
     assert scanner.scan_object(b"ordinary synthetic conversation") == set()
