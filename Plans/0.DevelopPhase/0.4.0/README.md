@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | [0.4.0-P1 — History 페이지 조회·현재 채널 제한](01-history-pages.md) | `T040-P1-A/B` | DONE |
 | 2 | [0.4.0-P2 — 시간 범위 차집합 조회·완료 확정](02-cache-gaps.md) | `T040-P2-A/B` | DONE |
-| 3 | [0.4.0-P3 — 7일 초과·최대 4주 요청 처리](03-older-than-retention.md) | `T040-P3-A/B` | PLANNED |
+| 3 | [0.4.0-P3 — 7일 초과·최대 4주 요청 처리](03-older-than-retention.md) | `T040-P3-A/B` | IN_PROGRESS |
 | 4 | [0.4.0-P4 — 최신 일반 사용자 X개 보충](04-recent-count.md) | `T040-P4-A/B` | PLANNED |
 | 5 | [0.4.0-P5 — 캐시 fallback·빈 대화·수집 통합 게이트](05-collection-acceptance.md) | `T040-P5-A/B` | PLANNED |
 
