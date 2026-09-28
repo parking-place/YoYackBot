@@ -12,7 +12,8 @@ from discord import app_commands
 
 from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
 from yoyackbot.config import Settings
-from yoyackbot.domain import RangeRequest
+from yoyackbot.domain import MessageRecord, RangeRequest
+from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.parser import (
     HELP_TEXT,
     CommandLimitError,
@@ -72,6 +73,7 @@ class YoYackClient(discord.Client):
         *,
         observe_channel_id: int | None = None,
         watch_store: WatchStore | None = None,
+        message_store: SQLiteMessageStore | None = None,
         dev_guild_id: int | None = None,
         settings: Settings | None = None,
         clock: Callable[[], datetime] | None = None,
@@ -83,6 +85,7 @@ class YoYackClient(discord.Client):
         self.nonempty_content_events = 0
         self.connection_count = 0
         self.watch_store = watch_store or MemoryWatchStore()
+        self.message_store = message_store
         self.watch_gate = WatchGate(self.watch_store)
         self.dev_guild_id = dev_guild_id
         self.settings = settings
@@ -197,7 +200,28 @@ class YoYackClient(discord.Client):
         )
 
     async def on_watched_message(self, message: discord.Message, lease: ChannelLease) -> None:
-        """Cache ingestion hook; persistence is implemented in 0.3.0."""
+        """Persist eligible human messages only while the watch revision still matches."""
+        if self.message_store is None:
+            return
+        assert message.guild is not None
+        record = MessageRecord(
+            message_id=message.id,
+            guild_id=message.guild.id,
+            channel_id=message.channel.id,
+            author_id=message.author.id,
+            author_name=getattr(message.author, "display_name", None)
+            or getattr(message.author, "name", "unknown"),
+            content=message.content,
+            created_at=message.created_at,
+            edited_at=message.edited_at,
+        )
+        try:
+            if self.message_store.upsert_if_watched(
+                record, expected_version=lease.version, cached_at=self.clock()
+            ):
+                LOGGER.info("message_cached")
+        except MessageStoreError:
+            LOGGER.exception("message_cache_write_failed")
 
     async def on_summary_request(
         self, message: discord.Message, request: RangeRequest, lease: ChannelLease
@@ -217,6 +241,7 @@ async def run_gateway(
     client = YoYackClient(
         observe_channel_id=observe_channel_id,
         watch_store=SQLiteWatchStore(settings.database_path),
+        message_store=SQLiteMessageStore(settings.database_path),
         dev_guild_id=settings.dev_guild_id,
         settings=settings,
     )

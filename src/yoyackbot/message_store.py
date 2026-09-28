@@ -40,7 +40,8 @@ class SQLiteMessageStore:
         finally:
             connection.close()
 
-    def upsert(self, record: MessageRecord, *, cached_at: datetime) -> None:
+    @staticmethod
+    def _upsert(connection: sqlite3.Connection, record: MessageRecord, cached_at: datetime) -> None:
         if min(record.message_id, record.guild_id, record.channel_id, record.author_id) < 1:
             raise ValueError("message identifiers must be positive")
         values = (
@@ -54,24 +55,50 @@ class SQLiteMessageStore:
             _microseconds(record.edited_at) if record.edited_at is not None else None,
             _microseconds(cached_at),
         )
+        cursor = connection.execute(
+            "INSERT INTO messages (message_id, guild_id, channel_id, author_id, "
+            "author_name, content, created_at_us, edited_at_us, cached_at_us) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(message_id) DO UPDATE SET author_id=excluded.author_id, "
+            "author_name=excluded.author_name, content=excluded.content, "
+            "edited_at_us=excluded.edited_at_us, cached_at_us=excluded.cached_at_us "
+            "WHERE messages.guild_id=excluded.guild_id "
+            "AND messages.channel_id=excluded.channel_id",
+            values,
+        )
+        if cursor.rowcount != 1:
+            raise MessageStoreError("Message ID belongs to another channel")
+
+    def upsert(self, record: MessageRecord, *, cached_at: datetime) -> None:
         try:
             with self._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
-                cursor = connection.execute(
-                    "INSERT INTO messages (message_id, guild_id, channel_id, author_id, "
-                    "author_name, content, created_at_us, edited_at_us, cached_at_us) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
-                    "ON CONFLICT(message_id) DO UPDATE SET author_id=excluded.author_id, "
-                    "author_name=excluded.author_name, content=excluded.content, "
-                    "edited_at_us=excluded.edited_at_us, cached_at_us=excluded.cached_at_us "
-                    "WHERE messages.guild_id=excluded.guild_id "
-                    "AND messages.channel_id=excluded.channel_id",
-                    values,
-                )
-                if cursor.rowcount != 1:
-                    raise MessageStoreError("Message ID belongs to another channel")
+                self._upsert(connection, record, cached_at)
         except sqlite3.Error as exc:
             raise MessageStoreError("Message write failed") from exc
+
+    def upsert_if_watched(
+        self, record: MessageRecord, *, expected_version: int, cached_at: datetime
+    ) -> bool:
+        """Serialize watch revision check and write against concurrent removal."""
+        try:
+            with self._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                version = connection.execute(
+                    "SELECT version FROM guild_watch_meta WHERE guild_id=?", (record.guild_id,)
+                ).fetchone()
+                if version is None or version[0] != expected_version:
+                    return False
+                watched = connection.execute(
+                    "SELECT 1 FROM watched_channels WHERE guild_id=? AND channel_id=?",
+                    (record.guild_id, record.channel_id),
+                ).fetchone()
+                if watched is None:
+                    return False
+                self._upsert(connection, record, cached_at)
+                return True
+        except sqlite3.Error as exc:
+            raise MessageStoreError("Watched message write failed") from exc
 
     def recent(
         self, guild_id: int, channel_id: int, start: datetime, end: datetime

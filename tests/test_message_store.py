@@ -116,3 +116,20 @@ def test_coverage_is_guild_scoped_and_removed_when_guild_leaves(tmp_path) -> Non
     assert store.coverage(1, 10) == []
     assert store.coverage(2, 10) == [interval]
     assert store.recent(1, 10, NOW, NOW + timedelta(seconds=1)) == []
+
+
+def test_watch_revision_and_cache_write_are_atomic_with_channel_removal(tmp_path) -> None:
+    path = tmp_path / "messages.db"
+    watched = SQLiteWatchStore(path)
+    first_version = watched.replace(1, frozenset({10}))
+    watched.replace(2, frozenset({10}))
+    store = SQLiteMessageStore(path)
+    assert store.upsert_if_watched(_record(100), expected_version=first_version, cached_at=NOW)
+    watched.replace(1, frozenset())
+    assert not store.upsert_if_watched(
+        _record(101), expected_version=first_version, cached_at=NOW
+    )
+    assert not store.upsert_if_watched(_record(102), expected_version=2, cached_at=NOW)
+    assert store.recent(1, 10, NOW, NOW + timedelta(seconds=1)) == []
+    assert store.upsert_if_watched(_record(103, guild_id=2), expected_version=1, cached_at=NOW)
+    assert [item.message_id for item in store.recent(2, 10, NOW, NOW + timedelta(seconds=1))] == [103]

@@ -138,6 +138,15 @@ class SQLiteWatchStore:
                     "VALUES (?, ?, unixepoch())",
                     ((guild_id, channel_id) for channel_id in sorted(channel_ids)),
                 )
+                for removed_id in existing - channel_ids:
+                    connection.execute(
+                        "DELETE FROM messages WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM coverage WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
                 connection.execute(
                     "UPDATE guild_watch_meta SET version=version+1 WHERE guild_id=?", (guild_id,)
                 )
@@ -154,6 +163,14 @@ class SQLiteWatchStore:
                     (guild_id, channel_id),
                 )
                 if cursor.rowcount:
+                    connection.execute(
+                        "DELETE FROM messages WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM coverage WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
                     connection.execute(
                         "UPDATE guild_watch_meta SET version=version+1 WHERE guild_id=?", (guild_id,)
                     )
