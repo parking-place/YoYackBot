@@ -1,9 +1,9 @@
 """Validated runtime configuration with secret-safe errors."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from os import environ
 from pathlib import Path
-from typing import Mapping
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 

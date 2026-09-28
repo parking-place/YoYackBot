@@ -1,6 +1,6 @@
 """Cross-layer contracts and secret-safe error behavior."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -16,7 +16,7 @@ from yoyackbot.domain import (
 from yoyackbot.errors import FailureKind, message_for
 
 
-NOW = datetime(2026, 9, 28, 12, tzinfo=timezone.utc)
+NOW = datetime(2026, 9, 28, 12, tzinfo=UTC)
 
 
 def test_configuration_defaults_and_independent_unit_limits() -> None:

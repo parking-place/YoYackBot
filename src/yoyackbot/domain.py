@@ -1,9 +1,10 @@
 """Contracts shared by Discord, storage, model, and delivery layers."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Protocol, Sequence
+from typing import Protocol
 
 
 class RequestKind(Enum):
