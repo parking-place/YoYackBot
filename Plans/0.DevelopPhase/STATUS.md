@@ -41,7 +41,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.3.0-P3 | [수정·삭제·7일 자동 정리](0.3.0/03-edits-retention.md) | DONE | `40787acd7f063c29b0a3baaf6ff6cc5ab1f78c8a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/ea037a767c2a3f23654adf5bee94eb666ed1d272) | OpenJevLXC Python 3.13.5 격리 SQLite + 개발 Gateway 재시작 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P4 | [완료 구간·빈 구간·연결 공백](0.3.0/04-coverage.md) | DONE | `26baaaa2b1110c6ebb9de7b4633f92023820f472` | [evidence E](https://github.com/parking-place/YoYackBot/commit/1e37657de74f580c71732a15edbb0625c23e53fc) | OpenJevLXC Python 3.13.5 합성 coverage + 실제 설정·캐시 DB 격리 복사본 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P5 | [캐시 동시성·장애·버전 검증](0.3.0/05-cache-acceptance.md) | DONE | `25a702434b84a42e33774ed405dc1888be941c75` | [evidence E](https://github.com/parking-place/YoYackBot/commit/a640cb2cb2248ca2f6e1aab705415a7148315b79) | OpenJevLXC Python 3.13.5 격리 장애·동시성 DB + 실제 개발 DB migration·Gateway 검증; 세부 결과는 증거 파일 |
-| 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | PLANNED | — | — | 미착수 |
+| 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | IN_PROGRESS | — | — | History 어댑터 및 개발 권한 점검 중 |
 | 0.4.0-P2 | [시간 범위 차집합 조회·완료 확정](0.4.0/02-cache-gaps.md) | PLANNED | — | — | 미착수 |
 | 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | PLANNED | — | — | 미착수 |
 | 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | PLANNED | — | — | 미착수 |
