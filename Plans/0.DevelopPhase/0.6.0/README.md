@@ -16,7 +16,7 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [0.6.0-P1 — 화자·결정·미해결 중심 프롬프트](01-summary-prompt.md) | `T060-P1-A/B` | DONE |
-| 2 | [0.6.0-P2 — 사실성·화자 귀속·하오체 평가](02-quality-evaluation.md) | `T060-P2-A/B` | PLANNED |
+| 2 | [0.6.0-P2 — 사실성·화자 귀속·하오체 평가](02-quality-evaluation.md) | `T060-P2-A/B` | IN_PROGRESS |
 | 3 | [0.6.0-P3 — 머리말·실제 범위·긴 메시지 분할](03-format-split.md) | `T060-P3-A/B` | PLANNED |
 | 4 | [0.6.0-P4 — 같은 채널 전송·부분 실패 처리](04-delivery.md) | `T060-P4-A/B` | PLANNED |
 | 5 | [0.6.0-P5 — 수집부터 게시까지 출력 통합 게이트](05-output-acceptance.md) | `T060-P5-A/B` | PLANNED |
