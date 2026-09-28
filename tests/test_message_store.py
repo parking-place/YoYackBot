@@ -30,7 +30,7 @@ def test_new_database_keeps_settings_and_uses_current_schema(tmp_path) -> None:
     assert SQLiteWatchStore(path).get(2) == frozenset({20})
     assert path.stat().st_mode & 0o777 == 0o600
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
 
 
 def test_version_one_migrates_forward_without_losing_existing_watch_state(tmp_path) -> None:
@@ -48,7 +48,7 @@ def test_version_one_migrates_forward_without_losing_existing_watch_state(tmp_pa
         connection.execute("PRAGMA user_version=1")
     assert SQLiteWatchStore(path).snapshot(1) == (7, frozenset({10}))
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
         assert {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")} >= {
             "messages", "coverage", "coverage_recheck", "watched_channels"
         }
@@ -64,12 +64,33 @@ def test_version_two_migration_preserves_messages_and_verified_coverage(tmp_path
     messages.mark_covered(1, interval, verified_at=NOW)
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TABLE coverage_recheck")
+        connection.execute("ALTER TABLE messages DROP COLUMN has_attachment")
+        connection.execute("ALTER TABLE messages DROP COLUMN is_reply")
         connection.execute("PRAGMA user_version=2")
     assert SQLiteWatchStore(path).get(1) == frozenset({10})
     assert [item.message_id for item in messages.recent(1, 10, NOW, NOW + timedelta(hours=1))] == [100]
     assert messages.coverage(1, 10) == [interval]
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
+
+
+def test_version_three_migration_preserves_messages_and_adds_context(tmp_path) -> None:
+    path = tmp_path / "messages.db"
+    store = SQLiteMessageStore(path)
+    store.upsert(_record(100), cached_at=NOW)
+    with sqlite3.connect(path) as connection:
+        connection.execute("ALTER TABLE messages DROP COLUMN has_attachment")
+        connection.execute("ALTER TABLE messages DROP COLUMN is_reply")
+        connection.execute("PRAGMA user_version=3")
+    upgraded = SQLiteMessageStore(path)
+    assert upgraded.recent(1, 10, NOW, NOW + timedelta(seconds=1)) == [
+        replace(_record(100), cached_at=NOW)
+    ]
+    updated = replace(_record(100), has_attachment=True, is_reply=True)
+    upgraded.upsert(updated, cached_at=NOW)
+    assert upgraded.recent(1, 10, NOW, NOW + timedelta(seconds=1)) == [
+        replace(updated, cached_at=NOW)
+    ]
 
 
 def test_failed_migration_keeps_version_one_and_watch_settings(tmp_path) -> None:

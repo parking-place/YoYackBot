@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-28. 개발 완료 **25 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 30개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-28. 개발 완료 **30 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 25개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -46,11 +46,11 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | DONE | `795a0e2384fde2c73b864f79d1cb0448f59f96cb` | [evidence E](https://github.com/parking-place/YoYackBot/commit/2a4ba995c107d05e4967c6424fc0aef5a8d85dd7) | OpenJevLXC Python 3.13.5, 격리 SQLite·합성 History 검증; 세부 결과는 증거 파일 |
 | 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | DONE | `32d12ecdca2f3aa788f01cf9032caa283c77eece` | [evidence E](https://github.com/parking-place/YoYackBot/commit/4d25167eb104b1738b78de9f91d00761f21c1d20) | OpenJevLXC Python 3.13.5, 격리 SQLite·합성 Discord History 검증; 세부 결과는 증거 파일 |
 | 0.4.0-P5 | [캐시 fallback·빈 대화·수집 통합 게이트](0.4.0/05-collection-acceptance.md) | DONE | `23fe1875e5a2d1d7ba40a85a6d7aefc0b47d0e81` | [evidence E](https://github.com/parking-place/YoYackBot/commit/851e5509b2809e506b37a3a12362c1c0894f423a) | OpenJevLXC Python 3.13.5, 격리 SQLite + 개발 Discord 실제 History 검증; 세부 결과는 증거 파일 |
-| 0.5.0-P1 | [CLI·인증·GPT-6 Luna Light 확인](0.5.0/01-cli-model-contract.md) | PLANNED | — | — | 미착수 |
-| 0.5.0-P2 | [요청 입력 파일·표시명 정규화](0.5.0/02-input-files.md) | PLANNED | — | — | 미착수 |
-| 0.5.0-P3 | [비대화형 subprocess·파일/도구 격리](0.5.0/03-subprocess-isolation.md) | PLANNED | — | — | 미착수 |
-| 0.5.0-P4 | [시간·입력 제한·취소·잔여 파일 정리](0.5.0/04-timeouts-cleanup.md) | PLANNED | — | — | 미착수 |
-| 0.5.0-P5 | [실제 모델 연동·실패 회귀 게이트](0.5.0/05-engine-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.5.0-P1 | [CLI·인증·GPT-6 Luna Light 확인](0.5.0/01-cli-model-contract.md) | DONE | `512a13164467d919f8dd13365dcd24d3fcf6e1f9` | [evidence E](https://github.com/parking-place/YoYackBot/commit/da7b0722e453e65a71a1e3804133ce116d4295e6) | OpenJevLXC Python 3.13.5; bot account codex-cli 0.158.0 검증; 세부 결과는 증거 파일 |
+| 0.5.0-P2 | [요청 입력 파일·표시명 정규화](0.5.0/02-input-files.md) | DONE | `59be11f57d0a7538b309cbf3bf3086db6e5f9c8a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/276186ec7cba3daa19aa9925b9dce40dcbf77cc1) | OpenJevLXC Python 3.13.5; isolated copy of live SQLite cache 검증; 세부 결과는 증거 파일 |
+| 0.5.0-P3 | [비대화형 subprocess·파일/도구 격리](0.5.0/03-subprocess-isolation.md) | DONE | `abb7d700acdc1ebe1bc7e29432b2eed20cf11ffb` | [evidence E](https://github.com/parking-place/YoYackBot/commit/778f545d02e72325493e0940ed80d52271c07460) | OpenJevLXC dedicated bot account; pinned Codex CLI and code-mode host 0.158.0; bubblewrap namespace 검증; 세부 결과는 증거 파일 |
+| 0.5.0-P4 | [시간·입력 제한·취소·잔여 파일 정리](0.5.0/04-timeouts-cleanup.md) | DONE | `c4f9fbacb90b702de695805c126b7d60424584c3` | [evidence E](https://github.com/parking-place/YoYackBot/commit/31fc4b054098e2c06ef9353d3357cf5a1c396ea0) | OpenJevLXC Python 3.13.5; dedicated bot account and isolated synthetic Codex runs 검증; 세부 결과는 증거 파일 |
+| 0.5.0-P5 | [실제 모델 연동·실패 회귀 게이트](0.5.0/05-engine-acceptance.md) | DONE | `6053f209b3d8ee4dd72df99d7b5c5a1fb8017cd2` | [evidence E](https://github.com/parking-place/YoYackBot/commit/b49a9dc0ee24286d090f8e659270aa65769c0ac5) | OpenJevLXC dedicated bot account; isolated real gpt-6-luna low calls; synthetic Discord records 검증; 세부 결과는 증거 파일 |
 | 0.6.0-P1 | [화자·결정·미해결 중심 프롬프트](0.6.0/01-summary-prompt.md) | PLANNED | — | — | 미착수 |
 | 0.6.0-P2 | [사실성·화자 귀속·하오체 평가](0.6.0/02-quality-evaluation.md) | PLANNED | — | — | 미착수 |
 | 0.6.0-P3 | [머리말·실제 범위·긴 메시지 분할](0.6.0/03-format-split.md) | PLANNED | — | — | 미착수 |

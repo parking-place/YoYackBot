@@ -169,6 +169,8 @@ class HistoryAdapter:
                             content=message.content,
                             created_at=message.created_at,
                             edited_at=message.edited_at,
+                            has_attachment=bool(getattr(message, "attachments", ())),
+                            is_reply=message.type is discord.MessageType.reply,
                         )
                         previous = records.get(message.id)
                         if previous is not None:

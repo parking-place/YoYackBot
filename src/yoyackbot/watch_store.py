@@ -26,7 +26,7 @@ class SQLiteWatchStore:
             os.chmod(path, 0o600)
             with self._connection() as connection:
                 version = connection.execute("PRAGMA user_version").fetchone()[0]
-                if version > 3:
+                if version > 4:
                     raise WatchStoreError("Unsupported settings schema version")
                 if version == 0:
                     with connection:
@@ -80,6 +80,15 @@ class SQLiteWatchStore:
                             "PRIMARY KEY(guild_id, channel_id, start_us, end_us))"
                         )
                         connection.execute("PRAGMA user_version=3")
+                if version in (0, 1, 2, 3):
+                    with connection:
+                        connection.execute(
+                            "ALTER TABLE messages ADD COLUMN has_attachment INTEGER NOT NULL DEFAULT 0"
+                        )
+                        connection.execute(
+                            "ALTER TABLE messages ADD COLUMN is_reply INTEGER NOT NULL DEFAULT 0"
+                        )
+                        connection.execute("PRAGMA user_version=4")
         except (OSError, sqlite3.Error) as exc:
             raise WatchStoreError("Settings database unavailable") from exc
 
