@@ -1,6 +1,7 @@
 """Join nonpersistent older History with the seven-day verified cache."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -64,6 +65,7 @@ class LongRangeCollector:
         end: datetime,
         accepted_at: datetime,
         trigger_message_id: int | None = None,
+        can_continue: Callable[[], Awaitable[bool]] | None = None,
     ) -> LongRangeResult:
         if (
             start.tzinfo is None
@@ -99,6 +101,7 @@ class LongRangeCollector:
                     start=start,
                     end=older_end,
                     trigger_message_id=trigger_message_id,
+                    can_continue=can_continue,
                 )
                 older = old_result.messages
                 pages += old_result.pages
@@ -114,6 +117,7 @@ class LongRangeCollector:
                 start=recent_start,
                 end=end,
                 trigger_message_id=trigger_message_id,
+                can_continue=can_continue,
             )
             current = current_result.messages
             pages += current_result.pages

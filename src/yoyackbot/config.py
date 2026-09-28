@@ -52,6 +52,7 @@ class Settings:
     discord_message_limit: int
     codex_concurrency: int
     queue_capacity: int
+    queue_wait_seconds: int
     max_input_bytes: int
     max_output_bytes: int
     max_history_pages: int
@@ -119,7 +120,8 @@ class Settings:
             ),
             discord_message_limit=message_limit,
             codex_concurrency=_integer(values, "YOYACK_CODEX_CONCURRENCY", 1),
-            queue_capacity=_integer(values, "YOYACK_QUEUE_CAPACITY", 4),
+            queue_capacity=_integer(values, "YOYACK_QUEUE_CAPACITY", 4, minimum=0),
+            queue_wait_seconds=_integer(values, "YOYACK_QUEUE_WAIT_SECONDS", 60),
             max_input_bytes=_integer(values, "YOYACK_MAX_INPUT_BYTES", 1_000_000),
             max_output_bytes=_integer(values, "YOYACK_MAX_OUTPUT_BYTES", 50_000),
             max_history_pages=_integer(values, "YOYACK_MAX_HISTORY_PAGES", 100),

@@ -1,6 +1,7 @@
 """Select the latest verified human messages, supplementing gaps when needed."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -66,6 +67,7 @@ class CountCollector:
         count: int,
         accepted_at: datetime,
         trigger_message_id: int | None = None,
+        can_continue: Callable[[], Awaitable[bool]] | None = None,
     ) -> CountResult:
         if accepted_at.tzinfo is None or not 1 <= count <= self.max_count:
             raise CountError(CountFailure.INVALID_COUNT)
@@ -98,6 +100,7 @@ class CountCollector:
                 channel, guild_id=guild_id, channel_id=channel_id,
                 start=candidate_start, end=accepted_at,
                 trigger_message_id=trigger_message_id,
+                can_continue=can_continue,
             )
             pages += verified.pages
             self._check_pages(pages)
@@ -117,6 +120,7 @@ class CountCollector:
         verified = await self.recent.collect(
             channel, guild_id=guild_id, channel_id=channel_id,
             start=cutoff, end=accepted_at, trigger_message_id=trigger_message_id,
+            can_continue=can_continue,
         )
         pages += verified.pages
         self._check_pages(pages)
@@ -136,6 +140,7 @@ class CountCollector:
                 channel, guild_id=guild_id, channel_id=channel_id,
                 start=start, end=cursor, trigger_message_id=trigger_message_id,
                 limit_messages=count - len(cached) - len(older),
+                can_continue=can_continue,
             )
             older.extend(history.messages)
             pages += history.pages

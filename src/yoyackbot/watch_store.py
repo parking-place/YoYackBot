@@ -26,7 +26,7 @@ class SQLiteWatchStore:
             os.chmod(path, 0o600)
             with self._connection() as connection:
                 version = connection.execute("PRAGMA user_version").fetchone()[0]
-                if version > 4:
+                if version > 5:
                     raise WatchStoreError("Unsupported settings schema version")
                 if version == 0:
                     with connection:
@@ -89,12 +89,24 @@ class SQLiteWatchStore:
                             "ALTER TABLE messages ADD COLUMN is_reply INTEGER NOT NULL DEFAULT 0"
                         )
                         connection.execute("PRAGMA user_version=4")
+                if version in (0, 1, 2, 3, 4):
+                    with connection:
+                        connection.execute(
+                            "CREATE TABLE summary_cooldowns ("
+                            "guild_id INTEGER NOT NULL CHECK(guild_id > 0), "
+                            "channel_id INTEGER NOT NULL CHECK(channel_id > 0), "
+                            "last_success_us INTEGER NOT NULL, "
+                            "expires_at_us INTEGER NOT NULL, "
+                            "PRIMARY KEY(guild_id, channel_id), "
+                            "CHECK(expires_at_us >= last_success_us))"
+                        )
+                        connection.execute("PRAGMA user_version=5")
         except (OSError, sqlite3.Error) as exc:
             raise WatchStoreError("Settings database unavailable") from exc
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.path, timeout=1)
+        connection = sqlite3.connect(self.path, timeout=5)
         try:
             connection.execute("PRAGMA foreign_keys=ON")
             yield connection
@@ -160,6 +172,10 @@ class SQLiteWatchStore:
                 )
                 for removed_id in existing - channel_ids:
                     connection.execute(
+                        "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
                         "DELETE FROM messages WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
@@ -188,6 +204,10 @@ class SQLiteWatchStore:
                 )
                 if cursor.rowcount:
                     connection.execute(
+                        "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
                         "DELETE FROM messages WHERE guild_id=? AND channel_id=?",
                         (guild_id, channel_id),
                     )
@@ -213,6 +233,7 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM messages WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM coverage WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM coverage_recheck WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM summary_cooldowns WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

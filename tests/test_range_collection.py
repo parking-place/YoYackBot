@@ -38,7 +38,10 @@ class FakeHistory:
         self.fail_on = fail_on
         self.calls: list[CoverageInterval] = []
 
-    async def collect(self, target, *, guild_id, channel_id, start, end, trigger_message_id=None):
+    async def collect(
+        self, target, *, guild_id, channel_id, start, end,
+        trigger_message_id=None, can_continue=None,
+    ):
         self.calls.append(CoverageInterval(channel_id, start, end))
         if len(self.calls) == self.fail_on:
             raise HistoryError(HistoryFailure.NETWORK)

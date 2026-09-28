@@ -8,7 +8,14 @@ from pathlib import Path
 import pytest
 
 from yoyackbot.domain import MessageRecord
-from yoyackbot.input_files import InputFileError, InputWorkspace, serialize_conversation
+from yoyackbot.input_files import (
+    GatewayAlreadyRunning,
+    InputFileError,
+    InputWorkspace,
+    cleanup_abandoned_workspaces,
+    serialize_conversation,
+    single_gateway,
+)
 
 NOW = datetime(2026, 9, 28, 12, 0, tzinfo=UTC)
 
@@ -80,3 +87,19 @@ def test_symlink_traversal_and_shared_root_are_rejected(tmp_path: Path) -> None:
     private.chmod(0o755)
     with pytest.raises(InputFileError):
         InputWorkspace.create(private, b"no")
+
+
+def test_exclusive_restart_removes_abandoned_requests_only(tmp_path: Path) -> None:
+    root = tmp_path / "input"
+    abandoned = InputWorkspace.create(root, b"synthetic old request")
+    unrelated = root / "other-service"
+    unrelated.mkdir()
+    (root / "request-link").symlink_to(unrelated, target_is_directory=True)
+    with single_gateway(root):
+        with pytest.raises(GatewayAlreadyRunning), single_gateway(root):
+            pass
+        assert cleanup_abandoned_workspaces(root) == 1
+        assert not abandoned.directory.exists()
+        assert unrelated.exists() and (root / "request-link").is_symlink()
+    with single_gateway(root):
+        assert cleanup_abandoned_workspaces(root) == 0

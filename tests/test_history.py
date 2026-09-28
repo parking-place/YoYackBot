@@ -124,6 +124,49 @@ def test_transient_retry_and_middle_page_failure_never_signal_completion() -> No
     asyncio.run(scenario())
 
 
+def test_lease_loss_stops_next_history_page_and_retry() -> None:
+    async def scenario() -> None:
+        messages = [message(START + timedelta(minutes=1), index) for index in range(4)]
+        active = [True]
+
+        class RevokingSource(FakeSource):
+            async def fetch_page(self, target, *, before: int, limit: int):
+                result = await super().fetch_page(target, before=before, limit=limit)
+                active[0] = False
+                return result
+
+        async def can_continue() -> bool:
+            return active[0]
+
+        source = RevokingSource(messages)
+        with pytest.raises(HistoryError) as stopped:
+            await HistoryAdapter(source, page_size=2).collect(
+                channel(), guild_id=1, channel_id=10, start=START, end=END,
+                can_continue=can_continue,
+            )
+        assert stopped.value.kind is HistoryFailure.PERMISSION
+        assert len(source.calls) == 1
+
+        active[0] = True
+
+        class FailedSource(FakeSource):
+            async def fetch_page(self, target, *, before: int, limit: int):
+                self.calls.append((target.id, before))
+                active[0] = False
+                raise OSError("synthetic network gap")
+
+        failed = FailedSource(messages)
+        with pytest.raises(HistoryError) as stopped_retry:
+            await HistoryAdapter(failed, retries=2).collect(
+                channel(), guild_id=1, channel_id=10, start=START, end=END,
+                can_continue=can_continue,
+            )
+        assert stopped_retry.value.kind is HistoryFailure.PERMISSION
+        assert len(failed.calls) == 1
+
+    asyncio.run(scenario())
+
+
 def test_forbidden_is_not_retried_and_total_timeout_is_bounded() -> None:
     async def scenario() -> None:
         forbidden = discord.Forbidden.__new__(discord.Forbidden)
