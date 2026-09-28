@@ -37,7 +37,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.2.0-P4 | [KST 오늘·수락 시각·정렬 경계](0.2.0/04-time-window.md) | DONE | `d1bf0a7c57c30a5a8ed98bea17ad306554c4acd5` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d1f37aa8f06e49e2cf72eb5110bf2e3bbb544913) | OpenJevLXC Python 3.13.5 합성 UTC/KST 시각·메시지 검증; 세부 결과는 증거 파일 |
 | 0.2.0-P5 | [명령 전체 회귀·Discord 안내 검증](0.2.0/05-parser-acceptance.md) | DONE | `2747eed67029ba0a6ca92592f6a95f61f1fd2bd1` | [evidence E](https://github.com/parking-place/YoYackBot/commit/435539d68aa5f437b486b4333412fcf147a0553d) | OpenJevLXC Python 3.13.5 합성 회귀 + 개발 Discord 실제 사용자 입력·출력 확인 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P1 | [메시지·범위 schema와 migration](0.3.0/01-message-schema.md) | DONE | `8933210ecee55156c6382ae19eb121624f3e9042` | [evidence E](https://github.com/parking-place/YoYackBot/commit/c8d1f2f9116861b98b474730751b5a51e6f670ca) | OpenJevLXC Python 3.13.5 실제 설정 DB 격리 복사본 + 합성 SQLite 검증; 세부 결과는 증거 파일 |
-| 0.3.0-P2 | [주시 채널 실시간 upsert·필터](0.3.0/02-realtime-ingest.md) | PLANNED | — | — | 미착수 |
+| 0.3.0-P2 | [주시 채널 실시간 upsert·필터](0.3.0/02-realtime-ingest.md) | IN_PROGRESS | — | — | 주시 채널 수집 연결 중 |
 | 0.3.0-P3 | [수정·삭제·7일 자동 정리](0.3.0/03-edits-retention.md) | PLANNED | — | — | 미착수 |
 | 0.3.0-P4 | [완료 구간·빈 구간·연결 공백](0.3.0/04-coverage.md) | PLANNED | — | — | 미착수 |
 | 0.3.0-P5 | [캐시 동시성·장애·버전 검증](0.3.0/05-cache-acceptance.md) | PLANNED | — | — | 미착수 |
