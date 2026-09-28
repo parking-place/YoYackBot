@@ -56,7 +56,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.6.0-P3 | [머리말·실제 범위·긴 메시지 분할](0.6.0/03-format-split.md) | DONE | `fa9584434c0a00116acfa7fa634bbbe4862c361a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/55705f7522ec1220e2d0a01d67e1f46e04c6b534) | OpenJevLXC Python 3.13.5; synthetic formatter tests 검증; 세부 결과는 증거 파일 |
 | 0.6.0-P4 | [같은 채널 전송·부분 실패 처리](0.6.0/04-delivery.md) | DONE | `8bb3ea0c48d11f7b64a7b9d83044be67acebd086` | [evidence E](https://github.com/parking-place/YoYackBot/commit/c8025acda69e2d175f28d611b5676fb708bdb03b) | OpenJevLXC Python 3.13.5 and live development Discord text channel; synthetic publication only 검증; 세부 결과는 증거 파일 |
 | 0.6.0-P5 | [수집부터 게시까지 출력 통합 게이트](0.6.0/05-output-acceptance.md) | DONE | `2b914eae1e0dcd030b503c28519a9b4f2ced9b7a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/9e2ef7399a24cf3655d902a5af1ebef7c65b1795) | OpenJevLXC dedicated bot account and live development Discord watched channel; real model and synthetic user messages 검증; 세부 결과는 증거 파일 |
-| 0.7.0-P1 | [채널별 원자적 상태·명령 연결](0.7.0/01-channel-state.md) | IN_PROGRESS | — | — | 명령 자동 실행과 채널 상태 연결 중 |
+| 0.7.0-P1 | [채널별 원자적 상태·명령 연결](0.7.0/01-channel-state.md) | PUSH_PENDING | `6fec49834234cd3955386a35479a1f2d05f34d24` | — | 검증 통과, 원격 확인 대기 |
 | 0.7.0-P2 | [게시 성공 기준 300초·남은 시간](0.7.0/02-success-cooldown.md) | PLANNED | — | — | 미착수 |
 | 0.7.0-P3 | [실패·주시 해제·취소 시 상태 복구](0.7.0/03-failure-recovery.md) | PLANNED | — | — | 미착수 |
 | 0.7.0-P4 | [전역 실행 제한·대기열·재시작](0.7.0/04-global-queue.md) | PLANNED | — | — | 미착수 |
