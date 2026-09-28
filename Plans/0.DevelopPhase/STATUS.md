@@ -60,7 +60,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.7.0-P2 | [게시 성공 기준 300초·남은 시간](0.7.0/02-success-cooldown.md) | DONE | `0a7b7fc7c9a52e8c26fad869bad5a99bab8b5edc` | [evidence E](https://github.com/parking-place/YoYackBot/commit/adbdfb6092b2a45e349325d30994ca22e2c63a01) | DiscordBotLXC, 0a7b7fc, MOCK; 운영 DB의 격리 복사본 검증; 세부 결과는 증거 파일 |
 | 0.7.0-P3 | [실패·주시 해제·취소 시 상태 복구](0.7.0/03-failure-recovery.md) | DONE | `6d085f95182ed9650db49eb62dcddd2cb12932f7` | [evidence E](https://github.com/parking-place/YoYackBot/commit/88049558c60d4d3feaaac1ec2f43c4e16a650795) | DiscordBotLXC Python 3.13, 합성 장애 주입; 실제 Discord 권한 변경 미실행 검증; 세부 결과는 증거 파일 |
 | 0.7.0-P4 | [전역 실행 제한·대기열·재시작](0.7.0/04-global-queue.md) | DONE | `e22f972989d92af105153fe3127ecb7cc2fbd25a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3edd27275ac13c3ebb3270d7a8b39be6f39bbf16) | DiscordBotLXC Python 3.13, 합성 동시 요청·재시작 모의 검증; 세부 결과는 증거 파일 |
-| 0.7.0-P5 | [전체 명령·상태 실환경 회귀 게이트](0.7.0/05-workflow-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.7.0-P5 | [전체 명령·상태 실환경 회귀 게이트](0.7.0/05-workflow-acceptance.md) | IN_PROGRESS | — | — | 개발 Discord 전체 명령 검증 중 |
 | 0.8.0-P1 | [전용 계정 서비스·자동 재시작](0.8.0/01-service.md) | PLANNED | — | — | 미착수 |
 | 0.8.0-P2 | [원문 없는 로그·지표·상태 확인](0.8.0/02-observability.md) | PLANNED | — | — | 미착수 |
 | 0.8.0-P3 | [설정 백업·캐시 재생성·복구](0.8.0/03-restore.md) | PLANNED | — | — | 미착수 |
