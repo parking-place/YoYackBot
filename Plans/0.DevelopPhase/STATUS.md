@@ -49,7 +49,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.5.0-P1 | [CLI·인증·GPT-6 Luna Light 확인](0.5.0/01-cli-model-contract.md) | DONE | `512a13164467d919f8dd13365dcd24d3fcf6e1f9` | [evidence E](https://github.com/parking-place/YoYackBot/commit/da7b0722e453e65a71a1e3804133ce116d4295e6) | OpenJevLXC Python 3.13.5; bot account codex-cli 0.158.0 검증; 세부 결과는 증거 파일 |
 | 0.5.0-P2 | [요청 입력 파일·표시명 정규화](0.5.0/02-input-files.md) | DONE | `59be11f57d0a7538b309cbf3bf3086db6e5f9c8a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/276186ec7cba3daa19aa9925b9dce40dcbf77cc1) | OpenJevLXC Python 3.13.5; isolated copy of live SQLite cache 검증; 세부 결과는 증거 파일 |
 | 0.5.0-P3 | [비대화형 subprocess·파일/도구 격리](0.5.0/03-subprocess-isolation.md) | DONE | `abb7d700acdc1ebe1bc7e29432b2eed20cf11ffb` | [evidence E](https://github.com/parking-place/YoYackBot/commit/778f545d02e72325493e0940ed80d52271c07460) | OpenJevLXC dedicated bot account; pinned Codex CLI and code-mode host 0.158.0; bubblewrap namespace 검증; 세부 결과는 증거 파일 |
-| 0.5.0-P4 | [시간·입력 제한·취소·잔여 파일 정리](0.5.0/04-timeouts-cleanup.md) | IN_PROGRESS | — | — | 구현·검증 중 |
+| 0.5.0-P4 | [시간·입력 제한·취소·잔여 파일 정리](0.5.0/04-timeouts-cleanup.md) | PUSH_PENDING | `c4f9fbacb90b702de695805c126b7d60424584c3` | — | 검증 통과, 원격 확인 대기 |
 | 0.5.0-P5 | [실제 모델 연동·실패 회귀 게이트](0.5.0/05-engine-acceptance.md) | PLANNED | — | — | 미착수 |
 | 0.6.0-P1 | [화자·결정·미해결 중심 프롬프트](0.6.0/01-summary-prompt.md) | PLANNED | — | — | 미착수 |
 | 0.6.0-P2 | [사실성·화자 귀속·하오체 평가](0.6.0/02-quality-evaluation.md) | PLANNED | — | — | 미착수 |
