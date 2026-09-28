@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-28. 개발 완료 **39 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 16개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-28. 개발 완료 **40 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 15개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -60,7 +60,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.7.0-P2 | [게시 성공 기준 300초·남은 시간](0.7.0/02-success-cooldown.md) | DONE | `0a7b7fc7c9a52e8c26fad869bad5a99bab8b5edc` | [evidence E](https://github.com/parking-place/YoYackBot/commit/adbdfb6092b2a45e349325d30994ca22e2c63a01) | DiscordBotLXC, 0a7b7fc, MOCK; 운영 DB의 격리 복사본 검증; 세부 결과는 증거 파일 |
 | 0.7.0-P3 | [실패·주시 해제·취소 시 상태 복구](0.7.0/03-failure-recovery.md) | DONE | `6d085f95182ed9650db49eb62dcddd2cb12932f7` | [evidence E](https://github.com/parking-place/YoYackBot/commit/88049558c60d4d3feaaac1ec2f43c4e16a650795) | DiscordBotLXC Python 3.13, 합성 장애 주입; 실제 Discord 권한 변경 미실행 검증; 세부 결과는 증거 파일 |
 | 0.7.0-P4 | [전역 실행 제한·대기열·재시작](0.7.0/04-global-queue.md) | DONE | `e22f972989d92af105153fe3127ecb7cc2fbd25a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3edd27275ac13c3ebb3270d7a8b39be6f39bbf16) | DiscordBotLXC Python 3.13, 합성 동시 요청·재시작 모의 검증; 세부 결과는 증거 파일 |
-| 0.7.0-P5 | [전체 명령·상태 실환경 회귀 게이트](0.7.0/05-workflow-acceptance.md) | PUSH_PENDING | `46c7d10a37fbbc9a4449acfadea7e6b9b4dca1df` | — | 검증 통과, 원격 확인 대기 |
+| 0.7.0-P5 | [전체 명령·상태 실환경 회귀 게이트](0.7.0/05-workflow-acceptance.md) | DONE | `46c7d10a37fbbc9a4449acfadea7e6b9b4dca1df` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3beab75bd4f7d81aba5a11a768d489153b01bd2e) | DiscordBotLXC 전용 계정 + 개발 Discord 2개 주시 채널 + 실제 gpt-6-luna; 46c7d10 검증; 세부 결과는 증거 파일 |
 | 0.8.0-P1 | [전용 계정 서비스·자동 재시작](0.8.0/01-service.md) | PLANNED | — | — | 미착수 |
 | 0.8.0-P2 | [원문 없는 로그·지표·상태 확인](0.8.0/02-observability.md) | PLANNED | — | — | 미착수 |
 | 0.8.0-P3 | [설정 백업·캐시 재생성·복구](0.8.0/03-restore.md) | PLANNED | — | — | 미착수 |
