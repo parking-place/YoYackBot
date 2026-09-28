@@ -1,6 +1,6 @@
 # 0.7.0 — 작업 상태·동시성·성공 쿨타임
 
-- 상태: **PLANNED**
+- 상태: **DONE** — [PR #8](https://github.com/parking-place/YoYackBot/pull/8)로 `main` 통합
 - 단계 수: **5단계**
 
 ## 목표

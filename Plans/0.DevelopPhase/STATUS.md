@@ -93,6 +93,8 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 
 0.6.0의 다섯 단계는 [PR #7](https://github.com/parking-place/YoYackBot/pull/7)로 `main`에 통합했다(검증 브랜치 D `32ab664ab4c4b6b334bc425865690a904d44bb83`, merge `69ebecba0a86017693e70abf79ff146ff02fc927`). 실제 모델의 21개 합성 사례를 재평가하고, 개발 Discord에서 3개 합성 사용자 메시지를 수집→모델→동일 채널에 게시했다. 별도 합성 장문 2조각 게시도 확인했다. 초기 간접 인용 표현 결함은 보강 후 재검증했고, 사용자 명령 자동 연결·동시성·쿨타임은 0.7.0 대상이다.
 
+0.7.0의 다섯 단계는 [PR #8](https://github.com/parking-place/YoYackBot/pull/8)로 `main`에 통합했다(검증 브랜치 D `79e341f63345c66f7ceb23bb2cf0ee154ed24e24`, merge `2f9a6755fe0ba53e7d5bc3b61093d3ccea8193e4`). 개발 Discord 두 주시 채널의 실제 사용자 명령에서 모델 요약 게시·중복 안내·300초 대기·도움말을 확인했고, 재시작 후 설정과 대기 기록이 보존됐다. 실제 장애 주입과 장시간 운영 검증은 후속 단계에 남겨 두었다.
+
 ## 실행 증거
 
 실행을 시작한 뒤에만 `evidence/<version>-P<n>.md`를 작성한다. raw Discord 대화, 실제 서버 주소, 앱/사용자 식별값, 인증정보와 DB는 증거 파일에 넣지 않는다.
