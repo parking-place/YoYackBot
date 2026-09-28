@@ -35,7 +35,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.2.0-P2 | [옵션 우선순위·문법 구현](0.2.0/02-option-parser.md) | DONE | `398c12b312ef931737e9dc0a5e6552e1374ef0c7` | [evidence E](https://github.com/parking-place/YoYackBot/commit/92419906880f1ff77ad8d516d9560aadf21fa294) | OpenJevLXC Python 3.13.5 합성 명령 문자열 검증; 세부 결과는 증거 파일 |
 | 0.2.0-P3 | [숫자·설정 상한 검증](0.2.0/03-limits.md) | DONE | `eb51916e79ba510ac58bfb048c6f4be48f596379` | [evidence E](https://github.com/parking-place/YoYackBot/commit/e72afae06da2c874b6e385139558d0658b951b20) | OpenJevLXC Python 3.13.5 합성 옵션·설정 검증; 세부 결과는 증거 파일 |
 | 0.2.0-P4 | [KST 오늘·수락 시각·정렬 경계](0.2.0/04-time-window.md) | DONE | `d1bf0a7c57c30a5a8ed98bea17ad306554c4acd5` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d1f37aa8f06e49e2cf72eb5110bf2e3bbb544913) | OpenJevLXC Python 3.13.5 합성 UTC/KST 시각·메시지 검증; 세부 결과는 증거 파일 |
-| 0.2.0-P5 | [명령 전체 회귀·Discord 안내 검증](0.2.0/05-parser-acceptance.md) | IN_PROGRESS | — | — | 실제 Discord 명령 안내 검증 준비 |
+| 0.2.0-P5 | [명령 전체 회귀·Discord 안내 검증](0.2.0/05-parser-acceptance.md) | PUSH_PENDING | `2747eed67029ba0a6ca92592f6a95f61f1fd2bd1` | — | 검증 통과, 원격 확인 대기 |
 | 0.3.0-P1 | [메시지·범위 schema와 migration](0.3.0/01-message-schema.md) | PLANNED | — | — | 미착수 |
 | 0.3.0-P2 | [주시 채널 실시간 upsert·필터](0.3.0/02-realtime-ingest.md) | PLANNED | — | — | 미착수 |
 | 0.3.0-P3 | [수정·삭제·7일 자동 정리](0.3.0/03-edits-retention.md) | PLANNED | — | — | 미착수 |
