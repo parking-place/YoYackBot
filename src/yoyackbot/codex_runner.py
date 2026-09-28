@@ -4,6 +4,7 @@ import asyncio
 import os
 import pwd
 import re
+import signal
 import stat
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -20,6 +21,70 @@ class CodexRunError(RuntimeError):
     def __init__(self, kind: CodexFailure) -> None:
         super().__init__(kind.value)
         self.kind = kind
+
+
+class _OutputExceeded(RuntimeError):
+    """Internal signal to stop a CLI that exceeds its output budget."""
+
+
+async def _bounded_read(stream: asyncio.StreamReader, limit: int) -> bytes:
+    data = bytearray()
+    while chunk := await stream.read(8192):
+        if len(data) + len(chunk) > limit:
+            raise _OutputExceeded
+        data.extend(chunk)
+    return bytes(data)
+
+
+async def _send_prompt(stream: asyncio.StreamWriter, prompt: bytes) -> None:
+    try:
+        stream.write(prompt)
+        await stream.drain()
+    except (BrokenPipeError, ConnectionResetError):
+        pass
+    finally:
+        stream.close()
+
+
+async def _kill_group(process: asyncio.subprocess.Process) -> None:
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    await process.wait()
+
+
+async def _invoke(
+    command: list[str], prompt: bytes, env: dict[str, str], timeout: float, output_limit: int
+) -> tuple[int, bytes, bytes]:
+    process = await asyncio.create_subprocess_exec(
+        *command, stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        env=env, start_new_session=True,
+    )
+    assert process.stdin is not None and process.stdout is not None and process.stderr is not None
+    tasks = [
+        asyncio.create_task(_send_prompt(process.stdin, prompt)),
+        asyncio.create_task(_bounded_read(process.stdout, output_limit)),
+        asyncio.create_task(_bounded_read(process.stderr, output_limit)),
+        asyncio.create_task(process.wait()),
+    ]
+    try:
+        _, stdout, stderr, exit_code = await asyncio.wait_for(asyncio.gather(*tasks), timeout)
+        return exit_code, stdout, stderr
+    except TimeoutError as exc:
+        await _kill_group(process)
+        raise CodexRunError(CodexFailure.TIMEOUT) from exc
+    except _OutputExceeded as exc:
+        await _kill_group(process)
+        raise CodexRunError(CodexFailure.OUTPUT_LIMIT) from exc
+    except BaseException:
+        await _kill_group(process)
+        raise
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def final_text(raw: bytes) -> str:
@@ -40,11 +105,20 @@ class SandboxedCodex:
     auth_file: Path
     bwrap_executable: Path = Path("/usr/bin/bwrap")
     code_mode_host: Path = Path("/usr/local/bin/yoyack-codex-code-mode-host")
+    timeout_seconds: float = 120
+    max_prompt_bytes: int = 65536
+    max_output_bytes: int = 50000
 
     def command(self, workspace: InputWorkspace) -> list[str]:
-        if not Path(self.contract.executable).is_absolute() or not self.bwrap_executable.is_absolute():
+        if (
+            not Path(self.contract.executable).is_absolute()
+            or not self.bwrap_executable.is_absolute()
+        ):
             raise CodexRunError(CodexFailure.PROCESS)
-        if workspace.log_file.parent != workspace.directory or not workspace.directory.is_absolute():
+        if (
+            workspace.log_file.parent != workspace.directory
+            or not workspace.directory.is_absolute()
+        ):
             raise CodexRunError(CodexFailure.PROCESS)
         try:
             auth = self.auth_file.lstat()
@@ -96,25 +170,39 @@ class SandboxedCodex:
         ]
 
     async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
-        """Return only the last model message; lifecycle limits are added in P4."""
-        if not prompt:
-            raise ValueError("Summary prompt must be nonempty")
-        command = self.command(workspace)
-        account = pwd.getpwuid(os.geteuid())
-        env = {"PATH": "/usr/bin:/bin", "HOME": account.pw_dir, "LANG": "C.UTF-8"}
+        """Return the final model message and delete this request's files on every exit."""
         try:
-            process = await asyncio.create_subprocess_exec(
-                *command, stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                env=env, start_new_session=True,
-            )
-            _stdout, stderr = await process.communicate(prompt.encode("utf-8"))
-        except OSError as exc:
-            raise CodexRunError(CodexFailure.PROCESS) from exc
-        if process.returncode != 0:
-            kind = classify_cli_failure(process.returncode, stderr.decode("utf-8", "replace"))
-            raise CodexRunError(kind or CodexFailure.PROCESS)
-        try:
-            return final_text((workspace.directory / "final.txt").read_bytes())
-        except OSError as exc:
-            raise CodexRunError(CodexFailure.PROCESS) from exc
+            encoded = prompt.encode("utf-8")
+            if not encoded or len(encoded) > self.max_prompt_bytes:
+                raise CodexRunError(CodexFailure.INPUT_LIMIT)
+            if self.timeout_seconds <= 0 or self.max_output_bytes < 1:
+                raise ValueError("Codex limits must be positive")
+            command = self.command(workspace)
+            account = pwd.getpwuid(os.geteuid())
+            env = {"PATH": "/usr/bin:/bin", "HOME": account.pw_dir, "LANG": "C.UTF-8"}
+            try:
+                exit_code, _stdout, stderr = await _invoke(
+                    command, encoded, env, self.timeout_seconds, self.max_output_bytes
+                )
+            except OSError as exc:
+                raise CodexRunError(CodexFailure.PROCESS) from exc
+            if exit_code != 0:
+                kind = classify_cli_failure(exit_code, stderr.decode("utf-8", "replace"))
+                raise CodexRunError(kind or CodexFailure.PROCESS)
+            output = workspace.directory / "final.txt"
+            try:
+                fd = os.open(output, os.O_RDONLY | os.O_NOFOLLOW)
+                with os.fdopen(fd, "rb") as stream:
+                    info = os.fstat(stream.fileno())
+                    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid():
+                        raise CodexRunError(CodexFailure.PROCESS)
+                    if info.st_size > self.max_output_bytes:
+                        raise CodexRunError(CodexFailure.OUTPUT_LIMIT)
+                    raw = stream.read(self.max_output_bytes + 1)
+                    if len(raw) > self.max_output_bytes:
+                        raise CodexRunError(CodexFailure.OUTPUT_LIMIT)
+                    return final_text(raw)
+            except OSError as exc:
+                raise CodexRunError(CodexFailure.PROCESS) from exc
+        finally:
+            workspace.close()

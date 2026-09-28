@@ -6,6 +6,7 @@ import re
 import shutil
 import stat
 import tempfile
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC
@@ -116,3 +117,31 @@ class InputWorkspace:
 
     def __exit__(self, *_exc: object) -> None:
         self.close()
+
+
+def cleanup_stale_workspaces(
+    root: Path, *, older_than_seconds: int, active: frozenset[Path] = frozenset(),
+    now: float | None = None,
+) -> int:
+    """Remove only this service's old direct children, leaving active work untouched."""
+    if older_than_seconds < 1:
+        raise ValueError("older_than_seconds must be positive")
+    _private_root(root)
+    cutoff = (time.time() if now is None else now) - older_than_seconds
+    removed = 0
+    try:
+        for child in root.iterdir():
+            if not child.name.startswith("request-") or child in active:
+                continue
+            info = child.lstat()
+            if (
+                stat.S_ISDIR(info.st_mode)
+                and info.st_uid == os.geteuid()
+                and not info.st_mode & 0o077
+                and info.st_mtime <= cutoff
+            ):
+                shutil.rmtree(child)
+                removed += 1
+    except OSError as exc:
+        raise InputFileError("Stale request cleanup failed") from exc
+    return removed

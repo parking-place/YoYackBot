@@ -57,19 +57,15 @@ def test_only_final_file_is_returned_and_discord_environment_is_removed(
     isolated = runner(tmp_path)
     received: dict[str, object] = {}
 
-    class FakeProcess:
-        returncode = 0
+    async def fake_invoke(
+        command: list[str], prompt: bytes, env: dict[str, str], _timeout: float, _limit: int
+    ) -> tuple[int, bytes, bytes]:
+        received["prompt"] = prompt
+        received["argv"] = command
+        received["env"] = env
+        return 0, b"progress event that must not be posted", b"diagnostic"
 
-        async def communicate(self, prompt: bytes) -> tuple[bytes, bytes]:
-            received["prompt"] = prompt
-            return b"progress event that must not be posted", b"diagnostic that must not be posted"
-
-    async def create_process(*args: str, **kwargs: object) -> FakeProcess:
-        received["argv"] = args
-        received["env"] = kwargs["env"]
-        return FakeProcess()
-
-    monkeypatch.setattr("yoyackbot.codex_runner.asyncio.create_subprocess_exec", create_process)
+    monkeypatch.setattr("yoyackbot.codex_runner._invoke", fake_invoke)
     with InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace:
         (workspace.directory / "final.txt").write_bytes(b"\x1b[31mFinal only\x1b[0m\n")
         result = asyncio.run(isolated.execute(workspace, "private conversation prompt"))
@@ -84,16 +80,13 @@ def test_failure_never_surfaces_raw_cli_diagnostics(
 ) -> None:
     isolated = runner(tmp_path)
 
-    class FakeProcess:
-        returncode = 1
+    async def fake_invoke(
+        _command: list[str], _prompt: bytes, _env: dict[str, str],
+        _timeout: float, _limit: int,
+    ) -> tuple[int, bytes, bytes]:
+        return 1, b"", b"authentication failed: secret-bearing text"
 
-        async def communicate(self, _prompt: bytes) -> tuple[bytes, bytes]:
-            return b"", b"authentication failed: secret-bearing text"
-
-    async def create_process(*_args: str, **_kwargs: object) -> FakeProcess:
-        return FakeProcess()
-
-    monkeypatch.setattr("yoyackbot.codex_runner.asyncio.create_subprocess_exec", create_process)
+    monkeypatch.setattr("yoyackbot.codex_runner._invoke", fake_invoke)
     with (
         InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace,
         pytest.raises(CodexRunError) as raised,

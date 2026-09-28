@@ -17,6 +17,9 @@ class CodexFailure(Enum):
     MODEL = "model"
     LIMIT = "limit"
     PROCESS = "process"
+    TIMEOUT = "timeout"
+    OUTPUT_LIMIT = "output_limit"
+    INPUT_LIMIT = "input_limit"
 
 
 class CodexContractError(RuntimeError):
