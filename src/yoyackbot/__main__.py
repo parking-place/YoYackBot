@@ -9,12 +9,14 @@ import discord
 from yoyackbot import __version__
 from yoyackbot.config import ConfigurationError, Settings
 from yoyackbot.discord import run_gateway
+from yoyackbot.input_files import GatewayAlreadyRunning, InputFileError
+from yoyackbot.readiness import ReadinessError, check_ready
 from yoyackbot.watch_store import WatchStoreError
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="yoyackbot")
-    parser.add_argument("command", choices=("version", "check-config", "run"))
+    parser.add_argument("command", choices=("version", "check-config", "check-ready", "run"))
     parser.add_argument("--smoke-seconds", type=float)
     parser.add_argument("--observe-channel-id", type=int)
     args = parser.parse_args()
@@ -31,6 +33,15 @@ def main() -> int:
 
     if args.command == "check-config":
         print("Configuration is valid")
+        return 0
+
+    if args.command == "check-ready":
+        try:
+            check_ready(settings)
+        except ReadinessError as exc:
+            print(f"Readiness failed: {exc.kind.value}")
+            return 2
+        print("Local resources are ready")
         return 0
 
     if args.smoke_seconds is not None and args.smoke_seconds <= 0:
@@ -56,6 +67,12 @@ def main() -> int:
         return 2
     except WatchStoreError:
         print("Watched-channel settings database is unavailable")
+        return 2
+    except GatewayAlreadyRunning:
+        print("Gateway already running for this runtime directory")
+        return 2
+    except InputFileError:
+        print("Private runtime directory is unavailable")
         return 2
     except KeyboardInterrupt:
         return 0

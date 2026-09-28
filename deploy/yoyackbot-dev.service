@@ -1,0 +1,26 @@
+[Unit]
+Description=YoYackBot development Discord gateway
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=yoyackbot-dev
+Group=yoyackbot-dev
+WorkingDirectory=/opt/yoyackbot-dev
+EnvironmentFile=/var/lib/yoyackbot-dev/secrets.env
+ExecStartPre=/opt/yoyackbot-dev/.venv/bin/python -m yoyackbot check-ready
+ExecStart=/opt/yoyackbot-dev/.venv/bin/python -m yoyackbot run
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yoyackbot-dev
+
+[Install]
+WantedBy=multi-user.target

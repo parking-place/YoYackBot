@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import signal
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -413,7 +414,7 @@ async def _run_gateway_locked(
     )
     async with client:
         if smoke_seconds is None:
-            await client.start(settings.discord_bot_token)
+            await _serve_until_stop(client, settings.discord_bot_token)
             return
         task = asyncio.create_task(client.start(settings.discord_bot_token))
         try:
@@ -435,3 +436,31 @@ async def _run_gateway_locked(
             if not task.done():
                 task.cancel()
             await asyncio.gather(ready, task, return_exceptions=True)
+
+
+async def _serve_until_stop(client: YoYackClient, token: str) -> None:
+    """Drain accepted work on a normal service stop; crashes are recovered on restart."""
+    loop = asyncio.get_running_loop()
+    stop = asyncio.Event()
+    registered: list[signal.Signals] = []
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(signum, stop.set)
+            registered.append(signum)
+        except NotImplementedError:
+            pass
+    running = asyncio.create_task(client.start(token))
+    stopping = asyncio.create_task(stop.wait())
+    try:
+        done, _ = await asyncio.wait({running, stopping}, return_when=asyncio.FIRST_COMPLETED)
+        if stopping in done:
+            await client.close()
+        if running in done:
+            await running
+    finally:
+        for signum in registered:
+            loop.remove_signal_handler(signum)
+        stopping.cancel()
+        if not running.done():
+            running.cancel()
+        await asyncio.gather(stopping, running, return_exceptions=True)
