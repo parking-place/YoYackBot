@@ -54,6 +54,7 @@ class DiscordHistorySource:
 class HistoryResult:
     messages: tuple[MessageRecord, ...]
     pages: int
+    exhausted: bool = True
 
 
 def _failure(error: Exception) -> HistoryFailure:
@@ -117,10 +118,13 @@ class HistoryAdapter:
         start: datetime,
         end: datetime,
         trigger_message_id: int | None = None,
+        limit_messages: int | None = None,
     ) -> HistoryResult:
-        """Return a complete oldest-first result or raise without a completion signal."""
+        """Return oldest-first records; count-limited results never claim full coverage."""
         if start.tzinfo is None or end.tzinfo is None or start >= end:
             raise ValueError("History range must be a nonempty aware interval")
+        if limit_messages is not None and limit_messages < 1:
+            raise ValueError("limit_messages must be positive")
         if (
             getattr(channel, "type", None) is not discord.ChannelType.text
             or getattr(channel, "id", None) != channel_id
@@ -173,6 +177,10 @@ class HistoryAdapter:
                         records[message.id] = record
                         if len(records) > self.max_records or content_bytes > self.max_content_bytes:
                             raise HistoryError(HistoryFailure.SIZE_LIMIT)
+                        if limit_messages is not None and len(records) >= limit_messages:
+                            return HistoryResult(
+                                tuple(sorted(records.values(), key=_sort_key)), pages, exhausted=False
+                            )
                     if len(page) < self.page_size or any(message.created_at < start for message in page):
                         return HistoryResult(tuple(sorted(records.values(), key=_sort_key)), pages)
                     if oldest >= before:

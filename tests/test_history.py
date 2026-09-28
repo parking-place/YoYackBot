@@ -211,3 +211,18 @@ def test_message_count_and_utf8_byte_budgets_stop_paging() -> None:
         assert byte_error.value.kind is HistoryFailure.SIZE_LIMIT
 
     asyncio.run(scenario())
+
+
+def test_count_limited_history_stops_after_latest_three_without_claiming_coverage() -> None:
+    async def scenario() -> None:
+        messages = [message(START + timedelta(minutes=1), index) for index in range(20)]
+        source = FakeSource(messages)
+        result = await HistoryAdapter(source, page_size=5).collect(
+            channel(), guild_id=1, channel_id=10, start=START, end=END,
+            limit_messages=3,
+        )
+        assert [item.message_id for item in result.messages] == [item.id for item in messages[-3:]]
+        assert result.pages == 1 and not result.exhausted
+        assert len(source.calls) == 1
+
+    asyncio.run(scenario())

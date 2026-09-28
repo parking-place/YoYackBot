@@ -18,6 +18,7 @@ class CollectionFailure(Enum):
     UNWATCHED = "unwatched"
     WATCH_CHANGED = "watch_changed"
     CHANNEL_MISMATCH = "channel_mismatch"
+    INCOMPLETE = "incomplete"
 
 
 class CollectionError(RuntimeError):
@@ -79,6 +80,8 @@ class TimeRangeCollector:
                 end=gap.end,
                 trigger_message_id=trigger_message_id,
             )
+            if not result.exhausted:
+                raise CollectionError(CollectionFailure.INCOMPLETE)
             completed = await asyncio.to_thread(
                 self.store.commit_history_complete,
                 guild_id,
