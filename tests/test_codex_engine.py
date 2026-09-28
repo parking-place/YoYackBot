@@ -78,6 +78,20 @@ def test_engine_failure_does_not_block_next_request(tmp_path: Path) -> None:
     assert all(not path.exists() for path in paths)
 
 
+def test_engine_rejects_unusable_model_output(tmp_path: Path) -> None:
+    class InvalidRunner:
+        contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
+
+        async def execute(self, workspace: InputWorkspace, _prompt: str) -> str:
+            workspace.close()
+            return "English-only output"
+
+    engine = CodexSummaryEngine(settings(tmp_path), InvalidRunner())  # type: ignore[arg-type]
+    with pytest.raises(CodexRunError) as raised:
+        asyncio.run(engine.summarize([message(1, "합성 대화")]))
+    assert raised.value.kind is CodexFailure.OUTPUT_INVALID
+
+
 def test_engine_fails_closed_when_pinned_cli_or_auth_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
