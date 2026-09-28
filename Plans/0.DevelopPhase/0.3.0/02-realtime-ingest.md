@@ -1,6 +1,6 @@
 # 0.3.0-P2 — 주시 채널 실시간 upsert·필터
 
-- 상태: **PUSH_PENDING**
+- 상태: **DONE**
 - 명세 근거: §4-6–4-8, §9, §13-4
 - 검증 ID: `T030-P2-A`, `T030-P2-B`
 - 검증 환경: **LIVE** — 개발 Discord 서버/채널에서 실제 이벤트·권한·출력을 확인한다. 실제 Codex 사용 여부도 구분한다.
@@ -29,11 +29,11 @@
 
 ## 단계 완료 — GitHub 업로드 필수
 
-- [ ] 위 작업·검증을 완료하고 [증거 양식](../EVIDENCE_TEMPLATE.md)에 대상 SHA·환경·결과·제한을 기록했다.
-- [ ] 실제 비밀값·`.private`·DB·Discord 원문·임시 파일이 커밋에 없음을 확인했다.
-- [ ] 구현과 증거를 단계별로 commit하고 대상 브랜치에 **GitHub push**했다.
-- [ ] 원격에서 증거 커밋 존재와 구현 SHA 포함, 필요한 CI 결과를 확인했다.
-- [ ] [STATUS](../STATUS.md)를 DONE으로 갱신한 종료 커밋도 push하고 마지막 원격 반영을 확인했다.
+- [x] 위 작업·검증을 완료하고 [증거 양식](../EVIDENCE_TEMPLATE.md)에 대상 SHA·환경·결과·제한을 기록했다.
+- [x] 실제 비밀값·`.private`·DB·Discord 원문·임시 파일이 커밋에 없음을 확인했다.
+- [x] 구현과 증거를 단계별로 commit하고 대상 브랜치에 **GitHub push**했다.
+- [x] 원격에서 증거 커밋 존재와 구현 SHA 포함, 필요한 CI 결과를 확인했다.
+- [x] [STATUS](../STATUS.md)를 DONE으로 갱신한 종료 커밋도 push하고 마지막 원격 반영을 확인했다.
 
 **push 실패 또는 원격 확인 미완료는 PUSH_PENDING이며 단계 완료가 아니다.** 상세 절차와 SHA 기록 방식은 [GIT_WORKFLOW](../GIT_WORKFLOW.md)를 따른다.
 
