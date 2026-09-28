@@ -1,0 +1,35 @@
+# Private connection details and credentials
+.private/
+.env
+.env.*
+!.env.example
+.codex/
+auth.json
+*.pem
+*.key
+
+# Runtime data must not enter the public repository
+data/
+runtime/
+logs/
+tmp/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+
+# Local development artifacts
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+node_modules/
+dist/
+.DS_Store

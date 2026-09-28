@@ -1,0 +1,86 @@
+# 개발 진행 상태
+
+기준일: 2026-09-28. **55개 단계 모두 PLANNED**. 개발 완료 0 / 55. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+
+## 상태 규칙
+
+| 상태 | 의미 |
+|---|---|
+| PLANNED | 계획만 작성, 구현·검증 미착수 |
+| IN_PROGRESS | 해당 단계 작업 또는 수정 중 |
+| VERIFIED | 해당 단계 검사 통과, 원격 게시 절차 전 |
+| PUSH_PENDING | commit 또는 push/원격 확인/필수 CI 미완료 |
+| DONE | 구현·검증·증거와 종료 문서의 원격 반영 확인까지 완료 |
+| BLOCKED | 환경·의존성·결함 등으로 진행 불가, 원인과 해소 조건 기록 |
+
+DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW.md)에 따라 종료 문서 commit까지 원격에 존재해야 한다. 상태를 바꿀 때 이 파일의 완료 개수와 해당 단계 파일·버전 개요도 함께 갱신한다.
+
+원격 증거 E는 이미 push를 확인한 증거 commit의 URL을 기록한다. 자기 자신 commit의 SHA를 문서 안에 넣는 방식은 사용하지 않는다.
+
+## 단계 목록
+
+| 단계 | 작업 | 상태 | 구현 C SHA | 원격 증거 E | 제약/차단 사유 |
+|---|---|---|---|---|---|
+| 0.0.0-P1 | [요구사항·범위·완료 규칙 확정](0.0.0/01-requirements.md) | PLANNED | — | — | 미착수 |
+| 0.0.0-P2 | [프로젝트 구조·런타임·의존성 고정](0.0.0/02-project-baseline.md) | PLANNED | — | — | 미착수 |
+| 0.0.0-P3 | [LXC·Discord·Codex 선행 조건 확인](0.0.0/03-environment-preflight.md) | PLANNED | — | — | 미착수 |
+| 0.0.0-P4 | [설정·인터페이스·오류 계약 정의](0.0.0/04-interfaces-config.md) | PLANNED | — | — | 미착수 |
+| 0.0.0-P5 | [검증 실행 기반·초기 버전 게이트](0.0.0/05-verification-baseline.md) | PLANNED | — | — | 미착수 |
+| 0.1.0-P1 | [Discord 연결·이벤트 경계 구현](0.1.0/01-gateway.md) | PLANNED | — | — | 미착수 |
+| 0.1.0-P2 | [채널 설정 명령·관리 권한 구현](0.1.0/02-channel-selector.md) | PLANNED | — | — | 미착수 |
+| 0.1.0-P3 | [주시 설정 영속화·서버 격리](0.1.0/03-settings-store.md) | PLANNED | — | — | 미착수 |
+| 0.1.0-P4 | [주시 추가·해제·미주시 차단](0.1.0/04-watch-enforcement.md) | PLANNED | — | — | 미착수 |
+| 0.1.0-P5 | [채널 설정 실환경 검증·버전 종료](0.1.0/05-channel-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.2.0-P1 | [포함형 트리거·도움말 우선 처리](0.2.0/01-trigger-help.md) | PLANNED | — | — | 미착수 |
+| 0.2.0-P2 | [옵션 우선순위·문법 구현](0.2.0/02-option-parser.md) | PLANNED | — | — | 미착수 |
+| 0.2.0-P3 | [숫자·설정 상한 검증](0.2.0/03-limits.md) | PLANNED | — | — | 미착수 |
+| 0.2.0-P4 | [KST 오늘·수락 시각·정렬 경계](0.2.0/04-time-window.md) | PLANNED | — | — | 미착수 |
+| 0.2.0-P5 | [명령 전체 회귀·Discord 안내 검증](0.2.0/05-parser-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.3.0-P1 | [메시지·범위 schema와 migration](0.3.0/01-message-schema.md) | PLANNED | — | — | 미착수 |
+| 0.3.0-P2 | [주시 채널 실시간 upsert·필터](0.3.0/02-realtime-ingest.md) | PLANNED | — | — | 미착수 |
+| 0.3.0-P3 | [수정·삭제·7일 자동 정리](0.3.0/03-edits-retention.md) | PLANNED | — | — | 미착수 |
+| 0.3.0-P4 | [완료 구간·빈 구간·연결 공백](0.3.0/04-coverage.md) | PLANNED | — | — | 미착수 |
+| 0.3.0-P5 | [캐시 동시성·장애·버전 검증](0.3.0/05-cache-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | PLANNED | — | — | 미착수 |
+| 0.4.0-P2 | [시간 범위 차집합 조회·완료 확정](0.4.0/02-cache-gaps.md) | PLANNED | — | — | 미착수 |
+| 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | PLANNED | — | — | 미착수 |
+| 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | PLANNED | — | — | 미착수 |
+| 0.4.0-P5 | [캐시 fallback·빈 대화·수집 통합 게이트](0.4.0/05-collection-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.5.0-P1 | [CLI·인증·GPT-6 Luna Light 확인](0.5.0/01-cli-model-contract.md) | PLANNED | — | — | 미착수 |
+| 0.5.0-P2 | [요청 입력 파일·표시명 정규화](0.5.0/02-input-files.md) | PLANNED | — | — | 미착수 |
+| 0.5.0-P3 | [비대화형 subprocess·파일/도구 격리](0.5.0/03-subprocess-isolation.md) | PLANNED | — | — | 미착수 |
+| 0.5.0-P4 | [시간·입력 제한·취소·잔여 파일 정리](0.5.0/04-timeouts-cleanup.md) | PLANNED | — | — | 미착수 |
+| 0.5.0-P5 | [실제 모델 연동·실패 회귀 게이트](0.5.0/05-engine-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.6.0-P1 | [화자·결정·미해결 중심 프롬프트](0.6.0/01-summary-prompt.md) | PLANNED | — | — | 미착수 |
+| 0.6.0-P2 | [사실성·화자 귀속·하오체 평가](0.6.0/02-quality-evaluation.md) | PLANNED | — | — | 미착수 |
+| 0.6.0-P3 | [머리말·실제 범위·긴 메시지 분할](0.6.0/03-format-split.md) | PLANNED | — | — | 미착수 |
+| 0.6.0-P4 | [같은 채널 전송·부분 실패 처리](0.6.0/04-delivery.md) | PLANNED | — | — | 미착수 |
+| 0.6.0-P5 | [수집부터 게시까지 출력 통합 게이트](0.6.0/05-output-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.7.0-P1 | [채널별 원자적 상태·명령 연결](0.7.0/01-channel-state.md) | PLANNED | — | — | 미착수 |
+| 0.7.0-P2 | [게시 성공 기준 300초·남은 시간](0.7.0/02-success-cooldown.md) | PLANNED | — | — | 미착수 |
+| 0.7.0-P3 | [실패·주시 해제·취소 시 상태 복구](0.7.0/03-failure-recovery.md) | PLANNED | — | — | 미착수 |
+| 0.7.0-P4 | [전역 실행 제한·대기열·재시작](0.7.0/04-global-queue.md) | PLANNED | — | — | 미착수 |
+| 0.7.0-P5 | [전체 명령·상태 실환경 회귀 게이트](0.7.0/05-workflow-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.8.0-P1 | [전용 계정 서비스·자동 재시작](0.8.0/01-service.md) | PLANNED | — | — | 미착수 |
+| 0.8.0-P2 | [원문 없는 로그·지표·상태 확인](0.8.0/02-observability.md) | PLANNED | — | — | 미착수 |
+| 0.8.0-P3 | [설정 백업·캐시 재생성·복구](0.8.0/03-restore.md) | PLANNED | — | — | 미착수 |
+| 0.8.0-P4 | [비밀·파일·프롬프트 입력 보안 점검](0.8.0/04-security-review.md) | PLANNED | — | — | 미착수 |
+| 0.8.0-P5 | [자원 한도·장시간 실행·운영 게이트](0.8.0/05-resource-soak.md) | PLANNED | — | — | 미착수 |
+| 0.9.0-P1 | [요구사항 전체 회귀·누락 확인](0.9.0/01-full-regression.md) | PLANNED | — | — | 미착수 |
+| 0.9.0-P2 | [개발 Discord 사용자 흐름·품질 베타](0.9.0/02-beta-usage.md) | PLANNED | — | — | 미착수 |
+| 0.9.0-P3 | [장애 복구·권한 회수·재시작 훈련](0.9.0/03-fault-drills.md) | PLANNED | — | — | 미착수 |
+| 0.9.0-P4 | [24시간 베타 soak·보존 경계 검증](0.9.0/04-beta-soak.md) | PLANNED | — | — | 미착수 |
+| 0.9.0-P5 | [출시 후보 고정·차단 결함 종료](0.9.0/05-rc-freeze.md) | PLANNED | — | — | 미착수 |
+| 1.0.0-P1 | [정식 출시 범위·증거 최종 검토](1.0.0/01-release-review.md) | PLANNED | — | — | 미착수 |
+| 1.0.0-P2 | [버전·배포 산출물·설정 재현성](1.0.0/02-release-package.md) | PLANNED | — | — | 미착수 |
+| 1.0.0-P3 | [업데이트·migration·롤백 리허설](1.0.0/03-rollback-rehearsal.md) | PLANNED | — | — | 미착수 |
+| 1.0.0-P4 | [운영 배포·동일 SHA smoke·초기 관측](1.0.0/04-production-validation.md) | PLANNED | — | — | 미착수 |
+| 1.0.0-P5 | [GitHub 정식 릴리스·최종 인수](1.0.0/05-release-publish.md) | PLANNED | — | — | 미착수 |
+
+## 버전/배포 기록
+
+아직 구현 버전 통합, 제품 태그, 실제 배포, 제품 실행 검증 기록이 없다. 계획 게시 이력은 GitHub의 문서 commit으로 확인한다.
+
+## 실행 증거
+
+실행을 시작한 뒤에만 `evidence/<version>-P<n>.md`를 작성한다. raw Discord 대화, 실제 서버 주소, 앱/사용자 식별값, 인증정보와 DB는 증거 파일에 넣지 않는다.
