@@ -82,6 +82,16 @@ class SummaryResult:
     request_message_count: int
 
 
+@dataclass(frozen=True)
+class PublicationReceipt:
+    message_ids: tuple[int, ...]
+    last_success_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.message_ids or self.last_success_at.tzinfo is None:
+            raise ValueError("Successful publication needs message IDs and an aware time")
+
+
 class MessageStore(Protocol):
     def recent(
         self, guild_id: int, channel_id: int, start: datetime, end: datetime
@@ -93,4 +103,7 @@ class SummaryEngine(Protocol):
 
 
 class SummaryPublisher(Protocol):
-    async def publish(self, request: SummaryRequest, result: SummaryResult) -> datetime: ...
+    async def publish(
+        self, request: SummaryRequest, result: SummaryResult,
+        selected: Sequence[MessageRecord],
+    ) -> PublicationReceipt: ...
