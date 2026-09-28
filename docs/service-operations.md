@@ -8,7 +8,7 @@
 2. `/var/lib/yoyackbot-dev/secrets.env`와 모델 인증 디렉터리의 소유자·권한을 확인한다. 환경 파일은 `KEY=value` 형식, 전용 계정 소유, 접근 권한 `0600`이다.
 3. 전용 계정에서 `python -m yoyackbot check-ready`를 실행한다. 고정 CLI/인증, SQLite 무결성·쓰기 잠금, 요청별 비공개 파일 생성을 확인한다. 이 검사는 Discord 연결까지 성공했다는 뜻이 아니다.
 4. `deploy/yoyackbot-dev.service`를 `/etc/systemd/system/yoyackbot-dev.service`에 설치하고 `systemctl daemon-reload`, `systemctl enable --now yoyackbot-dev.service`를 실행한다. 이미 수동으로 실행 중인 봇이 있으면 종료를 확인한 뒤 시작한다.
-5. `systemctl is-active yoyackbot-dev.service`와 `journalctl -u yoyackbot-dev.service`의 `gateway_ready`를 모두 확인한다. 전용 계정의 봇 프로세스는 한 개여야 한다.
+5. `systemctl is-active yoyackbot-dev.service`, 전용 계정의 `python -m yoyackbot health`, 서비스 전용 journal의 `gateway_ready`를 확인한다. 전용 계정의 봇 프로세스는 한 개여야 한다. 로그 분리·보존 설정은 [운영 상태와 로그](observability.md)를 따른다.
 
 ## 중지·변경·복구
 

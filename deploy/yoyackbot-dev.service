@@ -21,6 +21,9 @@ UMask=0077
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=yoyackbot-dev
+LogNamespace=yoyackbot-dev
+LogRateLimitIntervalSec=60s
+LogRateLimitBurst=120
 
 [Install]
 WantedBy=multi-user.target

@@ -36,7 +36,7 @@ class ChannelLease:
             version, channels = self.store.snapshot(self.guild_id)
             return version == self.version and self.channel_id in channels
         except Exception:
-            LOGGER.exception("watched_channel_lease_check_failed")
+            LOGGER.warning("watched_channel_lease_check_failed")
             return False
 
 
@@ -49,7 +49,7 @@ class WatchGate:
             version, channels = self.store.snapshot(guild_id)
             watched = channel_id in channels
         except Exception:
-            LOGGER.exception("watched_channel_lookup_failed")
+            LOGGER.warning("watched_channel_lookup_failed")
             return GateResult.UNAVAILABLE, None
         if not watched:
             return GateResult.UNWATCHED, None

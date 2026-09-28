@@ -21,6 +21,7 @@ from yoyackbot.input_files import InputFileError
 from yoyackbot.job_queue import QueueClosed, QueueFull, QueueWaitExpired, SummaryJobQueue
 from yoyackbot.long_range import LongRangeCollector, LongRangeError
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
+from yoyackbot.ops import RequestMetrics
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError, TimeRangeCollector
 from yoyackbot.state import AdmissionKind, ChannelStates
@@ -106,21 +107,31 @@ class SummaryWorkflow:
         self, request: SummaryRequest, channel: discord.TextChannel,
         lease: ChannelLease, send_notice: Callable[[str], Awaitable[None]],
     ) -> None:
-        if self.closing:
-            await send_notice(QUEUE_CLOSED_NOTICE)
-            return
+        metrics = RequestMetrics(request.requested_range.kind.value)
         task = asyncio.current_task()
         if task is not None:
             self._jobs.add(task)
         try:
-            await self._run(request, channel, lease, send_notice)
+            if self.closing:
+                metrics.outcome = "queue_closed"
+                await send_notice(QUEUE_CLOSED_NOTICE)
+                return
+            await self._run(request, channel, lease, send_notice, metrics)
+        except asyncio.CancelledError:
+            metrics.outcome = "cancelled"
+            metrics.model_result = (
+                "cancelled" if metrics.model_result == "running" else metrics.model_result
+            )
+            raise
         finally:
+            metrics.emit()
             if task is not None:
                 self._jobs.discard(task)
 
     async def _run(
         self, request: SummaryRequest, channel: discord.TextChannel,
         lease: ChannelLease, send_notice: Callable[[str], Awaitable[None]],
+        metrics: RequestMetrics,
     ) -> None:
         guild_id, channel_id = request.guild_id, request.channel_id
         if (
@@ -129,13 +140,17 @@ class SummaryWorkflow:
             or getattr(getattr(channel, "guild", None), "id", None) != guild_id
             or not await self._channel_ready(channel, lease)
         ):
+            metrics.outcome = "channel_unavailable"
+            metrics.error_kind = "permission"
             await send_notice(FAILED_NOTICE)
             return
         admission = await self.states.admit(guild_id, channel_id)
         if admission.kind is AdmissionKind.BUSY:
+            metrics.outcome = "busy"
             await send_notice(BUSY_NOTICE)
             return
         if admission.kind is AdmissionKind.COOLDOWN:
+            metrics.outcome = "cooldown"
             await send_notice(cooldown_notice(admission.remaining_seconds))
             return
         completed = False
@@ -148,38 +163,71 @@ class SummaryWorkflow:
                 request=request.requested_range,
                 can_continue=can_continue,
             )
+            metrics.selected_count = len(outcome.messages)
+            metrics.cache_count = outcome.cache_count
+            metrics.history_count = outcome.history_count
+            metrics.history_pages = outcome.pages
+            metrics.cache_fallback = outcome.fallback_used
             if outcome.empty:
+                metrics.outcome = "empty"
                 await send_notice(EMPTY_NOTICE)
                 return
             if not await can_continue():
                 raise JobInvalidated
+            metrics.model_result = "running"
             result = await self._summarize_guarded(
                 outcome.messages, channel_name=channel.name,
                 trigger_message_id=request.requested_range.trigger_message_id,
                 channel=channel, lease=lease,
             )
+            metrics.model_result = "success"
             if not await can_continue():
                 raise JobInvalidated
             receipt = await self.publisher.publish(request, result, outcome.messages)
+            metrics.post_result = "success"
             await self.states.finish_success(guild_id, channel_id, receipt.last_success_at)
+            metrics.outcome = "success"
             completed = True
         except JobInvalidated:
+            metrics.outcome = "invalidated"
+            metrics.error_kind = "permission"
+            if metrics.model_result == "running":
+                metrics.model_result = "cancelled"
             await send_notice(INVALIDATED_NOTICE)
         except (CollectionError, CollectionUnavailable, HistoryError, CountError, LongRangeError,
                 MessageStoreError, WatchStoreError):
+            metrics.outcome = "history_error"
+            metrics.error_kind = "history"
             await send_notice(message_for(FailureKind.HISTORY))
         except (CodexRunError, InputFileError):
+            metrics.outcome = "model_error"
+            metrics.model_result = "failure"
+            metrics.error_kind = "model"
             await send_notice(message_for(FailureKind.MODEL))
         except PartialPublicationError:
+            metrics.outcome = "post_error"
+            metrics.post_result = "partial"
+            metrics.error_kind = "send"
             await send_notice(message_for(FailureKind.SEND))
         except QueueFull:
+            metrics.outcome = "queue_full"
+            metrics.error_kind = "queue"
+            metrics.model_result = "not_started"
             await send_notice(QUEUE_FULL_NOTICE)
         except QueueWaitExpired:
+            metrics.outcome = "queue_timeout"
+            metrics.error_kind = "queue"
+            metrics.model_result = "not_started"
             await send_notice(QUEUE_TIMEOUT_NOTICE)
         except QueueClosed:
+            metrics.outcome = "queue_closed"
+            metrics.error_kind = "queue"
+            metrics.model_result = "not_started"
             await send_notice(QUEUE_CLOSED_NOTICE)
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("summary_job_failed type=%s", type(exc).__name__)
+            metrics.outcome = "unexpected"
+            metrics.error_kind = "unexpected"
+            LOGGER.warning("summary_job_failed")
             await send_notice(FAILED_NOTICE)
         finally:
             if not completed:
