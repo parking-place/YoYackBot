@@ -7,9 +7,9 @@ from types import SimpleNamespace
 import discord
 import pytest
 
-from yoyackbot.collection import EMPTY_NOTICE, CollectionOutcome
 from yoyackbot.codex import CodexFailure
 from yoyackbot.codex_runner import CodexRunError
+from yoyackbot.collection import EMPTY_NOTICE, CollectionOutcome
 from yoyackbot.cooldown import SQLiteCooldownStore
 from yoyackbot.domain import (
     MessageRecord,
@@ -19,10 +19,10 @@ from yoyackbot.domain import (
     SummaryRequest,
     SummaryResult,
 )
+from yoyackbot.errors import FailureKind, message_for
 from yoyackbot.publisher import PartialPublicationError, PublicationFailure
 from yoyackbot.state import ChannelStates, ChannelStatus
 from yoyackbot.workflow import BUSY_NOTICE, INVALIDATED_NOTICE, SummaryWorkflow
-from yoyackbot.errors import FailureKind, message_for
 
 NOW = datetime(2026, 9, 28, 12, 0, tzinfo=UTC)
 RECORD = MessageRecord(1, 1, 2, 3, "가람", "합성 대화", NOW - timedelta(minutes=1))

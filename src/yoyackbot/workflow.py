@@ -9,10 +9,10 @@ import discord
 
 from yoyackbot.channel_config import valid_channel
 from yoyackbot.codex_engine import CodexSummaryEngine
+from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.collection import EMPTY_NOTICE, CollectionCoordinator, CollectionUnavailable
 from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore, cooldown_notice
-from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.count_collection import CountCollector, CountError
 from yoyackbot.domain import MessageRecord, SummaryRequest, SummaryResult
 from yoyackbot.errors import FailureKind, message_for
