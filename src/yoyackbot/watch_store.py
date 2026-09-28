@@ -64,21 +64,23 @@ class SQLiteWatchStore:
         return int(row[0]) if row else 0
 
     def version(self, guild_id: int) -> int:
-        try:
-            with self._connection() as connection:
-                return self._version(connection, guild_id)
-        except sqlite3.Error as exc:
-            raise WatchStoreError("Settings read failed") from exc
+        return self.snapshot(guild_id)[0]
 
     def get(self, guild_id: int) -> frozenset[int]:
+        return self.snapshot(guild_id)[1]
+
+    def snapshot(self, guild_id: int) -> tuple[int, frozenset[int]]:
         try:
-            with self._connection() as connection:
-                return frozenset(
+            with self._connection() as connection, connection:
+                connection.execute("BEGIN")
+                version = self._version(connection, guild_id)
+                channels = frozenset(
                     row[0]
                     for row in connection.execute(
                         "SELECT channel_id FROM watched_channels WHERE guild_id=?", (guild_id,)
                     )
                 )
+                return version, channels
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings read failed") from exc
 

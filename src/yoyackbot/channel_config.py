@@ -15,6 +15,8 @@ INVALID = "봇이 접근할 수 있는 서버의 텍스트 채널만 고르시�
 
 
 class WatchStore(Protocol):
+    def snapshot(self, guild_id: int) -> tuple[int, frozenset[int]]: ...
+
     def get(self, guild_id: int) -> frozenset[int]: ...
 
     def version(self, guild_id: int) -> int: ...
@@ -41,6 +43,9 @@ class MemoryWatchStore:
 
     def get(self, guild_id: int) -> frozenset[int]:
         return self._channels.get(guild_id, frozenset())
+
+    def snapshot(self, guild_id: int) -> tuple[int, frozenset[int]]:
+        return self.version(guild_id), self.get(guild_id)
 
     def version(self, guild_id: int) -> int:
         return self._versions.get(guild_id, 0)
@@ -200,8 +205,8 @@ class ChannelSettingsView(discord.ui.View):
         self.store = store
         self.guild_id = guild_id
         self.owner_id = owner_id
-        self.draft = set(store.get(guild_id))
-        self.original_version = store.version(guild_id)
+        self.original_version, original = store.snapshot(guild_id)
+        self.draft = set(original)
         self.message: discord.Message | None = None
         self.add_item(AddChannels())
         self.add_item(RemoveChannels())
