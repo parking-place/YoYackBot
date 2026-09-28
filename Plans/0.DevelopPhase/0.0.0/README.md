@@ -15,11 +15,11 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [0.0.0-P1 — 요구사항·범위·완료 규칙 확정](01-requirements.md) | `T000-P1-A/B` | PLANNED |
-| 2 | [0.0.0-P2 — 프로젝트 구조·런타임·의존성 고정](02-project-baseline.md) | `T000-P2-A/B` | PLANNED |
-| 3 | [0.0.0-P3 — LXC·Discord·Codex 선행 조건 확인](03-environment-preflight.md) | `T000-P3-A/B` | PLANNED |
-| 4 | [0.0.0-P4 — 설정·인터페이스·오류 계약 정의](04-interfaces-config.md) | `T000-P4-A/B` | PLANNED |
-| 5 | [0.0.0-P5 — 검증 실행 기반·초기 버전 게이트](05-verification-baseline.md) | `T000-P5-A/B` | PLANNED |
+| 1 | [0.0.0-P1 — 요구사항·범위·완료 규칙 확정](01-requirements.md) | `T000-P1-A/B` | DONE (문서) |
+| 2 | [0.0.0-P2 — 프로젝트 구조·런타임·의존성 고정](02-project-baseline.md) | `T000-P2-A/B` | DONE |
+| 3 | [0.0.0-P3 — LXC·Discord·Codex 선행 조건 확인](03-environment-preflight.md) | `T000-P3-A/B` | DONE |
+| 4 | [0.0.0-P4 — 설정·인터페이스·오류 계약 정의](04-interfaces-config.md) | `T000-P4-A/B` | DONE |
+| 5 | [0.0.0-P5 — 검증 실행 기반·초기 버전 게이트](05-verification-baseline.md) | `T000-P5-A/B` | DONE |
 
 ## 버전 완료 조건
 
