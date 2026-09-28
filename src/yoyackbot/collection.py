@@ -99,7 +99,7 @@ class CollectionCoordinator:
                     trigger_message_id=request.trigger_message_id,
                     can_continue=can_continue,
                 )
-                fetched = sum(item.message_id in result.history_ids for item in result.messages)
+                fetched = result.history_count
                 outcome = CollectionOutcome(
                     result.messages, 0, request.start, result.pages, False,
                     len(result.messages) - fetched, fetched,
