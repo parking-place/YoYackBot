@@ -1,6 +1,6 @@
 """KST calendar boundaries, frozen cutoffs, and stable message ordering."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -16,10 +16,10 @@ SETTINGS = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
 @pytest.mark.parametrize(
     ("accepted", "start"),
     [
-        (datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc), datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)),
-        (datetime(2026, 9, 30, 15, 0, 1, tzinfo=timezone.utc), datetime(2026, 9, 30, 15, 0, tzinfo=timezone.utc)),
-        (datetime(2026, 12, 31, 15, 30, tzinfo=timezone.utc), datetime(2026, 12, 31, 15, 0, tzinfo=timezone.utc)),
-        (datetime(2026, 12, 31, 14, 59, tzinfo=timezone.utc), datetime(2026, 12, 30, 15, 0, tzinfo=timezone.utc)),
+        (datetime(2026, 9, 28, 15, 0, tzinfo=UTC), datetime(2026, 9, 28, 15, 0, tzinfo=UTC)),
+        (datetime(2026, 9, 30, 15, 0, 1, tzinfo=UTC), datetime(2026, 9, 30, 15, 0, tzinfo=UTC)),
+        (datetime(2026, 12, 31, 15, 30, tzinfo=UTC), datetime(2026, 12, 31, 15, 0, tzinfo=UTC)),
+        (datetime(2026, 12, 31, 14, 59, tzinfo=UTC), datetime(2026, 12, 30, 15, 0, tzinfo=UTC)),
     ],
 )
 def test_today_uses_kst_date_even_at_midnight_month_and_year_edges(
@@ -42,7 +42,7 @@ def test_today_uses_kst_date_even_at_midnight_month_and_year_edges(
     ],
 )
 def test_duration_is_exact_and_not_limited_by_cache_retention(option: str, delta: timedelta) -> None:
-    accepted = datetime(2026, 9, 28, 20, 15, tzinfo=timezone.utc)
+    accepted = datetime(2026, 9, 28, 20, 15, tzinfo=UTC)
     request = resolve_range(option, SETTINGS, accepted)
     assert request.start == accepted - delta
     assert request.accepted_at == accepted
@@ -52,7 +52,7 @@ def test_default_duration_obeys_configured_minutes_and_limit() -> None:
     settings = Settings.from_environment(
         {"DISCORD_BOT_TOKEN": "test-token", "YOYACK_DEFAULT_MINUTES": "45"}
     )
-    accepted = datetime(2026, 9, 28, tzinfo=timezone.utc)
+    accepted = datetime(2026, 9, 28, tzinfo=UTC)
     assert resolve_range("", settings, accepted).start == accepted - timedelta(minutes=45)
     invalid = Settings.from_environment(
         {"DISCORD_BOT_TOKEN": "test-token", "YOYACK_DEFAULT_MINUTES": "1441"}
@@ -62,14 +62,14 @@ def test_default_duration_obeys_configured_minutes_and_limit() -> None:
 
 
 def test_count_has_no_start_and_cutoff_does_not_move() -> None:
-    accepted = datetime(2026, 9, 28, 12, tzinfo=timezone.utc)
+    accepted = datetime(2026, 9, 28, 12, tzinfo=UTC)
     request = resolve_range("100개", SETTINGS, accepted, trigger_message_id=500)
     assert request.kind is RequestKind.COUNT and request.count == 100 and request.start is None
     assert request.accepted_at == accepted and request.trigger_message_id == 500
 
 
 def test_half_open_time_window_excludes_command_and_ties_sort_by_id() -> None:
-    accepted = datetime(2026, 9, 28, 12, tzinfo=timezone.utc)
+    accepted = datetime(2026, 9, 28, 12, tzinfo=UTC)
     request = resolve_range("30분", SETTINGS, accepted, trigger_message_id=500)
 
     def record(message_id: int, when: datetime) -> MessageRecord:

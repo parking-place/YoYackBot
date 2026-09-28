@@ -1,6 +1,6 @@
 """Freeze a parsed command into an absolute request with a half-open end."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, RequestKind
@@ -17,7 +17,7 @@ def resolve_range(
     """Interpret and validate one command against the time it was accepted."""
     if accepted_at.tzinfo is None:
         raise ValueError("accepted_at must have a timezone")
-    end = accepted_at.astimezone(timezone.utc)
+    end = accepted_at.astimezone(UTC)
     option = parse_option(options)
     if not option.explicit:
         option = ParsedOption(OptionKind.MINUTES, settings.default_minutes, explicit=False)
@@ -29,7 +29,7 @@ def resolve_range(
     if option.kind is OptionKind.TODAY:
         local = end.astimezone(settings.timezone)
         start = local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(
-            timezone.utc
+            UTC
         )
     else:
         assert option.value is not None
