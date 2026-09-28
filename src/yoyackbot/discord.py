@@ -184,14 +184,14 @@ class YoYackClient(discord.Client):
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
         try:
-            if self.watch_store.remove_channel(channel.guild.id, channel.id):
+            if await asyncio.to_thread(self.watch_store.remove_channel, channel.guild.id, channel.id):
                 LOGGER.info("watched_channel_deleted")
         except Exception:
             LOGGER.exception("watched_channel_delete_cleanup_failed")
 
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         try:
-            self.watch_store.remove_guild(guild.id)
+            await asyncio.to_thread(self.watch_store.remove_guild, guild.id)
             LOGGER.info("watched_guild_removed")
         except Exception:
             LOGGER.exception("watched_guild_cleanup_failed")

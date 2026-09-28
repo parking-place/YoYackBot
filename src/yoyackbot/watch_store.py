@@ -85,7 +85,7 @@ class SQLiteWatchStore:
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.path, timeout=5)
+        connection = sqlite3.connect(self.path, timeout=1)
         try:
             connection.execute("PRAGMA foreign_keys=ON")
             yield connection

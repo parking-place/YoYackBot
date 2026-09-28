@@ -4,6 +4,7 @@ import sqlite3
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from enum import Enum
 from pathlib import Path
 
 from yoyackbot.coverage import missing_intervals
@@ -13,8 +14,36 @@ from yoyackbot.watch_store import SQLiteWatchStore
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
+class CacheFailureKind(Enum):
+    LOCKED = "locked"
+    READ_ONLY = "read_only"
+    FULL = "full"
+    CORRUPT = "corrupt"
+    OTHER = "other"
+
+
 class MessageStoreError(RuntimeError):
-    """Message or coverage data could not be stored safely."""
+    """Safe diagnostic category for cache fallback decisions."""
+
+    def __init__(self, message: str, *, kind: CacheFailureKind = CacheFailureKind.OTHER) -> None:
+        super().__init__(message)
+        self.kind = kind
+
+
+def _store_error(message: str, error: sqlite3.Error) -> MessageStoreError:
+    code = getattr(error, "sqlite_errorcode", None)
+    primary = code & 0xFF if isinstance(code, int) else None
+    if primary in {sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED}:
+        kind = CacheFailureKind.LOCKED
+    elif primary in {sqlite3.SQLITE_READONLY, sqlite3.SQLITE_PERM}:
+        kind = CacheFailureKind.READ_ONLY
+    elif primary == sqlite3.SQLITE_FULL:
+        kind = CacheFailureKind.FULL
+    elif primary in {sqlite3.SQLITE_CORRUPT, sqlite3.SQLITE_NOTADB}:
+        kind = CacheFailureKind.CORRUPT
+    else:
+        kind = CacheFailureKind.OTHER
+    return MessageStoreError(message, kind=kind)
 
 
 def _microseconds(value: datetime) -> int:
@@ -35,7 +64,7 @@ class SQLiteMessageStore:
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.path, timeout=5)
+        connection = sqlite3.connect(self.path, timeout=1)
         try:
             yield connection
         finally:
@@ -76,7 +105,7 @@ class SQLiteMessageStore:
                 connection.execute("BEGIN IMMEDIATE")
                 self._upsert(connection, record, cached_at)
         except sqlite3.Error as exc:
-            raise MessageStoreError("Message write failed") from exc
+            raise _store_error("Message write failed", exc) from exc
 
     def upsert_if_watched(
         self, record: MessageRecord, *, expected_version: int, cached_at: datetime
@@ -99,7 +128,7 @@ class SQLiteMessageStore:
                 self._upsert(connection, record, cached_at)
                 return True
         except sqlite3.Error as exc:
-            raise MessageStoreError("Watched message write failed") from exc
+            raise _store_error("Watched message write failed", exc) from exc
 
     def update_content(
         self,
@@ -129,7 +158,7 @@ class SQLiteMessageStore:
                 )
                 return cursor.rowcount == 1
         except sqlite3.Error as exc:
-            raise MessageStoreError("Message edit failed") from exc
+            raise _store_error("Message edit failed", exc) from exc
 
     def delete_many(self, guild_id: int, channel_id: int, message_ids: set[int]) -> int:
         """Delete scoped IDs in bounded batches without needing message bodies."""
@@ -152,7 +181,7 @@ class SQLiteMessageStore:
                     )
                     deleted += cursor.rowcount
         except sqlite3.Error as exc:
-            raise MessageStoreError("Message deletion failed") from exc
+            raise _store_error("Message deletion failed", exc) from exc
         return deleted
 
     def prune_before(self, cutoff: datetime) -> int:
@@ -178,7 +207,7 @@ class SQLiteMessageStore:
                 )
                 return deleted
         except sqlite3.Error as exc:
-            raise MessageStoreError("Cache cleanup failed") from exc
+            raise _store_error("Cache cleanup failed", exc) from exc
 
     def recent(
         self, guild_id: int, channel_id: int, start: datetime, end: datetime
@@ -196,7 +225,7 @@ class SQLiteMessageStore:
                     (guild_id, channel_id, start_us, end_us),
                 ).fetchall()
         except sqlite3.Error as exc:
-            raise MessageStoreError("Message read failed") from exc
+            raise _store_error("Message read failed", exc) from exc
         return [
             MessageRecord(
                 message_id=row[0],
@@ -235,7 +264,7 @@ class SQLiteMessageStore:
                     ),
                 )
         except sqlite3.Error as exc:
-            raise MessageStoreError("Coverage write failed") from exc
+            raise _store_error("Coverage write failed", exc) from exc
 
     def coverage(self, guild_id: int, channel_id: int) -> Sequence[CoverageInterval]:
         try:
@@ -246,7 +275,7 @@ class SQLiteMessageStore:
                     (guild_id, channel_id),
                 ).fetchall()
         except sqlite3.Error as exc:
-            raise MessageStoreError("Coverage read failed") from exc
+            raise _store_error("Coverage read failed", exc) from exc
         return [CoverageInterval(channel_id, _datetime(start), _datetime(end)) for start, end in rows]
 
     def recheck(self, guild_id: int, channel_id: int) -> Sequence[CoverageInterval]:
@@ -258,7 +287,7 @@ class SQLiteMessageStore:
                     (guild_id, channel_id),
                 ).fetchall()
         except sqlite3.Error as exc:
-            raise MessageStoreError("Recheck read failed") from exc
+            raise _store_error("Recheck read failed", exc) from exc
         return [CoverageInterval(channel_id, _datetime(start), _datetime(end)) for start, end in rows]
 
     def missing(self, guild_id: int, request: CoverageInterval) -> list[CoverageInterval]:
@@ -290,7 +319,7 @@ class SQLiteMessageStore:
                 )
                 return len(channels)
         except sqlite3.Error as exc:
-            raise MessageStoreError("Recheck write failed") from exc
+            raise _store_error("Recheck write failed", exc) from exc
 
     def commit_history_complete(
         self,
@@ -369,4 +398,4 @@ class SQLiteMessageStore:
                             )
                 return True
         except sqlite3.Error as exc:
-            raise MessageStoreError("History completion failed") from exc
+            raise _store_error("History completion failed", exc) from exc
