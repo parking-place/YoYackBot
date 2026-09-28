@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 import discord
 
+from yoyackbot import workflow as workflow_module
 from yoyackbot.codex import CodexFailure
 from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.collection import CollectionOutcome
@@ -213,7 +214,6 @@ async def main() -> int:
     args.report_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
     os.chmod(args.report_dir, 0o700)
     logging.getLogger("yoyackbot.metrics").disabled = True
-    import yoyackbot.workflow as workflow_module  # noqa: PLC0415
     workflow_module.valid_channel = lambda _guild, _id: True
     assert command("git", "-C", str(REPO), "rev-parse", "HEAD") == args.expected_sha
     db_initial = args.db.stat().st_size
@@ -241,8 +241,10 @@ async def main() -> int:
                 failures.append("sha_changed")
                 break
             if not args.test_mode and not restarted and elapsed >= 14400:
-                subprocess.run(["systemctl", "restart", SERVICE], check=True,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                await asyncio.to_thread(
+                    subprocess.run, ["systemctl", "restart", SERVICE], check=True,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
                 restarted = True
             if not args.test_mode:
                 for index, mark in enumerate(probe_marks):
