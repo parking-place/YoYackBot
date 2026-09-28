@@ -17,7 +17,19 @@ INVALID = "봇이 접근할 수 있는 서버의 텍스트 채널만 고르시�
 class WatchStore(Protocol):
     def get(self, guild_id: int) -> frozenset[int]: ...
 
-    def replace(self, guild_id: int, channel_ids: frozenset[int]) -> None: ...
+    def version(self, guild_id: int) -> int: ...
+
+    def replace(
+        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None
+    ) -> int: ...
+
+    def remove_channel(self, guild_id: int, channel_id: int) -> bool: ...
+
+    def remove_guild(self, guild_id: int) -> None: ...
+
+
+class ConcurrentUpdate(RuntimeError):
+    """The watched-channel list changed while a selection was open."""
 
 
 class MemoryWatchStore:
@@ -25,12 +37,35 @@ class MemoryWatchStore:
 
     def __init__(self) -> None:
         self._channels: dict[int, frozenset[int]] = {}
+        self._versions: dict[int, int] = {}
 
     def get(self, guild_id: int) -> frozenset[int]:
         return self._channels.get(guild_id, frozenset())
 
-    def replace(self, guild_id: int, channel_ids: frozenset[int]) -> None:
+    def version(self, guild_id: int) -> int:
+        return self._versions.get(guild_id, 0)
+
+    def replace(
+        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None
+    ) -> int:
+        if expected_version is not None and expected_version != self.version(guild_id):
+            raise ConcurrentUpdate
+        if self.get(guild_id) == channel_ids:
+            return self.version(guild_id)
         self._channels[guild_id] = channel_ids
+        self._versions[guild_id] = self.version(guild_id) + 1
+        return self.version(guild_id)
+
+    def remove_channel(self, guild_id: int, channel_id: int) -> bool:
+        current = self.get(guild_id)
+        if channel_id not in current:
+            return False
+        self.replace(guild_id, current - {channel_id})
+        return True
+
+    def remove_guild(self, guild_id: int) -> None:
+        self._channels.pop(guild_id, None)
+        self._versions.pop(guild_id, None)
 
 
 def can_manage(member: discord.Member | discord.User) -> bool:
@@ -127,11 +162,13 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
         if guild is None or not valid_selection(guild, view.draft):
             await reject(interaction, INVALID)
             return
-        if view.store.get(view.guild_id) != view.original:
+        try:
+            view.store.replace(
+                view.guild_id, frozenset(view.draft), expected_version=view.original_version
+            )
+        except ConcurrentUpdate:
             await reject(interaction, "다른 관리자가 설정을 바꾸었소. 명령을 다시 열어 확인하시오.")
             return
-        try:
-            view.store.replace(view.guild_id, frozenset(view.draft))
         except Exception:
             LOGGER.exception("watched_channel_save_failed")
             await reject(interaction, "설정을 저장하지 못했소. 잠시 후 다시 시도하시오.")
@@ -164,7 +201,7 @@ class ChannelSettingsView(discord.ui.View):
         self.guild_id = guild_id
         self.owner_id = owner_id
         self.draft = set(store.get(guild_id))
-        self.original = frozenset(self.draft)
+        self.original_version = store.version(guild_id)
         self.message: discord.Message | None = None
         self.add_item(AddChannels())
         self.add_item(RemoveChannels())

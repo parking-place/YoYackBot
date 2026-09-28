@@ -9,6 +9,7 @@ import discord
 from yoyackbot import __version__
 from yoyackbot.config import ConfigurationError, Settings
 from yoyackbot.discord import run_gateway
+from yoyackbot.watch_store import WatchStoreError
 
 
 def main() -> int:
@@ -52,6 +53,9 @@ def main() -> int:
         return 2
     except (OSError, TimeoutError, discord.DiscordException):
         print("Gateway connection failed")
+        return 2
+    except WatchStoreError:
+        print("Watched-channel settings database is unavailable")
         return 2
     except KeyboardInterrupt:
         return 0
