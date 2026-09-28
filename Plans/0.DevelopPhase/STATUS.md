@@ -44,7 +44,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | DONE | `175c4131aef2de9ad46ebb1f9e2cc774c0e34bf7` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3ec5875b55546f8a0a4ad37f03d0ffc538b74ca1) | OpenJevLXC Python 3.13.5, 개발 Discord 주시 채널 실제 History 검증; 세부 결과는 증거 파일 |
 | 0.4.0-P2 | [시간 범위 차집합 조회·완료 확정](0.4.0/02-cache-gaps.md) | DONE | `8a28f56ba69dab7509fd8acdbbe1810a572f0260` | [evidence E](https://github.com/parking-place/YoYackBot/commit/4f0315554f3724ca062629adb5e9f5deafa8e95d) | OpenJevLXC Python 3.13.5, 격리 SQLite 및 합성 History 검증; 세부 결과는 증거 파일 |
 | 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | DONE | `795a0e2384fde2c73b864f79d1cb0448f59f96cb` | [evidence E](https://github.com/parking-place/YoYackBot/commit/2a4ba995c107d05e4967c6424fc0aef5a8d85dd7) | OpenJevLXC Python 3.13.5, 격리 SQLite·합성 History 검증; 세부 결과는 증거 파일 |
-| 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | IN_PROGRESS | — | — | 개수형 수집·연속성 검증 구현 중 |
+| 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | PUSH_PENDING | `32d12ecdca2f3aa788f01cf9032caa283c77eece` | — | 검증 통과, 원격 확인 대기 |
 | 0.4.0-P5 | [캐시 fallback·빈 대화·수집 통합 게이트](0.4.0/05-collection-acceptance.md) | PLANNED | — | — | 미착수 |
 | 0.5.0-P1 | [CLI·인증·GPT-6 Luna Light 확인](0.5.0/01-cli-model-contract.md) | PLANNED | — | — | 미착수 |
 | 0.5.0-P2 | [요청 입력 파일·표시명 정규화](0.5.0/02-input-files.md) | PLANNED | — | — | 미착수 |
