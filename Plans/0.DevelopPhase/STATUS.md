@@ -42,7 +42,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.3.0-P4 | [완료 구간·빈 구간·연결 공백](0.3.0/04-coverage.md) | DONE | `26baaaa2b1110c6ebb9de7b4633f92023820f472` | [evidence E](https://github.com/parking-place/YoYackBot/commit/1e37657de74f580c71732a15edbb0625c23e53fc) | OpenJevLXC Python 3.13.5 합성 coverage + 실제 설정·캐시 DB 격리 복사본 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P5 | [캐시 동시성·장애·버전 검증](0.3.0/05-cache-acceptance.md) | DONE | `25a702434b84a42e33774ed405dc1888be941c75` | [evidence E](https://github.com/parking-place/YoYackBot/commit/a640cb2cb2248ca2f6e1aab705415a7148315b79) | OpenJevLXC Python 3.13.5 격리 장애·동시성 DB + 실제 개발 DB migration·Gateway 검증; 세부 결과는 증거 파일 |
 | 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | DONE | `175c4131aef2de9ad46ebb1f9e2cc774c0e34bf7` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3ec5875b55546f8a0a4ad37f03d0ffc538b74ca1) | OpenJevLXC Python 3.13.5, 개발 Discord 주시 채널 실제 History 검증; 세부 결과는 증거 파일 |
-| 0.4.0-P2 | [시간 범위 차집합 조회·완료 확정](0.4.0/02-cache-gaps.md) | PLANNED | — | — | 미착수 |
+| 0.4.0-P2 | [시간 범위 차집합 조회·완료 확정](0.4.0/02-cache-gaps.md) | IN_PROGRESS | — | — | gap 수집·완료 확정 구현 중 |
 | 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | PLANNED | — | — | 미착수 |
 | 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | PLANNED | — | — | 미착수 |
 | 0.4.0-P5 | [캐시 fallback·빈 대화·수집 통합 게이트](0.4.0/05-collection-acceptance.md) | PLANNED | — | — | 미착수 |
