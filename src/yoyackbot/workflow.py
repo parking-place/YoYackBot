@@ -11,6 +11,7 @@ from yoyackbot.channel_config import valid_channel
 from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.collection import EMPTY_NOTICE, CollectionCoordinator
 from yoyackbot.config import Settings
+from yoyackbot.cooldown import SQLiteCooldownStore, cooldown_notice
 from yoyackbot.count_collection import CountCollector
 from yoyackbot.domain import SummaryRequest
 from yoyackbot.history import HistoryAdapter
@@ -18,7 +19,7 @@ from yoyackbot.long_range import LongRangeCollector
 from yoyackbot.message_store import SQLiteMessageStore
 from yoyackbot.publisher import DiscordSummaryPublisher
 from yoyackbot.range_collection import TimeRangeCollector
-from yoyackbot.state import ChannelStates
+from yoyackbot.state import AdmissionKind, ChannelStates
 from yoyackbot.watch_gate import ChannelLease
 from yoyackbot.watch_store import SQLiteWatchStore
 
@@ -48,9 +49,14 @@ class SummaryWorkflow:
         ):
             await send_notice(FAILED_NOTICE)
             return
-        if not await self.states.begin(guild_id, channel_id):
+        admission = await self.states.admit(guild_id, channel_id)
+        if admission.kind is AdmissionKind.BUSY:
             await send_notice(BUSY_NOTICE)
             return
+        if admission.kind is AdmissionKind.COOLDOWN:
+            await send_notice(cooldown_notice(admission.remaining_seconds))
+            return
+        completed = False
         try:
             outcome = await self.collector.collect(
                 channel, guild_id=guild_id, channel_id=channel_id,
@@ -69,12 +75,15 @@ class SummaryWorkflow:
             if not await asyncio.to_thread(lease.valid):
                 await send_notice(FAILED_NOTICE)
                 return
-            await self.publisher.publish(request, result, outcome.messages)
+            receipt = await self.publisher.publish(request, result, outcome.messages)
+            await self.states.finish_success(guild_id, channel_id, receipt.last_success_at)
+            completed = True
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("summary_job_failed type=%s", type(exc).__name__)
             await send_notice(FAILED_NOTICE)
         finally:
-            await self.states.finish(guild_id, channel_id)
+            if not completed:
+                await self.states.finish(guild_id, channel_id)
 
 
 def build_workflow(
@@ -97,4 +106,7 @@ def build_workflow(
     return SummaryWorkflow(
         collector, CodexSummaryEngine.from_settings(settings),
         DiscordSummaryPublisher(client, watches, settings),
+        ChannelStates(SQLiteCooldownStore(
+            settings.database_path, duration_seconds=settings.success_cooldown_seconds
+        )),
     )
