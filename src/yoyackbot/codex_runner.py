@@ -1,11 +1,14 @@
 """Run one Codex summary with only its input and final-output directory mounted."""
 
 import asyncio
+import json
 import os
 import pwd
 import re
+import shutil
 import signal
 import stat
+import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -118,6 +121,7 @@ class SandboxedCodex:
         if (
             workspace.log_file.parent != workspace.directory
             or not workspace.directory.is_absolute()
+            or workspace.output_directory.parent != workspace.directory
         ):
             raise CodexRunError(CodexFailure.PROCESS)
         try:
@@ -125,6 +129,7 @@ class SandboxedCodex:
             auth_directory = self.auth_file.parent.lstat()
             source = workspace.log_file.lstat()
             directory = workspace.directory.lstat()
+            output_directory = workspace.output_directory.lstat()
         except OSError as exc:
             raise CodexRunError(CodexFailure.PROCESS) from exc
         if (
@@ -141,6 +146,9 @@ class SandboxedCodex:
             or not stat.S_ISDIR(directory.st_mode)
             or directory.st_uid != os.geteuid()
             or directory.st_mode & 0o077
+            or not stat.S_ISDIR(output_directory.st_mode)
+            or output_directory.st_uid != os.geteuid()
+            or output_directory.st_mode & 0o077
         ):
             raise CodexRunError(CodexFailure.PROCESS)
         cli = replace(self.contract, executable="/bin/codex").arguments(
@@ -167,7 +175,7 @@ class SandboxedCodex:
             "--ro-bind", "/etc/hosts", "/etc/hosts",
             "--bind", str(self.auth_file.parent), "/auth",
             "--ro-bind", str(workspace.log_file), "/work/conversation.jsonl",
-            "--bind", str(workspace.directory), "/output",
+            "--bind", str(workspace.output_directory), "/output",
             "--clearenv", "--setenv", "HOME", "/empty",
             "--setenv", "CODEX_HOME", "/auth", "--setenv", "PATH", "/bin",
             "--setenv", "TMPDIR", "/tmp", "--setenv", "LANG", "C.UTF-8",
@@ -176,13 +184,20 @@ class SandboxedCodex:
 
     async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
         """Return the final model message and delete this request's files on every exit."""
+        temporary_auth: Path | None = None
         try:
             encoded = prompt.encode("utf-8")
             if not encoded or len(encoded) > self.max_prompt_bytes:
                 raise CodexRunError(CodexFailure.INPUT_LIMIT)
             if self.timeout_seconds <= 0 or self.max_output_bytes < 1:
                 raise ValueError("Codex limits must be positive")
-            command = self.command(workspace)
+            self.command(workspace)
+            temporary_auth = workspace.directory / "auth"
+            temporary_auth.mkdir(mode=0o700)
+            copied_auth = temporary_auth / "auth.json"
+            shutil.copyfile(self.auth_file, copied_auth)
+            copied_auth.chmod(0o600)
+            command = replace(self, auth_file=copied_auth).command(workspace)
             account = pwd.getpwuid(os.geteuid())
             env = {"PATH": "/usr/bin:/bin", "HOME": account.pw_dir, "LANG": "C.UTF-8"}
             try:
@@ -194,7 +209,7 @@ class SandboxedCodex:
             if exit_code != 0:
                 kind = classify_cli_failure(exit_code, stderr.decode("utf-8", "replace"))
                 raise CodexRunError(kind or CodexFailure.PROCESS)
-            output = workspace.directory / "final.txt"
+            output = workspace.output_directory / "final.txt"
             try:
                 fd = os.open(output, os.O_RDONLY | os.O_NOFOLLOW)
                 with os.fdopen(fd, "rb") as stream:
@@ -210,4 +225,31 @@ class SandboxedCodex:
             except OSError as exc:
                 raise CodexRunError(CodexFailure.PROCESS) from exc
         finally:
+            if temporary_auth is not None:
+                self._persist_refreshed_auth(temporary_auth / "auth.json")
             workspace.close()
+
+    def _persist_refreshed_auth(self, candidate: Path) -> None:
+        """Only a valid updated auth.json escapes the disposable request directory."""
+        try:
+            info = candidate.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
+                return
+            updated = candidate.read_bytes()
+            if updated == self.auth_file.read_bytes():
+                return
+            if not isinstance(json.loads(updated), dict):
+                return
+            fd, name = tempfile.mkstemp(prefix=".auth-update-", dir=self.auth_file.parent)
+            try:
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(updated)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.chmod(name, 0o600)
+                os.replace(name, self.auth_file)
+            finally:
+                if os.path.exists(name):
+                    os.unlink(name)
+        except (OSError, ValueError, UnicodeDecodeError):
+            return

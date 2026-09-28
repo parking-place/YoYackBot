@@ -29,8 +29,9 @@ def test_mounts_only_request_input_output_and_auth(tmp_path: Path) -> None:
         assert ["--ro-bind", str(workspace.log_file), "/work/conversation.jsonl"] == args[
             args.index(str(workspace.log_file)) - 1:args.index(str(workspace.log_file)) + 2
         ]
-        assert ["--bind", str(workspace.directory), "/output"] == args[
-            args.index(str(workspace.directory)) - 1:args.index(str(workspace.directory)) + 2
+        assert ["--bind", str(workspace.output_directory), "/output"] == args[
+            args.index(str(workspace.output_directory)) - 1:
+            args.index(str(workspace.output_directory)) + 2
         ]
         assert "--tmpfs" in args and "--unshare-all" in args
         assert "--ephemeral" in args and "--ignore-user-config" in args
@@ -75,7 +76,7 @@ def test_only_final_file_is_returned_and_discord_environment_is_removed(
 
     monkeypatch.setattr("yoyackbot.codex_runner._invoke", fake_invoke)
     with InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace:
-        (workspace.directory / "final.txt").write_bytes(b"\x1b[31mFinal only\x1b[0m\n")
+        (workspace.output_directory / "final.txt").write_bytes(b"\x1b[31mFinal only\x1b[0m\n")
         result = asyncio.run(isolated.execute(workspace, "private conversation prompt"))
         assert result == "Final only"
         assert received["prompt"] == b"private conversation prompt"
@@ -109,3 +110,31 @@ def test_empty_or_non_utf8_final_is_rejected() -> None:
         final_text(b"\x1b[31m\x1b[0m")
     with pytest.raises(CodexRunError):
         final_text(b"\xff")
+
+
+def test_auth_refresh_persists_without_cli_state_residue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    isolated = runner(tmp_path)
+    isolated.auth_file.write_text('{"access_token":"synthetic-before"}')
+    seen: dict[str, Path] = {}
+
+    async def fake_invoke(
+        command: list[str], _prompt: bytes, _env: dict[str, str],
+        _timeout: float, _limit: int,
+    ) -> tuple[int, bytes, bytes]:
+        bound = next(Path(command[index + 1]) for index, token in enumerate(command[:-2])
+                     if token == "--bind" and command[index + 2] == "/auth")
+        seen["temporary_auth"] = bound
+        (bound / "auth.json").write_text('{"access_token":"synthetic-after"}')
+        (bound / "session-state").write_text("temporary-only")
+        (workspace.output_directory / "final.txt").write_text("완료하였소.")
+        return 0, b"", b""
+
+    monkeypatch.setattr("yoyackbot.codex_runner._invoke", fake_invoke)
+    with InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace:
+        directory = workspace.directory
+        assert asyncio.run(isolated.execute(workspace, "synthetic prompt")) == "완료하였소."
+    assert isolated.auth_file.read_text() == '{"access_token":"synthetic-after"}'
+    assert not directory.exists() and not seen["temporary_auth"].exists()
+    assert {path.name for path in isolated.auth_file.parent.iterdir()} == {"auth.json"}

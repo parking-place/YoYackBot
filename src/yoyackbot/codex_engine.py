@@ -1,7 +1,8 @@
 """Summarize request-scoped message records through the pinned Codex CLI."""
 
+import asyncio
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Self
 
 from yoyackbot.codex import CodexContract, CodexContractError
@@ -22,6 +23,7 @@ SMOKE_PROMPT = (
 class CodexSummaryEngine:
     settings: Settings
     runner: SandboxedCodex
+    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False, compare=False)
 
     @classmethod
     def from_settings(cls, settings: Settings) -> Self:
@@ -48,6 +50,7 @@ class CodexSummaryEngine:
             trigger_message_id=trigger_message_id, max_bytes=self.settings.max_input_bytes,
         )
         root = self.settings.input_directory.absolute()
-        workspace = InputWorkspace.create(root, data)
-        result = await self.runner.execute(workspace, SMOKE_PROMPT)
+        async with self._lock:
+            workspace = InputWorkspace.create(root, data)
+            result = await self.runner.execute(workspace, SMOKE_PROMPT)
         return SummaryResult(result, self.runner.contract.model, len(included))

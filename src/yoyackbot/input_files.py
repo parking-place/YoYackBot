@@ -91,16 +91,19 @@ def _private_root(root: Path) -> None:
 class InputWorkspace:
     directory: Path
     log_file: Path
+    output_directory: Path
 
     @classmethod
     def create(cls, root: Path, data: bytes) -> "InputWorkspace":
         _private_root(root)
         try:
             directory = Path(tempfile.mkdtemp(prefix="request-", dir=root))
+            output_directory = directory / "output"
+            output_directory.mkdir(mode=0o700)
             fd, name = tempfile.mkstemp(prefix="conversation-", suffix=".jsonl", dir=directory)
             with os.fdopen(fd, "wb") as output:
                 output.write(data)
-            return cls(directory, Path(name))
+            return cls(directory, Path(name), output_directory)
         except BaseException as exc:
             if "directory" in locals():
                 shutil.rmtree(directory)

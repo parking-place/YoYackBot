@@ -108,7 +108,7 @@ def test_rejects_large_prompt_final_and_symlink_then_cleans(
     monkeypatch.setattr("yoyackbot.codex_runner._invoke", success)
     with InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace:
         path = workspace.directory
-        (path / "final.txt").write_bytes(b"x" * 201)
+        (workspace.output_directory / "final.txt").write_bytes(b"x" * 201)
         with pytest.raises(CodexRunError) as raised:
             asyncio.run(isolated.execute(workspace, "small"))
         assert raised.value.kind is CodexFailure.OUTPUT_LIMIT
@@ -118,7 +118,7 @@ def test_rejects_large_prompt_final_and_symlink_then_cleans(
     canary.write_text("synthetic canary")
     with InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace:
         path = workspace.directory
-        (path / "final.txt").symlink_to(canary)
+        (workspace.output_directory / "final.txt").symlink_to(canary)
         with pytest.raises(CodexRunError) as raised:
             asyncio.run(isolated.execute(workspace, "small"))
         assert raised.value.kind is CodexFailure.PROCESS
