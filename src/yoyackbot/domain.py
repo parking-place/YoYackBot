@@ -1,0 +1,89 @@
+"""Contracts shared by Discord, storage, model, and delivery layers."""
+
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Protocol, Sequence
+
+
+class RequestKind(Enum):
+    TIME = "time"
+    COUNT = "count"
+
+
+@dataclass(frozen=True)
+class MessageRecord:
+    message_id: int
+    guild_id: int
+    channel_id: int
+    author_id: int
+    author_name: str
+    content: str
+    created_at: datetime
+    edited_at: datetime | None = None
+    cached_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if self.created_at.tzinfo is None:
+            raise ValueError("created_at must have a timezone")
+        if self.edited_at is not None and self.edited_at.tzinfo is None:
+            raise ValueError("edited_at must have a timezone")
+
+
+@dataclass(frozen=True)
+class CoverageInterval:
+    channel_id: int
+    start: datetime
+    end: datetime
+
+    def __post_init__(self) -> None:
+        if self.start.tzinfo is None or self.end.tzinfo is None or self.start >= self.end:
+            raise ValueError("coverage must be a nonempty aware time interval")
+
+
+@dataclass(frozen=True)
+class RangeRequest:
+    kind: RequestKind
+    accepted_at: datetime
+    start: datetime | None = None
+    count: int | None = None
+    trigger_message_id: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.accepted_at.tzinfo is None:
+            raise ValueError("accepted_at must have a timezone")
+        if self.kind is RequestKind.TIME:
+            if self.start is None or self.start.tzinfo is None or self.start >= self.accepted_at:
+                raise ValueError("time requests need an aware start before accepted_at")
+            if self.count is not None:
+                raise ValueError("time requests cannot include count")
+        elif self.kind is RequestKind.COUNT:
+            if self.start is not None or self.count is None or self.count < 1:
+                raise ValueError("count requests need a positive count and no start")
+
+
+@dataclass(frozen=True)
+class SummaryRequest:
+    guild_id: int
+    channel_id: int
+    user_id: int
+    requested_range: RangeRequest
+
+
+@dataclass(frozen=True)
+class SummaryResult:
+    text: str
+    model: str
+    request_message_count: int
+
+
+class MessageStore(Protocol):
+    def recent(self, channel_id: int, start: datetime, end: datetime) -> Sequence[MessageRecord]: ...
+
+
+class SummaryEngine(Protocol):
+    async def summarize(self, messages: Sequence[MessageRecord]) -> SummaryResult: ...
+
+
+class SummaryPublisher(Protocol):
+    async def publish(self, request: SummaryRequest, result: SummaryResult) -> datetime: ...
