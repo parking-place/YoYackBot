@@ -51,8 +51,9 @@ def required_intents() -> discord.Intents:
 
 
 class YoYackClient(discord.Client):
-    def __init__(self) -> None:
+    def __init__(self, *, observe_channel_id: int | None = None) -> None:
         super().__init__(intents=required_intents(), member_cache_flags=discord.MemberCacheFlags.none())
+        self.observe_channel_id = observe_channel_id
         self.ready_event = asyncio.Event()
         self.accepted_events = 0
         self.nonempty_content_events = 0
@@ -75,12 +76,19 @@ class YoYackClient(discord.Client):
         self.accepted_events += 1
         if message.content:
             self.nonempty_content_events += 1
+        if self.observe_channel_id is not None and message.channel.id == self.observe_channel_id:
+            LOGGER.info("gateway_test_human_event has_content=%s", bool(message.content))
         # Watched-channel persistence is added in 0.3.0.
 
 
-async def run_gateway(settings: Settings, *, smoke_seconds: float | None = None) -> None:
+async def run_gateway(
+    settings: Settings,
+    *,
+    smoke_seconds: float | None = None,
+    observe_channel_id: int | None = None,
+) -> None:
     """Run the gateway; smoke mode closes after a bounded connection check."""
-    client = YoYackClient()
+    client = YoYackClient(observe_channel_id=observe_channel_id)
     async with client:
         if smoke_seconds is None:
             await client.start(settings.discord_bot_token)
