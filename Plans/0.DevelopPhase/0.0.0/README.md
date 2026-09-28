@@ -1,6 +1,6 @@
 # 0.0.0 — 요구사항과 개발 기반
 
-- 상태: **PLANNED**
+- 상태: **DONE**
 - 단계 수: **5단계**
 
 ## 목표
@@ -20,6 +20,8 @@
 | 3 | [0.0.0-P3 — LXC·Discord·Codex 선행 조건 확인](03-environment-preflight.md) | `T000-P3-A/B` | DONE |
 | 4 | [0.0.0-P4 — 설정·인터페이스·오류 계약 정의](04-interfaces-config.md) | `T000-P4-A/B` | DONE |
 | 5 | [0.0.0-P5 — 검증 실행 기반·초기 버전 게이트](05-verification-baseline.md) | `T000-P5-A/B` | DONE |
+
+기본 브랜치 통합: [PR #1](https://github.com/parking-place/YoYackBot/pull/1), merge SHA `577bb0f654e436b44f48a68a98608714a2cf6c22`. 구현 골격과 문서/CI 기준을 검증했으며 실제 Discord Gateway와 모델 요약은 후속 버전 검사다.
 
 ## 버전 완료 조건
 

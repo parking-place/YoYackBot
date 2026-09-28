@@ -79,7 +79,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 
 ## 버전/배포 기록
 
-아직 구현 버전 통합, 제품 태그, 실제 배포, 제품 실행 검증 기록이 없다. 계획 게시 이력은 GitHub의 문서 commit으로 확인한다.
+0.0.0 개발 기준선을 [PR #1](https://github.com/parking-place/YoYackBot/pull/1)로 `main`에 통합했다(merge `577bb0f654e436b44f48a68a98608714a2cf6c22`). 실제 Discord Gateway·모델 요약·제품 태그·운영 배포는 아직 완료하지 않았다.
 
 ## 실행 증거
 
