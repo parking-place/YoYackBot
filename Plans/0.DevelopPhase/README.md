@@ -21,7 +21,7 @@
 | 버전 | 목표 | 단계 수 | 상태 |
 |---|---|---:|---|
 | [0.0.0](0.0.0/README.md) | 요구사항과 개발 기반 | 5 | DONE |
-| [0.1.0](0.1.0/README.md) | Discord 연결과 주시 채널 설정 | 5 | PLANNED |
+| [0.1.0](0.1.0/README.md) | Discord 연결과 주시 채널 설정 | 5 | DONE |
 | [0.2.0](0.2.0/README.md) | 명령 해석과 요청 범위 | 5 | PLANNED |
 | [0.3.0](0.3.0/README.md) | SQLite 메시지 캐시 | 5 | PLANNED |
 | [0.4.0](0.4.0/README.md) | Discord History와 캐시 보충 | 5 | PLANNED |
