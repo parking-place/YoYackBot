@@ -10,8 +10,8 @@ import discord
 from yoyackbot import __version__
 from yoyackbot.config import ConfigurationError, Settings
 from yoyackbot.discord import run_gateway
-from yoyackbot.input_files import GatewayAlreadyRunning, InputFileError
 from yoyackbot.health import read_heartbeat
+from yoyackbot.input_files import GatewayAlreadyRunning, InputFileError
 from yoyackbot.readiness import ReadinessError, ReadinessKind, check_ready
 from yoyackbot.watch_store import WatchStoreError
 

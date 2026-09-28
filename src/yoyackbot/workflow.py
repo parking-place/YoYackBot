@@ -224,7 +224,7 @@ class SummaryWorkflow:
             metrics.error_kind = "queue"
             metrics.model_result = "not_started"
             await send_notice(QUEUE_CLOSED_NOTICE)
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             metrics.outcome = "unexpected"
             metrics.error_kind = "unexpected"
             LOGGER.warning("summary_job_failed")
