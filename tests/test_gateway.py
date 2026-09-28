@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -9,7 +10,11 @@ import discord
 import pytest
 
 from yoyackbot.channel_config import MemoryWatchStore
+from yoyackbot.config import Settings
 from yoyackbot.discord import MessageClass, YoYackClient, classify_message, required_intents
+from yoyackbot.domain import MessageRecord
+from yoyackbot.message_store import SQLiteMessageStore
+from yoyackbot.watch_store import SQLiteWatchStore
 
 
 def sample_message(**changes: object) -> SimpleNamespace:
@@ -103,6 +108,122 @@ def test_development_commands_sync_to_each_guild_once() -> None:
             await client.on_guild_join(SimpleNamespace(id=2))
             assert tree.sync.await_count == 2
             assert {call.kwargs["guild"].id for call in tree.sync.await_args_list} == {1, 2}
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
+
+
+def test_live_ingress_filters_and_upserts_only_watched_human_messages(tmp_path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "messages.db"
+        watched = SQLiteWatchStore(path)
+        watched.replace(1, frozenset({99}))
+        watched.replace(2, frozenset({99}))
+        messages = SQLiteMessageStore(path)
+        now = datetime(2026, 9, 28, 12, tzinfo=UTC)
+        client = YoYackClient(watch_store=watched, message_store=messages, clock=lambda: now)
+        author = SimpleNamespace(id=3, bot=False, display_name="synthetic author")
+
+        def event(message_id: int, **changes: object) -> SimpleNamespace:
+            attrs = {"id": message_id, "author": author, "created_at": now, "edited_at": None}
+            return sample_message(**(attrs | changes))
+
+        try:
+            await client.on_message(event(101))
+            await client.on_message(event(101))
+            await client.on_message(event(102, guild=SimpleNamespace(id=2)))
+            await client.on_message(event(103, author=SimpleNamespace(id=4, bot=True)))
+            await client.on_message(event(104, webhook_id=1))
+            await client.on_message(event(105, type=discord.MessageType.pins_add))
+            await client.on_message(
+                event(106, channel=SimpleNamespace(type=discord.ChannelType.text, id=100))
+            )
+            assert [item.message_id for item in messages.recent(1, 99, now, now + timedelta(seconds=1))] == [101]
+            assert [item.message_id for item in messages.recent(2, 99, now, now + timedelta(seconds=1))] == [102]
+            assert messages.recent(1, 100, now, now + timedelta(seconds=1)) == []
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
+
+
+def test_cached_and_raw_edits_and_deletes_keep_message_store_current(tmp_path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "messages.db"
+        watched = SQLiteWatchStore(path)
+        watched.replace(1, frozenset({99}))
+        messages = SQLiteMessageStore(path)
+        now = datetime(2026, 9, 28, 12, tzinfo=UTC)
+        client = YoYackClient(watch_store=watched, message_store=messages, clock=lambda: now)
+        original = sample_message(
+            id=101,
+            author=SimpleNamespace(id=3, bot=False, display_name="synthetic author"),
+            created_at=now,
+            edited_at=None,
+        )
+        try:
+            await client.on_message(original)
+            edited = sample_message(
+                id=101,
+                author=original.author,
+                created_at=now,
+                edited_at=now + timedelta(seconds=1),
+                content="edited synthetic content",
+            )
+            await client.on_message_edit(original, edited)
+            await client.on_raw_message_edit(
+                SimpleNamespace(
+                    guild_id=1, channel_id=99, message_id=101,
+                    data={"content": "raw edit", "edited_timestamp": "2026-09-28T12:00:02Z"},
+                )
+            )
+            await client.on_raw_message_edit(
+                SimpleNamespace(guild_id=1, channel_id=99, message_id=101, data={"flags": 0})
+            )
+            result = messages.recent(1, 99, now, now + timedelta(seconds=1))
+            assert len(result) == 1 and result[0].content == "raw edit"
+            assert result[0].edited_at == now + timedelta(seconds=2)
+            await client.on_raw_bulk_message_delete(
+                SimpleNamespace(guild_id=1, channel_id=99, message_ids={101, 102})
+            )
+            assert messages.recent(1, 99, now, now + timedelta(seconds=1)) == []
+            await client.on_raw_message_delete(
+                SimpleNamespace(guild_id=1, channel_id=99, message_id=101)
+            )
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
+
+
+def test_startup_and_periodic_cleanup_use_created_at_retention(tmp_path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "messages.db"
+        store = SQLiteMessageStore(path)
+        now = datetime(2026, 9, 28, 12, tzinfo=UTC)
+        created = now - timedelta(days=6)
+        store.upsert(MessageRecord(101, 1, 99, 3, "synthetic", "old", created), cached_at=now)
+        current = [now]
+        settings = Settings.from_environment(
+            {
+                "DISCORD_BOT_TOKEN": "test-token",
+                "YOYACK_CACHE_CLEANUP_INTERVAL_SECONDS": "1",
+            }
+        )
+        client = YoYackClient(
+            watch_store=SQLiteWatchStore(path),
+            message_store=store,
+            settings=settings,
+            clock=lambda: current[0],
+        )
+        client.tree = SimpleNamespace(sync=AsyncMock(return_value=[]))
+        try:
+            await client.setup_hook()
+            assert len(store.recent(1, 99, created, now + timedelta(seconds=1))) == 1
+            current[0] = now + timedelta(days=2)
+            await asyncio.sleep(1.2)
+            assert store.recent(1, 99, created, now + timedelta(seconds=1)) == []
         finally:
             await client.close()
 

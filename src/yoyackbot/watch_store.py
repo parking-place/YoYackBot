@@ -26,7 +26,7 @@ class SQLiteWatchStore:
             os.chmod(path, 0o600)
             with self._connection() as connection:
                 version = connection.execute("PRAGMA user_version").fetchone()[0]
-                if version > 1:
+                if version > 3:
                     raise WatchStoreError("Unsupported settings schema version")
                 if version == 0:
                     with connection:
@@ -44,12 +44,48 @@ class SQLiteWatchStore:
                             "ON DELETE CASCADE)"
                         )
                         connection.execute("PRAGMA user_version=1")
+                if version in (0, 1):
+                    with connection:
+                        connection.execute(
+                            "CREATE TABLE messages ("
+                            "message_id INTEGER PRIMARY KEY CHECK(message_id > 0), "
+                            "guild_id INTEGER NOT NULL CHECK(guild_id > 0), "
+                            "channel_id INTEGER NOT NULL CHECK(channel_id > 0), "
+                            "author_id INTEGER NOT NULL CHECK(author_id > 0), "
+                            "author_name TEXT NOT NULL, content TEXT NOT NULL, "
+                            "created_at_us INTEGER NOT NULL, edited_at_us INTEGER, "
+                            "cached_at_us INTEGER NOT NULL)"
+                        )
+                        connection.execute(
+                            "CREATE INDEX messages_guild_channel_time "
+                            "ON messages(guild_id, channel_id, created_at_us, message_id)"
+                        )
+                        connection.execute(
+                            "CREATE TABLE coverage ("
+                            "guild_id INTEGER NOT NULL CHECK(guild_id > 0), "
+                            "channel_id INTEGER NOT NULL CHECK(channel_id > 0), "
+                            "start_us INTEGER NOT NULL, end_us INTEGER NOT NULL, "
+                            "verified_at_us INTEGER NOT NULL, CHECK(start_us < end_us), "
+                            "PRIMARY KEY(guild_id, channel_id, start_us, end_us))"
+                        )
+                        connection.execute("PRAGMA user_version=2")
+                if version in (0, 1, 2):
+                    with connection:
+                        connection.execute(
+                            "CREATE TABLE coverage_recheck ("
+                            "guild_id INTEGER NOT NULL CHECK(guild_id > 0), "
+                            "channel_id INTEGER NOT NULL CHECK(channel_id > 0), "
+                            "start_us INTEGER NOT NULL, end_us INTEGER NOT NULL, "
+                            "reason TEXT NOT NULL, CHECK(start_us < end_us), "
+                            "PRIMARY KEY(guild_id, channel_id, start_us, end_us))"
+                        )
+                        connection.execute("PRAGMA user_version=3")
         except (OSError, sqlite3.Error) as exc:
             raise WatchStoreError("Settings database unavailable") from exc
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.path, timeout=5)
+        connection = sqlite3.connect(self.path, timeout=1)
         try:
             connection.execute("PRAGMA foreign_keys=ON")
             yield connection
@@ -113,6 +149,19 @@ class SQLiteWatchStore:
                     "VALUES (?, ?, unixepoch())",
                     ((guild_id, channel_id) for channel_id in sorted(channel_ids)),
                 )
+                for removed_id in existing - channel_ids:
+                    connection.execute(
+                        "DELETE FROM messages WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM coverage WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM coverage_recheck WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
                 connection.execute(
                     "UPDATE guild_watch_meta SET version=version+1 WHERE guild_id=?", (guild_id,)
                 )
@@ -130,6 +179,18 @@ class SQLiteWatchStore:
                 )
                 if cursor.rowcount:
                     connection.execute(
+                        "DELETE FROM messages WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM coverage WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM coverage_recheck WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
                         "UPDATE guild_watch_meta SET version=version+1 WHERE guild_id=?", (guild_id,)
                     )
                 return bool(cursor.rowcount)
@@ -140,6 +201,9 @@ class SQLiteWatchStore:
         try:
             with self._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
+                connection.execute("DELETE FROM messages WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM coverage WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM coverage_recheck WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -61,10 +62,10 @@ class WatchGate:
         message: T,
         save: Callable[[T, ChannelLease], Awaitable[None]],
     ) -> GateResult:
-        result, lease = self.lease(guild_id, channel_id)
+        result, lease = await asyncio.to_thread(self.lease, guild_id, channel_id)
         if lease is None:
             return result
-        if not lease.valid():
+        if not await asyncio.to_thread(lease.valid):
             return GateResult.UNWATCHED
         await save(message, lease)
         return GateResult.ACCEPTED
@@ -83,14 +84,14 @@ class WatchGate:
         if is_help:
             await help_reply()
             return GateResult.HELP
-        result, lease = self.lease(guild_id, channel_id)
+        result, lease = await asyncio.to_thread(self.lease, guild_id, channel_id)
         if result is GateResult.UNAVAILABLE:
             await unavailable_reply(UNAVAILABLE_NOTICE)
             return result
         if lease is None:
             await unwatched_reply(UNWATCHED_NOTICE)
             return GateResult.UNWATCHED
-        if not lease.valid():
+        if not await asyncio.to_thread(lease.valid):
             await unwatched_reply(UNWATCHED_NOTICE)
             return GateResult.UNWATCHED
         await summarize(lease)

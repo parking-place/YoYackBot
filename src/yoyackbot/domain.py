@@ -29,6 +29,8 @@ class MessageRecord:
             raise ValueError("created_at must have a timezone")
         if self.edited_at is not None and self.edited_at.tzinfo is None:
             raise ValueError("edited_at must have a timezone")
+        if self.cached_at is not None and self.cached_at.tzinfo is None:
+            raise ValueError("cached_at must have a timezone")
 
 
 @dataclass(frozen=True)
@@ -79,7 +81,9 @@ class SummaryResult:
 
 
 class MessageStore(Protocol):
-    def recent(self, channel_id: int, start: datetime, end: datetime) -> Sequence[MessageRecord]: ...
+    def recent(
+        self, guild_id: int, channel_id: int, start: datetime, end: datetime
+    ) -> Sequence[MessageRecord]: ...
 
 
 class SummaryEngine(Protocol):
