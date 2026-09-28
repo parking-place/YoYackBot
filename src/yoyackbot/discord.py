@@ -12,7 +12,7 @@ from discord import app_commands
 
 from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
 from yoyackbot.config import Settings
-from yoyackbot.domain import MessageRecord, RangeRequest
+from yoyackbot.domain import MessageRecord, RangeRequest, SummaryRequest
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.parser import (
     HELP_TEXT,
@@ -24,6 +24,7 @@ from yoyackbot.parser import (
 from yoyackbot.range_request import resolve_range
 from yoyackbot.watch_gate import UNAVAILABLE_NOTICE, ChannelLease, WatchGate
 from yoyackbot.watch_store import SQLiteWatchStore
+from yoyackbot.workflow import SummaryWorkflow, build_workflow
 
 LOGGER = logging.getLogger(__name__)
 PREVIEW_NOTICE = "요약 요청을 해석했소. 실제 요약 기능은 아직 준비 중이오."
@@ -77,6 +78,7 @@ class YoYackClient(discord.Client):
         dev_guild_id: int | None = None,
         settings: Settings | None = None,
         clock: Callable[[], datetime] | None = None,
+        summary_workflow: SummaryWorkflow | None = None,
     ) -> None:
         super().__init__(intents=required_intents(), member_cache_flags=discord.MemberCacheFlags.none())
         self.observe_channel_id = observe_channel_id
@@ -90,6 +92,7 @@ class YoYackClient(discord.Client):
         self.dev_guild_id = dev_guild_id
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(UTC))
+        self.summary_workflow = summary_workflow
         self._cleanup_task: asyncio.Task[None] | None = None
         self._disconnected_at: datetime | None = None
         self._synced_guild_ids: set[int] = set()
@@ -342,9 +345,38 @@ class YoYackClient(discord.Client):
     async def on_summary_request(
         self, message: discord.Message, request: RangeRequest, lease: ChannelLease
     ) -> None:
-        """Acknowledge parsed commands until the summary workflow is implemented."""
+        """Run the model path when the persistent runtime is configured."""
         LOGGER.info("summary_request_parsed kind=%s", request.kind.value)
-        await message.channel.send(PREVIEW_NOTICE, allowed_mentions=discord.AllowedMentions.none())
+        if (
+            self.summary_workflow is None
+            and self.settings is not None
+            and isinstance(self.watch_store, SQLiteWatchStore)
+            and self.message_store is not None
+        ):
+            try:
+                self.summary_workflow = build_workflow(
+                    self.settings, self, self.watch_store, self.message_store
+                )
+            except Exception as exc:
+                LOGGER.warning("summary_workflow_unavailable type=%s", type(exc).__name__)
+                await message.channel.send(
+                    UNAVAILABLE_NOTICE, allowed_mentions=discord.AllowedMentions.none()
+                )
+                return
+        if self.summary_workflow is None:
+            await message.channel.send(
+                PREVIEW_NOTICE, allowed_mentions=discord.AllowedMentions.none()
+            )
+            return
+        assert message.guild is not None
+
+        async def send_notice(notice: str) -> None:
+            await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
+
+        await self.summary_workflow.run(
+            SummaryRequest(message.guild.id, message.channel.id, message.author.id, request),
+            message.channel, lease, send_notice,
+        )
 
 
 async def run_gateway(
