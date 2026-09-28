@@ -35,6 +35,38 @@ class TriggerRoute:
     repeated: bool = False
 
 
+class OptionKind(Enum):
+    MINUTES = "minutes"
+    HOURS = "hours"
+    DAYS = "days"
+    WEEKS = "weeks"
+    COUNT = "count"
+    TODAY = "today"
+
+
+@dataclass(frozen=True)
+class ParsedOption:
+    kind: OptionKind
+    value: int | None
+    explicit: bool = True
+
+
+class CommandSyntaxError(ValueError):
+    """An option cannot be interpreted without guessing a range."""
+
+
+USAGE_NOTICE = "그 명은 알아듣기 어렵소. `!!요약좀 도움`에서 사용법을 살펴보시오."
+POLITE_ENDINGS = ("부탁하오", "부탁해요", "해주세요")
+OPTION_PATTERN = re.compile(r"([0-9]+)\s*(개|분|시간|일|주)?\Z")
+UNIT_KIND = {
+    "개": OptionKind.COUNT,
+    "분": OptionKind.MINUTES,
+    "시간": OptionKind.HOURS,
+    "일": OptionKind.DAYS,
+    "주": OptionKind.WEEKS,
+}
+
+
 def route_trigger(content: str) -> TriggerRoute:
     """Use the first trigger's options; help has priority across repeated triggers."""
     _, marker, after = content.partition(TRIGGER)
@@ -45,3 +77,22 @@ def route_trigger(content: str) -> TriggerRoute:
     if HELP_WORD.search(after):
         return TriggerRoute(RouteKind.HELP, repeated=repeated)
     return TriggerRoute(RouteKind.SUMMARY, options=options, repeated=repeated)
+
+
+def parse_option(options: str) -> ParsedOption:
+    """Parse one range option without applying configurable numeric limits."""
+    text = options.strip()
+    if not text:
+        return ParsedOption(OptionKind.HOURS, 1, explicit=False)
+    for ending in POLITE_ENDINGS:
+        if text.endswith(" " + ending):
+            text = text[: -len(ending)].strip()
+            break
+    if text == "오늘":
+        return ParsedOption(OptionKind.TODAY, None)
+    match = OPTION_PATTERN.fullmatch(text)
+    if match is None or len(match.group(1)) > 20:
+        raise CommandSyntaxError(USAGE_NOTICE)
+    value = int(match.group(1))
+    kind = UNIT_KIND.get(match.group(2), OptionKind.HOURS)
+    return ParsedOption(kind, value)

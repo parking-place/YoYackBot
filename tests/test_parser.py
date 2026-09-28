@@ -5,10 +5,19 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import discord
+import pytest
 
 from yoyackbot.channel_config import MemoryWatchStore
 from yoyackbot.discord import YoYackClient
-from yoyackbot.parser import HELP_TEXT, RouteKind, route_trigger
+from yoyackbot.parser import (
+    HELP_TEXT,
+    CommandSyntaxError,
+    OptionKind,
+    ParsedOption,
+    RouteKind,
+    parse_option,
+    route_trigger,
+)
 
 
 def test_included_trigger_uses_only_text_after_first_marker() -> None:
@@ -40,6 +49,44 @@ def test_help_examples_cover_all_supported_forms() -> None:
     ):
         assert example in HELP_TEXT
     assert len(HELP_TEXT) < 2000
+
+
+@pytest.mark.parametrize(
+    ("option", "expected"),
+    [
+        ("", ParsedOption(OptionKind.HOURS, 1, explicit=False)),
+        ("3", ParsedOption(OptionKind.HOURS, 3)),
+        ("30분", ParsedOption(OptionKind.MINUTES, 30)),
+        ("2시간", ParsedOption(OptionKind.HOURS, 2)),
+        ("100개", ParsedOption(OptionKind.COUNT, 100)),
+        ("오늘", ParsedOption(OptionKind.TODAY, None)),
+        ("2일", ParsedOption(OptionKind.DAYS, 2)),
+        ("1주", ParsedOption(OptionKind.WEEKS, 1)),
+        ("30분 부탁하오", ParsedOption(OptionKind.MINUTES, 30)),
+        ("5", ParsedOption(OptionKind.HOURS, 5)),
+        ("5분", ParsedOption(OptionKind.MINUTES, 5)),
+        ("5개", ParsedOption(OptionKind.COUNT, 5)),
+    ],
+)
+def test_all_supported_option_forms(option: str, expected: ParsedOption) -> None:
+    assert parse_option(option) == expected
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "2시간 100개",
+        "어제쯤",
+        "1.5시간",
+        "오늘 1일",
+        "5광년",
+        "3시간 !!요약좀",
+        "999999999999999999999시간",
+    ],
+)
+def test_conflicting_or_unknown_options_are_rejected(option: str) -> None:
+    with pytest.raises(CommandSyntaxError):
+        parse_option(option)
 
 
 def test_help_in_unwatched_channel_sends_without_ingestion() -> None:
