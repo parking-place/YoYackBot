@@ -39,6 +39,7 @@ class SandboxedCodex:
     contract: CodexContract
     auth_file: Path
     bwrap_executable: Path = Path("/usr/bin/bwrap")
+    code_mode_host: Path = Path("/usr/local/bin/yoyack-codex-code-mode-host")
 
     def command(self, workspace: InputWorkspace) -> list[str]:
         if not Path(self.contract.executable).is_absolute() or not self.bwrap_executable.is_absolute():
@@ -75,6 +76,7 @@ class SandboxedCodex:
             "--dir", "/output", "--dir", "/empty", "--dir", "/tmp",
             "--dev", "/dev", "--proc", "/proc",
             "--ro-bind", self.contract.executable, "/bin/codex",
+            "--ro-bind", str(self.code_mode_host), "/bin/codex-code-mode-host",
             "--ro-bind", str(self.bwrap_executable), "/bin/bwrap",
             "--ro-bind", "/bin/bash", "/bin/bash",
             "--ro-bind", "/bin/sh", "/bin/sh",
