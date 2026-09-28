@@ -55,16 +55,34 @@ class CodexContract:
             return False
         return result.returncode == 0
 
-    def arguments(self, *, working_directory: Path, output_file: Path) -> list[str]:
+    def arguments(
+        self, *, working_directory: Path, output_file: Path, restricted: bool = False
+    ) -> list[str]:
         if not working_directory.is_absolute() or not output_file.is_absolute():
             raise ValueError("Codex paths must be absolute")
-        return [
+        args = [
             self.executable, "exec", "--model", self.model,
             "--config", f"model_reasoning_effort={self.reasoning_effort}",
-            "--sandbox", "read-only", "--ephemeral", "--ignore-user-config",
-            "--ignore-rules", "--skip-git-repo-check", "--color", "never",
-            "--cd", str(working_directory), "--output-last-message", str(output_file), "-",
         ]
+        if restricted:
+            args.extend([
+                "--config", 'default_permissions="summary-read"',
+                "--config", 'approval_policy="never"',
+                "--config", 'permissions.summary-read.filesystem={":root"="deny",'
+                '":minimal"="read","/work"="read","/auth"="deny","/output"="deny"}',
+                "--config", "permissions.summary-read.network.enabled=false",
+                "--config", 'web_search="disabled"',
+            ])
+            for feature in ("apps", "browser_use", "computer_use", "plugins", "multi_agent"):
+                args.extend(("--disable", feature))
+        else:
+            args.extend(("--sandbox", "read-only"))
+        args.extend([
+            "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check",
+            "--color", "never", "--cd", str(working_directory),
+            "--output-last-message", str(output_file), "-",
+        ])
+        return args
 
 
 def classify_cli_failure(exit_code: int, stderr: str) -> CodexFailure | None:
