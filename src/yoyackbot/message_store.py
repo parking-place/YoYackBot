@@ -82,6 +82,7 @@ class SQLiteMessageStore:
     def _connection(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.path, timeout=5)
         try:
+            connection.execute("PRAGMA secure_delete=ON")
             yield connection
         finally:
             connection.close()

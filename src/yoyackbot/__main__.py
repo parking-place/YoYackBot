@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+from pathlib import Path
 
 import discord
 
@@ -13,12 +14,17 @@ from yoyackbot.discord import run_gateway
 from yoyackbot.health import read_heartbeat
 from yoyackbot.input_files import GatewayAlreadyRunning, InputFileError
 from yoyackbot.readiness import ReadinessError, ReadinessKind, check_ready
+from yoyackbot.settings_backup import BackupError, backup_settings, restore_settings
 from yoyackbot.watch_store import WatchStoreError
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="yoyackbot")
-    parser.add_argument("command", choices=("version", "check-config", "check-ready", "health", "run"))
+    parser.add_argument("command", choices=(
+        "version", "check-config", "check-ready", "health", "backup-settings",
+        "restore-settings", "run",
+    ))
+    parser.add_argument("paths", nargs="*")
     parser.add_argument("--smoke-seconds", type=float)
     parser.add_argument("--observe-channel-id", type=int)
     args = parser.parse_args()
@@ -35,6 +41,32 @@ def main() -> int:
 
     if args.command == "check-config":
         print("Configuration is valid")
+        return 0
+
+    if args.command == "backup-settings":
+        if args.paths:
+            print("Settings backup takes no path; it uses the private backup directory")
+            return 2
+        try:
+            backup_settings(settings.database_path, settings.database_path.parent / "backups")
+        except BackupError:
+            print("Settings backup failed")
+            return 2
+        print("Settings-only backup created in the private backup directory")
+        return 0
+
+    if args.command == "restore-settings":
+        if len(args.paths) != 2:
+            print("Restore requires a private backup file and a new isolated database path")
+            return 2
+        try:
+            restore_settings(
+                Path(args.paths[0]), Path(args.paths[1]), live_database=settings.database_path
+            )
+        except BackupError:
+            print("Settings restore failed")
+            return 2
+        print("Settings restored into an isolated database with an empty message cache")
         return 0
 
     if args.command == "check-ready":
