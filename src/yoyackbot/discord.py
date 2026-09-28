@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Protocol
 
@@ -90,11 +90,15 @@ class YoYackClient(discord.Client):
         self.dev_guild_id = dev_guild_id
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(UTC))
+        self._cleanup_task: asyncio.Task[None] | None = None
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store)
 
     async def setup_hook(self) -> None:
+        if self.message_store is not None and self.settings is not None:
+            await self._prune_once()
+            self._cleanup_task = asyncio.create_task(self._prune_loop())
         if self.dev_guild_id is not None:
             await self._sync_guild_commands(discord.Object(id=self.dev_guild_id))
         else:
@@ -133,6 +137,29 @@ class YoYackClient(discord.Client):
     async def on_disconnect(self) -> None:
         LOGGER.info("gateway_disconnected")
 
+    async def close(self) -> None:
+        if self._cleanup_task is not None:
+            self._cleanup_task.cancel()
+            await asyncio.gather(self._cleanup_task, return_exceptions=True)
+            self._cleanup_task = None
+        await super().close()
+
+    async def _prune_once(self) -> None:
+        if self.message_store is None or self.settings is None:
+            return
+        cutoff = self.clock() - timedelta(days=self.settings.cache_retention_days)
+        try:
+            deleted = await asyncio.to_thread(self.message_store.prune_before, cutoff)
+            LOGGER.info("cache_cleanup deleted=%d", deleted)
+        except MessageStoreError:
+            LOGGER.exception("cache_cleanup_failed")
+
+    async def _prune_loop(self) -> None:
+        assert self.settings is not None
+        while True:
+            await asyncio.sleep(self.settings.cache_cleanup_interval_seconds)
+            await self._prune_once()
+
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
         try:
             if self.watch_store.remove_channel(channel.guild.id, channel.id):
@@ -146,6 +173,68 @@ class YoYackClient(discord.Client):
             LOGGER.info("watched_guild_removed")
         except Exception:
             LOGGER.exception("watched_guild_cleanup_failed")
+
+    async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
+        if classify_message(after) is not MessageClass.HUMAN_TEXT or after.guild is None:
+            return
+        await self.watch_gate.ingest(
+            after.guild.id,
+            after.channel.id,
+            after,
+            self.on_watched_message,
+        )
+
+    async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
+        if self.message_store is None or payload.guild_id is None:
+            return
+        content = payload.data.get("content")
+        if not isinstance(content, str):
+            return
+        raw_edited = payload.data.get("edited_timestamp")
+        try:
+            edited_at = datetime.fromisoformat(raw_edited) if isinstance(raw_edited, str) else self.clock()
+        except ValueError:
+            edited_at = self.clock()
+        if edited_at.tzinfo is None:
+            edited_at = self.clock()
+        try:
+            await asyncio.to_thread(
+                self.message_store.update_content,
+                payload.guild_id,
+                payload.channel_id,
+                payload.message_id,
+                content,
+                edited_at=edited_at,
+                cached_at=self.clock(),
+            )
+        except MessageStoreError:
+            LOGGER.exception("message_edit_sync_failed")
+
+    async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent) -> None:
+        if self.message_store is None or payload.guild_id is None:
+            return
+        try:
+            await asyncio.to_thread(
+                self.message_store.delete_many,
+                payload.guild_id,
+                payload.channel_id,
+                {payload.message_id},
+            )
+        except MessageStoreError:
+            LOGGER.exception("message_delete_sync_failed")
+
+    async def on_raw_bulk_message_delete(self, payload: discord.RawBulkMessageDeleteEvent) -> None:
+        if self.message_store is None or payload.guild_id is None:
+            return
+        try:
+            await asyncio.to_thread(
+                self.message_store.delete_many,
+                payload.guild_id,
+                payload.channel_id,
+                set(payload.message_ids),
+            )
+        except MessageStoreError:
+            LOGGER.exception("message_bulk_delete_sync_failed")
 
     async def on_message(self, message: discord.Message) -> None:
         if classify_message(message) is not MessageClass.HUMAN_TEXT:
@@ -216,8 +305,11 @@ class YoYackClient(discord.Client):
             edited_at=message.edited_at,
         )
         try:
-            if self.message_store.upsert_if_watched(
-                record, expected_version=lease.version, cached_at=self.clock()
+            if await asyncio.to_thread(
+                self.message_store.upsert_if_watched,
+                record,
+                expected_version=lease.version,
+                cached_at=self.clock(),
             ):
                 LOGGER.info("message_cached")
         except MessageStoreError:

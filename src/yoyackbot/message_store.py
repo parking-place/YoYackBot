@@ -100,6 +100,78 @@ class SQLiteMessageStore:
         except sqlite3.Error as exc:
             raise MessageStoreError("Watched message write failed") from exc
 
+    def update_content(
+        self,
+        guild_id: int,
+        channel_id: int,
+        message_id: int,
+        content: str,
+        *,
+        edited_at: datetime,
+        cached_at: datetime,
+    ) -> bool:
+        """Apply a raw edit only to a message already known to be human and watched."""
+        try:
+            with self._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                cursor = connection.execute(
+                    "UPDATE messages SET content=?, edited_at_us=?, cached_at_us=? "
+                    "WHERE guild_id=? AND channel_id=? AND message_id=?",
+                    (
+                        content,
+                        _microseconds(edited_at),
+                        _microseconds(cached_at),
+                        guild_id,
+                        channel_id,
+                        message_id,
+                    ),
+                )
+                return cursor.rowcount == 1
+        except sqlite3.Error as exc:
+            raise MessageStoreError("Message edit failed") from exc
+
+    def delete_many(self, guild_id: int, channel_id: int, message_ids: set[int]) -> int:
+        """Delete scoped IDs in bounded batches without needing message bodies."""
+        if not message_ids:
+            return 0
+        if min(message_ids) < 1:
+            raise ValueError("message identifiers must be positive")
+        deleted = 0
+        ordered = sorted(message_ids)
+        try:
+            with self._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                for offset in range(0, len(ordered), 500):
+                    batch = ordered[offset : offset + 500]
+                    placeholders = ",".join("?" for _ in batch)
+                    cursor = connection.execute(
+                        "DELETE FROM messages WHERE guild_id=? AND channel_id=? "
+                        f"AND message_id IN ({placeholders})",
+                        (guild_id, channel_id, *batch),
+                    )
+                    deleted += cursor.rowcount
+        except sqlite3.Error as exc:
+            raise MessageStoreError("Message deletion failed") from exc
+        return deleted
+
+    def prune_before(self, cutoff: datetime) -> int:
+        """Retain records created at the exact cutoff and trim coverage to it."""
+        cutoff_us = _microseconds(cutoff)
+        try:
+            with self._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                deleted = connection.execute(
+                    "DELETE FROM messages WHERE created_at_us<?", (cutoff_us,)
+                ).rowcount
+                connection.execute("DELETE FROM coverage WHERE end_us<=?", (cutoff_us,))
+                connection.execute(
+                    "UPDATE OR REPLACE coverage SET start_us=? WHERE start_us<?",
+                    (cutoff_us, cutoff_us),
+                )
+                return deleted
+        except sqlite3.Error as exc:
+            raise MessageStoreError("Cache cleanup failed") from exc
+
     def recent(
         self, guild_id: int, channel_id: int, start: datetime, end: datetime
     ) -> Sequence[MessageRecord]:

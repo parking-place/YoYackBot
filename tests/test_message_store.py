@@ -1,6 +1,7 @@
 """Schema migration and exact indexed storage for Guild-scoped messages."""
 
 import sqlite3
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -133,3 +134,39 @@ def test_watch_revision_and_cache_write_are_atomic_with_channel_removal(tmp_path
     assert store.recent(1, 10, NOW, NOW + timedelta(seconds=1)) == []
     assert store.upsert_if_watched(_record(103, guild_id=2), expected_version=1, cached_at=NOW)
     assert [item.message_id for item in store.recent(2, 10, NOW, NOW + timedelta(seconds=1))] == [103]
+
+
+def test_retention_uses_creation_time_and_clips_coverage_at_exact_boundary(tmp_path) -> None:
+    store = SQLiteMessageStore(tmp_path / "messages.db")
+    cutoff = NOW - timedelta(days=7)
+    before = cutoff - timedelta(microseconds=1)
+    after = cutoff + timedelta(microseconds=1)
+    store.upsert(replace(_record(100), created_at=before), cached_at=NOW)
+    store.upsert(replace(_record(101), created_at=cutoff), cached_at=NOW)
+    store.upsert(replace(_record(102), created_at=after), cached_at=NOW)
+    store.mark_covered(1, CoverageInterval(10, before, cutoff), verified_at=NOW)
+    store.mark_covered(1, CoverageInterval(10, before, after), verified_at=NOW)
+    assert store.prune_before(cutoff) == 1
+    assert store.prune_before(cutoff) == 0
+    assert [item.message_id for item in store.recent(1, 10, cutoff, NOW + timedelta(seconds=1))] == [101, 102]
+    assert store.coverage(1, 10) == [CoverageInterval(10, cutoff, after)]
+
+
+def test_raw_edit_updates_existing_only_and_deletion_is_scoped(tmp_path) -> None:
+    store = SQLiteMessageStore(tmp_path / "messages.db")
+    store.upsert(_record(100), cached_at=NOW)
+    store.upsert(_record(101, guild_id=2), cached_at=NOW)
+    assert store.update_content(
+        1, 10, 100, "edited synthetic", edited_at=NOW + timedelta(seconds=1),
+        cached_at=NOW + timedelta(seconds=2),
+    )
+    assert not store.update_content(
+        1, 10, 999, "unknown", edited_at=NOW, cached_at=NOW,
+    )
+    edited = store.recent(1, 10, NOW, NOW + timedelta(seconds=1))[0]
+    assert edited.content == "edited synthetic"
+    assert edited.edited_at == NOW + timedelta(seconds=1)
+    assert store.delete_many(1, 10, {100, 101, 999}) == 1
+    assert store.delete_many(1, 10, {100}) == 0
+    assert store.recent(1, 10, NOW, NOW + timedelta(seconds=1)) == []
+    assert [item.message_id for item in store.recent(2, 10, NOW, NOW + timedelta(seconds=1))] == [101]
