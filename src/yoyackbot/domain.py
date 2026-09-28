@@ -23,6 +23,8 @@ class MessageRecord:
     created_at: datetime
     edited_at: datetime | None = None
     cached_at: datetime | None = None
+    has_attachment: bool = False
+    is_reply: bool = False
 
     def __post_init__(self) -> None:
         if self.created_at.tzinfo is None:

@@ -1,4 +1,4 @@
-"""Guild-scoped SQLite message and coverage storage on schema version two."""
+"""Guild-scoped SQLite message and coverage storage."""
 
 import sqlite3
 from collections.abc import Iterator, Sequence
@@ -68,6 +68,8 @@ def _record(row: tuple) -> MessageRecord:
         created_at=_datetime(row[6]),
         edited_at=_datetime(row[7]) if row[7] is not None else None,
         cached_at=_datetime(row[8]),
+        has_attachment=bool(row[9]),
+        is_reply=bool(row[10]),
     )
 
 
@@ -98,14 +100,17 @@ class SQLiteMessageStore:
             _microseconds(record.created_at),
             _microseconds(record.edited_at) if record.edited_at is not None else None,
             _microseconds(cached_at),
+            int(record.has_attachment),
+            int(record.is_reply),
         )
         cursor = connection.execute(
             "INSERT INTO messages (message_id, guild_id, channel_id, author_id, "
-            "author_name, content, created_at_us, edited_at_us, cached_at_us) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "author_name, content, created_at_us, edited_at_us, cached_at_us, "
+            "has_attachment, is_reply) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(message_id) DO UPDATE SET author_id=excluded.author_id, "
             "author_name=excluded.author_name, content=excluded.content, "
-            "edited_at_us=excluded.edited_at_us, cached_at_us=excluded.cached_at_us "
+            "edited_at_us=excluded.edited_at_us, cached_at_us=excluded.cached_at_us, "
+            "has_attachment=excluded.has_attachment, is_reply=excluded.is_reply "
             "WHERE messages.guild_id=excluded.guild_id "
             "AND messages.channel_id=excluded.channel_id",
             values,
@@ -233,7 +238,8 @@ class SQLiteMessageStore:
             with self._connection() as connection:
                 rows = connection.execute(
                     "SELECT message_id, guild_id, channel_id, author_id, author_name, content, "
-                    "created_at_us, edited_at_us, cached_at_us FROM messages "
+                    "created_at_us, edited_at_us, cached_at_us, has_attachment, is_reply "
+                    "FROM messages "
                     "WHERE guild_id=? AND channel_id=? AND created_at_us>=? AND created_at_us<? "
                     "ORDER BY created_at_us, message_id",
                     (guild_id, channel_id, start_us, end_us),
@@ -262,7 +268,8 @@ class SQLiteMessageStore:
             with self._connection() as connection:
                 rows = connection.execute(
                     "SELECT message_id, guild_id, channel_id, author_id, author_name, content, "
-                    "created_at_us, edited_at_us, cached_at_us FROM messages "
+                    "created_at_us, edited_at_us, cached_at_us, has_attachment, is_reply "
+                    "FROM messages "
                     "WHERE guild_id=? AND channel_id=? AND created_at_us>=? AND created_at_us<? "
                     "AND (? IS NULL OR message_id!=?) "
                     "ORDER BY created_at_us DESC, message_id DESC LIMIT ?",
