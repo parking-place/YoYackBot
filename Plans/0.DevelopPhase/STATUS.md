@@ -87,6 +87,8 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 
 0.3.0의 다섯 단계는 [PR #4](https://github.com/parking-place/YoYackBot/pull/4)로 `main`에 통합했다(검증 브랜치 D `d570260ee9af0721fb55c6b843fa195367b8831d`, merge `83f5fd7b5a03d942adf27698dcc1f31d6485ef4a`). 실제 사용자 메시지 1건의 주시 채널 저장과 미주시 차단을 확인했다. 개발 DB를 백업한 뒤 schema 3으로 이전해 설정·메시지를 보존했다. History 조회·모델 요약은 후속 단계다.
 
+0.4.0의 다섯 단계는 [PR #5](https://github.com/parking-place/YoYackBot/pull/5)로 `main`에 통합했다(검증 브랜치 D `cea5832f0d752fb1027073ea744f020b9e248729`, merge `f3a2c51c1ae368cbefdd860344a2992e8d063261`). 개발 Discord 주시 채널 실제 History와 격리 DB 사본에서 시간형 3건 수집·개수형 캐시 무조회 2건을 확인했다. 실제 권한 회수와 Codex 모델 호출은 후속 검증이다.
+
 ## 실행 증거
 
 실행을 시작한 뒤에만 `evidence/<version>-P<n>.md`를 작성한다. raw Discord 대화, 실제 서버 주소, 앱/사용자 식별값, 인증정보와 DB는 증거 파일에 넣지 않는다.
