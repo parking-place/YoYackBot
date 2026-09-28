@@ -54,8 +54,8 @@ class RangeRequest:
         if self.accepted_at.tzinfo is None:
             raise ValueError("accepted_at must have a timezone")
         if self.kind is RequestKind.TIME:
-            if self.start is None or self.start.tzinfo is None or self.start >= self.accepted_at:
-                raise ValueError("time requests need an aware start before accepted_at")
+            if self.start is None or self.start.tzinfo is None or self.start > self.accepted_at:
+                raise ValueError("time requests need an aware start no later than accepted_at")
             if self.count is not None:
                 raise ValueError("time requests cannot include count")
         elif self.kind is RequestKind.COUNT:
