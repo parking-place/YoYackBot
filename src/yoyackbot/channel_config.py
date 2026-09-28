@@ -93,6 +93,17 @@ def valid_selection(guild: discord.Guild, channel_ids: Iterable[int]) -> bool:
     return all(valid_channel(guild, channel_id) for channel_id in channel_ids)
 
 
+def selection_summary(guild: discord.Guild, channel_ids: Iterable[int]) -> str:
+    selected = sorted(set(channel_ids))
+    shown = []
+    for channel_id in selected[:20]:
+        channel = guild.get_channel(channel_id)
+        shown.append(getattr(channel, "mention", "삭제된 채널"))
+    suffix = f" 외 {len(selected) - 20}개" if len(selected) > 20 else ""
+    listing = ", ".join(shown) + suffix if shown else "없음"
+    return f"현재 주시 채널 {len(selected)}개: {listing}"
+
+
 async def reject(interaction: discord.Interaction, message: str) -> None:
     if interaction.response.is_done():
         await interaction.followup.send(message, ephemeral=True)
@@ -122,7 +133,7 @@ class AddChannels(discord.ui.ChannelSelect):
             return
         view.draft.update(chosen)
         await interaction.response.send_message(
-            f"현재 {len(view.draft)}개 채널을 주시 목록에 넣었소. 저장을 눌러 확정하시오.",
+            f"{selection_summary(guild, view.draft)}\n저장을 눌러 확정하시오.",
             ephemeral=True,
         )
 
@@ -139,9 +150,13 @@ class RemoveChannels(discord.ui.ChannelSelect):
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
         assert isinstance(view, ChannelSettingsView)
+        guild = interaction.guild
+        if guild is None:
+            await reject(interaction, INVALID)
+            return
         view.draft.difference_update(channel.id for channel in self.values)
         await interaction.response.send_message(
-            f"현재 {len(view.draft)}개 채널이 남았소. 저장을 눌러 확정하시오.",
+            f"{selection_summary(guild, view.draft)}\n저장을 눌러 확정하시오.",
             ephemeral=True,
         )
 
@@ -183,7 +198,8 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
         for item in view.children:
             item.disabled = True
         await interaction.response.edit_message(
-            content=f"주시 채널 {len(view.draft)}개를 저장했소.", view=view
+            content=f"주시 채널 {len(view.draft)}개를 저장했소.\n{selection_summary(guild, view.draft)}",
+            view=view,
         )
 
 
@@ -252,7 +268,7 @@ def install_channel_commands(tree: app_commands.CommandTree, store: WatchStore) 
             await reject(interaction, "설정을 읽지 못했소. 잠시 후 다시 시도하시오.")
             return
         await interaction.response.send_message(
-            f"현재 주시 채널은 {len(view.draft)}개요. 추가·제거 후 저장하거나 전체 해제를 고르시오.",
+            f"{selection_summary(guild, view.draft)}\n추가·제거 후 저장하거나 전체 해제를 고르시오.",
             view=view,
             ephemeral=True,
         )

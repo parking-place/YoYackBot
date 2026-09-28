@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import discord
 import pytest
@@ -85,6 +86,23 @@ def test_gateway_handler_stops_watched_processing_after_removal() -> None:
             store.replace(1, frozenset())
             await client.on_message(sample_message())
             assert delivered == [99]
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
+
+
+def test_development_commands_sync_to_each_guild_once() -> None:
+    async def scenario() -> None:
+        client = YoYackClient(dev_guild_id=1)
+        tree = SimpleNamespace(copy_global_to=Mock(), sync=AsyncMock(return_value=[object()]))
+        client.tree = tree
+        try:
+            await client.setup_hook()
+            await client.on_guild_join(SimpleNamespace(id=2))
+            await client.on_guild_join(SimpleNamespace(id=2))
+            assert tree.sync.await_count == 2
+            assert {call.kwargs["guild"].id for call in tree.sync.await_args_list} == {1, 2}
         finally:
             await client.close()
 

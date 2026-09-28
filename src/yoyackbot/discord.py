@@ -71,22 +71,42 @@ class YoYackClient(discord.Client):
         self.watch_store = watch_store or MemoryWatchStore()
         self.watch_gate = WatchGate(self.watch_store)
         self.dev_guild_id = dev_guild_id
+        self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store)
 
     async def setup_hook(self) -> None:
         if self.dev_guild_id is not None:
-            guild = discord.Object(id=self.dev_guild_id)
-            self.tree.copy_global_to(guild=guild)
-            commands = await self.tree.sync(guild=guild)
+            await self._sync_guild_commands(discord.Object(id=self.dev_guild_id))
         else:
             commands = await self.tree.sync()
+            LOGGER.info("commands_synced count=%d", len(commands))
+
+    async def _sync_guild_commands(self, guild: discord.abc.Snowflake) -> None:
+        if guild.id in self._synced_guild_ids:
+            return
+        self.tree.copy_global_to(guild=guild)
+        commands = await self.tree.sync(guild=guild)
+        self._synced_guild_ids.add(guild.id)
         LOGGER.info("commands_synced count=%d", len(commands))
 
     async def on_ready(self) -> None:
         self.connection_count += 1
         self.ready_event.set()
         LOGGER.info("gateway_ready guild_count=%d", len(self.guilds))
+        if self.dev_guild_id is not None:
+            for guild in self.guilds:
+                try:
+                    await self._sync_guild_commands(guild)
+                except discord.HTTPException:
+                    LOGGER.exception("guild_commands_sync_failed")
+
+    async def on_guild_join(self, guild: discord.Guild) -> None:
+        if self.dev_guild_id is not None:
+            try:
+                await self._sync_guild_commands(guild)
+            except discord.HTTPException:
+                LOGGER.exception("guild_commands_sync_failed")
 
     async def on_resumed(self) -> None:
         LOGGER.info("gateway_resumed")

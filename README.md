@@ -9,6 +9,7 @@
 - [단계별 진행 상태](Plans/0.DevelopPhase/STATUS.md)
 - [각 단계의 GitHub 업로드 완료 규칙](Plans/0.DevelopPhase/GIT_WORKFLOW.md)
 - [개발 환경과 실행 방법](DEVELOPMENT.md)
+- [주시 채널 설정 안내](docs/channel-settings.md)
 
 11개 버전, 버전별 5단계, 총 55단계로 개발한다. 각 단계는 작업과 검증을 마치고 **Git commit → GitHub push → 원격 반영 확인**까지 끝나야 완료된다.
 

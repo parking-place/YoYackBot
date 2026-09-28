@@ -10,6 +10,7 @@ from yoyackbot.channel_config import (
     ChannelSettingsView,
     MemoryWatchStore,
     can_manage,
+    selection_summary,
     valid_selection,
 )
 
@@ -50,6 +51,13 @@ def test_channel_must_be_visible_text_channel() -> None:
     assert not valid_selection(guild, {11})
     assert not valid_selection(guild, {12})
     assert valid_selection(guild, set())
+
+
+def test_admin_sees_selected_channels_in_ephemeral_summary() -> None:
+    channels = {10: SimpleNamespace(mention="#first"), 11: SimpleNamespace(mention="#second")}
+    guild = SimpleNamespace(get_channel=channels.get)
+    assert selection_summary(guild, {10, 11}) == "현재 주시 채널 2개: #first, #second"
+    assert selection_summary(guild, set()) == "현재 주시 채널 0개: 없음"
 
 
 def test_callback_gate_rechecks_owner_guild_and_current_permission() -> None:
