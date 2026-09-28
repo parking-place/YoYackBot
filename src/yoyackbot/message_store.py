@@ -80,7 +80,7 @@ class SQLiteMessageStore:
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.path, timeout=1)
+        connection = sqlite3.connect(self.path, timeout=5)
         try:
             yield connection
         finally:

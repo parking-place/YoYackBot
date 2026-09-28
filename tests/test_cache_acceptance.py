@@ -2,6 +2,7 @@
 
 import asyncio
 import sqlite3
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -106,6 +107,19 @@ def test_locked_readonly_full_and_corrupt_failures_have_safe_categories(tmp_path
     with pytest.raises(MessageStoreError) as corrupt:
         store.recent(1, 10, NOW, NOW + timedelta(seconds=1))
     assert corrupt.value.kind is CacheFailureKind.CORRUPT
+
+
+def test_short_sqlite_writer_contention_waits_for_unlock(tmp_path) -> None:
+    path = tmp_path / "messages.db"
+    store = SQLiteMessageStore(path)
+    with sqlite3.connect(path) as lock, ThreadPoolExecutor(max_workers=1) as workers:
+        lock.execute("BEGIN EXCLUSIVE")
+        pending = workers.submit(store.upsert, record(555, 1), cached_at=NOW)
+        time.sleep(1.2)
+        assert not pending.done()
+        lock.rollback()
+        pending.result(timeout=5)
+    assert len(store.recent(1, 10, NOW, NOW + timedelta(seconds=1))) == 1
 
 
 def test_locked_watch_lookup_does_not_block_gateway_event_loop(tmp_path) -> None:
