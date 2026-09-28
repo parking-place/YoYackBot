@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import discord
 import pytest
 
-from yoyackbot.collection import CollectionCoordinator, CollectionUnavailable, EMPTY_NOTICE
+from yoyackbot.collection import EMPTY_NOTICE, CollectionCoordinator, CollectionUnavailable
 from yoyackbot.count_collection import CountCollector
 from yoyackbot.domain import MessageRecord, RangeRequest, RequestKind
 from yoyackbot.history import HistoryResult
