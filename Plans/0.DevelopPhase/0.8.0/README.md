@@ -16,7 +16,7 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [0.8.0-P1 — 전용 계정 서비스·자동 재시작](01-service.md) | `T080-P1-A/B` | DONE |
-| 2 | [0.8.0-P2 — 원문 없는 로그·지표·상태 확인](02-observability.md) | `T080-P2-A/B` | IN_PROGRESS |
+| 2 | [0.8.0-P2 — 원문 없는 로그·지표·상태 확인](02-observability.md) | `T080-P2-A/B` | DONE |
 | 3 | [0.8.0-P3 — 설정 백업·캐시 재생성·복구](03-restore.md) | `T080-P3-A/B` | PLANNED |
 | 4 | [0.8.0-P4 — 비밀·파일·프롬프트 입력 보안 점검](04-security-review.md) | `T080-P4-A/B` | PLANNED |
 | 5 | [0.8.0-P5 — 자원 한도·장시간 실행·운영 게이트](05-resource-soak.md) | `T080-P5-A/B` | PLANNED |
