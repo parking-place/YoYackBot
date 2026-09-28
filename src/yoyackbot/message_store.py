@@ -57,6 +57,20 @@ def _datetime(value: int) -> datetime:
     return EPOCH + timedelta(microseconds=value)
 
 
+def _record(row: tuple) -> MessageRecord:
+    return MessageRecord(
+        message_id=row[0],
+        guild_id=row[1],
+        channel_id=row[2],
+        author_id=row[3],
+        author_name=row[4],
+        content=row[5],
+        created_at=_datetime(row[6]),
+        edited_at=_datetime(row[7]) if row[7] is not None else None,
+        cached_at=_datetime(row[8]),
+    )
+
+
 class SQLiteMessageStore:
     def __init__(self, path: Path) -> None:
         SQLiteWatchStore(path)
@@ -226,20 +240,37 @@ class SQLiteMessageStore:
                 ).fetchall()
         except sqlite3.Error as exc:
             raise _store_error("Message read failed", exc) from exc
-        return [
-            MessageRecord(
-                message_id=row[0],
-                guild_id=row[1],
-                channel_id=row[2],
-                author_id=row[3],
-                author_name=row[4],
-                content=row[5],
-                created_at=_datetime(row[6]),
-                edited_at=_datetime(row[7]) if row[7] is not None else None,
-                cached_at=_datetime(row[8]),
-            )
-            for row in rows
-        ]
+        return [_record(row) for row in rows]
+
+    def latest(
+        self,
+        guild_id: int,
+        channel_id: int,
+        start: datetime,
+        end: datetime,
+        limit: int,
+        *,
+        exclude_id: int | None = None,
+    ) -> Sequence[MessageRecord]:
+        """Return at most limit cached messages, newest first, for a count request."""
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        start_us, end_us = _microseconds(start), _microseconds(end)
+        if start_us > end_us:
+            raise ValueError("start must not follow end")
+        try:
+            with self._connection() as connection:
+                rows = connection.execute(
+                    "SELECT message_id, guild_id, channel_id, author_id, author_name, content, "
+                    "created_at_us, edited_at_us, cached_at_us FROM messages "
+                    "WHERE guild_id=? AND channel_id=? AND created_at_us>=? AND created_at_us<? "
+                    "AND (? IS NULL OR message_id!=?) "
+                    "ORDER BY created_at_us DESC, message_id DESC LIMIT ?",
+                    (guild_id, channel_id, start_us, end_us, exclude_id, exclude_id, limit),
+                ).fetchall()
+        except sqlite3.Error as exc:
+            raise _store_error("Latest message read failed", exc) from exc
+        return [_record(row) for row in rows]
 
     def mark_covered(
         self, guild_id: int, interval: CoverageInterval, *, verified_at: datetime
@@ -330,8 +361,9 @@ class SQLiteMessageStore:
         exhausted: bool,
         expected_version: int,
         verified_at: datetime,
+        fetched_after: datetime | None = None,
     ) -> bool:
-        """Publish records and coverage together only after full History exhaustion."""
+        """Atomically publish a complete page pass and reconcile older cached rows."""
         if not exhausted:
             return False
         if any(
@@ -346,6 +378,7 @@ class SQLiteMessageStore:
             _microseconds(interval.end),
             _microseconds(verified_at),
         )
+        fetched_after_us = _microseconds(fetched_after) if fetched_after is not None else None
         try:
             with self._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
@@ -358,7 +391,27 @@ class SQLiteMessageStore:
                 ).fetchone()
                 if row is None or row[0] != expected_version or watched is None:
                     return False
+                if fetched_after_us is not None:
+                    connection.execute("CREATE TEMP TABLE history_ids (message_id INTEGER PRIMARY KEY)")
+                    connection.executemany(
+                        "INSERT INTO history_ids(message_id) VALUES (?)",
+                        ((record.message_id,) for record in records),
+                    )
+                    connection.execute(
+                        "DELETE FROM messages WHERE guild_id=? AND channel_id=? "
+                        "AND created_at_us>=? AND created_at_us<? AND cached_at_us<=? "
+                        "AND NOT EXISTS (SELECT 1 FROM history_ids "
+                        "WHERE history_ids.message_id=messages.message_id)",
+                        (guild_id, interval.channel_id, start_us, end_us, fetched_after_us),
+                    )
                 for record in records:
+                    if fetched_after_us is not None:
+                        cached = connection.execute(
+                            "SELECT cached_at_us FROM messages WHERE message_id=?",
+                            (record.message_id,),
+                        ).fetchone()
+                        if cached is not None and cached[0] > fetched_after_us:
+                            continue
                     self._upsert(connection, record, verified_at)
                 connection.execute(
                     "INSERT INTO coverage "

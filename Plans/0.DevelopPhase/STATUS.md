@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-28. 개발 완료 **20 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 35개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-28. 개발 완료 **25 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 30개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -41,11 +41,11 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.3.0-P3 | [수정·삭제·7일 자동 정리](0.3.0/03-edits-retention.md) | DONE | `40787acd7f063c29b0a3baaf6ff6cc5ab1f78c8a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/ea037a767c2a3f23654adf5bee94eb666ed1d272) | OpenJevLXC Python 3.13.5 격리 SQLite + 개발 Gateway 재시작 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P4 | [완료 구간·빈 구간·연결 공백](0.3.0/04-coverage.md) | DONE | `26baaaa2b1110c6ebb9de7b4633f92023820f472` | [evidence E](https://github.com/parking-place/YoYackBot/commit/1e37657de74f580c71732a15edbb0625c23e53fc) | OpenJevLXC Python 3.13.5 합성 coverage + 실제 설정·캐시 DB 격리 복사본 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P5 | [캐시 동시성·장애·버전 검증](0.3.0/05-cache-acceptance.md) | DONE | `25a702434b84a42e33774ed405dc1888be941c75` | [evidence E](https://github.com/parking-place/YoYackBot/commit/a640cb2cb2248ca2f6e1aab705415a7148315b79) | OpenJevLXC Python 3.13.5 격리 장애·동시성 DB + 실제 개발 DB migration·Gateway 검증; 세부 결과는 증거 파일 |
-| 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | PLANNED | — | — | 미착수 |
-| 0.4.0-P2 | [시간 범위 차집합 조회·완료 확정](0.4.0/02-cache-gaps.md) | PLANNED | — | — | 미착수 |
-| 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | PLANNED | — | — | 미착수 |
-| 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | PLANNED | — | — | 미착수 |
-| 0.4.0-P5 | [캐시 fallback·빈 대화·수집 통합 게이트](0.4.0/05-collection-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | DONE | `175c4131aef2de9ad46ebb1f9e2cc774c0e34bf7` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3ec5875b55546f8a0a4ad37f03d0ffc538b74ca1) | OpenJevLXC Python 3.13.5, 개발 Discord 주시 채널 실제 History 검증; 세부 결과는 증거 파일 |
+| 0.4.0-P2 | [시간 범위 차집합 조회·완료 확정](0.4.0/02-cache-gaps.md) | DONE | `8a28f56ba69dab7509fd8acdbbe1810a572f0260` | [evidence E](https://github.com/parking-place/YoYackBot/commit/4f0315554f3724ca062629adb5e9f5deafa8e95d) | OpenJevLXC Python 3.13.5, 격리 SQLite 및 합성 History 검증; 세부 결과는 증거 파일 |
+| 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | DONE | `795a0e2384fde2c73b864f79d1cb0448f59f96cb` | [evidence E](https://github.com/parking-place/YoYackBot/commit/2a4ba995c107d05e4967c6424fc0aef5a8d85dd7) | OpenJevLXC Python 3.13.5, 격리 SQLite·합성 History 검증; 세부 결과는 증거 파일 |
+| 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | DONE | `32d12ecdca2f3aa788f01cf9032caa283c77eece` | [evidence E](https://github.com/parking-place/YoYackBot/commit/4d25167eb104b1738b78de9f91d00761f21c1d20) | OpenJevLXC Python 3.13.5, 격리 SQLite·합성 Discord History 검증; 세부 결과는 증거 파일 |
+| 0.4.0-P5 | [캐시 fallback·빈 대화·수집 통합 게이트](0.4.0/05-collection-acceptance.md) | DONE | `23fe1875e5a2d1d7ba40a85a6d7aefc0b47d0e81` | [evidence E](https://github.com/parking-place/YoYackBot/commit/851e5509b2809e506b37a3a12362c1c0894f423a) | OpenJevLXC Python 3.13.5, 격리 SQLite + 개발 Discord 실제 History 검증; 세부 결과는 증거 파일 |
 | 0.5.0-P1 | [CLI·인증·GPT-6 Luna Light 확인](0.5.0/01-cli-model-contract.md) | PLANNED | — | — | 미착수 |
 | 0.5.0-P2 | [요청 입력 파일·표시명 정규화](0.5.0/02-input-files.md) | PLANNED | — | — | 미착수 |
 | 0.5.0-P3 | [비대화형 subprocess·파일/도구 격리](0.5.0/03-subprocess-isolation.md) | PLANNED | — | — | 미착수 |
@@ -83,7 +83,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 
 0.1.0의 다섯 단계는 [PR #2](https://github.com/parking-place/YoYackBot/pull/2)로 `main`에 통합했다(검증 브랜치 D `d15e6af48d1fd2dec073bed144b7898386ce4402`, merge `e9bb6c13249ddbc18648ddcc7cdc73325c2a0e9f`). 실제 두 Guild 설정 분리·재시작 복원을 확인했고, 권한을 실제로 바꿔 보는 시험은 미실행으로 남겼다. 메시지 캐시·History·Codex 요약·운영 배포는 후속 단계다.
 
-0.2.0의 다섯 단계는 [PR #3](https://github.com/parking-place/YoYackBot/pull/3)로 `main`에 통합했다(검증 브랜치 D `aec621310cbe47c4565dfc5f2956cdc324ed1f78`, merge `330ea2b16a28936b932a80ac08cffcd65af3658f`). 실제 Discord 안내는 사용자가 확인했고, 직접 REST 메시지 조회는 403으로 제한됐다. 실제 요약 엔진과 메시지 캐시는 후속 단계다.
+0.2.0의 다섯 단계는 [PR #3](https://github.com/parking-place/YoYackBot/pull/3)로 `main`에 통합했다(검증 브랜치 D `aec621310cbe47c4565dfc5f2956cdc324ed1f78`, merge `330ea2b16a28936b932a80ac08cffcd65af3658f`). 실제 Discord 안내는 사용자가 확인했다. 당시 직접 REST 조회의 403은 기본 `Python-urllib` User-Agent 때문이었으며, 2026-09-28 올바른 봇 User-Agent로 재검사한 두 주시 채널은 HTTP 200이었다. 실제 요약 엔진과 메시지 캐시는 후속 단계다.
 
 0.3.0의 다섯 단계는 [PR #4](https://github.com/parking-place/YoYackBot/pull/4)로 `main`에 통합했다(검증 브랜치 D `d570260ee9af0721fb55c6b843fa195367b8831d`, merge `83f5fd7b5a03d942adf27698dcc1f31d6485ef4a`). 실제 사용자 메시지 1건의 주시 채널 저장과 미주시 차단을 확인했다. 개발 DB를 백업한 뒤 schema 3으로 이전해 설정·메시지를 보존했다. History 조회·모델 요약은 후속 단계다.
 
