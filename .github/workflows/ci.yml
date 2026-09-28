@@ -1,0 +1,31 @@
+name: Source checks
+
+on:
+  push:
+    branches: [main, "develop/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.lock
+          python -m pip install --disable-pip-version-check --no-deps -e .
+      - name: Check source and planning documents
+        run: |
+          ruff check src tests scripts
+          python scripts/verify_repo.py
+          pytest -q
