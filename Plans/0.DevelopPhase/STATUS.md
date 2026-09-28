@@ -63,7 +63,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.7.0-P5 | [전체 명령·상태 실환경 회귀 게이트](0.7.0/05-workflow-acceptance.md) | DONE | `46c7d10a37fbbc9a4449acfadea7e6b9b4dca1df` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3beab75bd4f7d81aba5a11a768d489153b01bd2e) | DiscordBotLXC 전용 계정 + 개발 Discord 2개 주시 채널 + 실제 gpt-6-luna; 46c7d10 검증; 세부 결과는 증거 파일 |
 | 0.8.0-P1 | [전용 계정 서비스·자동 재시작](0.8.0/01-service.md) | DONE | `501bc47f23300a00bafdf20cc5143b1ba836a594` | [evidence E](https://github.com/parking-place/YoYackBot/commit/5fcab7f5bca5b61a1cbb82473e0be9e36dfd4c13) | 개발 LXC 전용 systemd 서비스, C 501bc47, Ruff·214 pytest·verify_repo·systemd-analyze·CI 검증; 세부 결과는 증거 파일 |
 | 0.8.0-P2 | [원문 없는 로그·지표·상태 확인](0.8.0/02-observability.md) | DONE | `31064e4346e045dd071e703f4d6d4330f4baf89d` | [evidence E](https://github.com/parking-place/YoYackBot/commit/681298d74af31e8de70d38e05b51b73862d59964) | 개발 LXC 정확 SHA 31064e4, Ruff·216 pytest·계획 검증·systemd 검증·GitHub CI, 전용 journal 운영 시험 검증; 세부 결과는 증거 파일 |
-| 0.8.0-P3 | [설정 백업·캐시 재생성·복구](0.8.0/03-restore.md) | IN_PROGRESS | — | — | 시작 문서 원격 반영 후 구현 |
+| 0.8.0-P3 | [설정 백업·캐시 재생성·복구](0.8.0/03-restore.md) | PUSH_PENDING | `4fd9bdb37018c79e2a40d62de3dd12884a0ab249` | — | 검증 통과, 원격 확인 대기 |
 | 0.8.0-P4 | [비밀·파일·프롬프트 입력 보안 점검](0.8.0/04-security-review.md) | PLANNED | — | — | 미착수 |
 | 0.8.0-P5 | [자원 한도·장시간 실행·운영 게이트](0.8.0/05-resource-soak.md) | PLANNED | — | — | 미착수 |
 | 0.9.0-P1 | [요구사항 전체 회귀·누락 확인](0.9.0/01-full-regression.md) | PLANNED | — | — | 미착수 |
