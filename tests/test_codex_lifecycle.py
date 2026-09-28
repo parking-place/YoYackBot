@@ -14,7 +14,9 @@ from yoyackbot.input_files import InputWorkspace, cleanup_stale_workspaces
 
 
 def runner(tmp_path: Path, *, max_output_bytes: int = 200) -> SandboxedCodex:
-    auth = tmp_path / "auth.json"
+    auth_dir = tmp_path / "model-auth"
+    auth_dir.mkdir(mode=0o700)
+    auth = auth_dir / "auth.json"
     auth.write_text("synthetic auth")
     auth.chmod(0o600)
     return SandboxedCodex(

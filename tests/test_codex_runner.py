@@ -11,7 +11,9 @@ from yoyackbot.input_files import InputWorkspace
 
 
 def runner(tmp_path: Path) -> SandboxedCodex:
-    auth = tmp_path / "auth.json"
+    auth_dir = tmp_path / "model-auth"
+    auth_dir.mkdir(mode=0o700)
+    auth = auth_dir / "auth.json"
     auth.write_text("synthetic credential fixture")
     auth.chmod(0o600)
     return SandboxedCodex(
@@ -32,6 +34,10 @@ def test_mounts_only_request_input_output_and_auth(tmp_path: Path) -> None:
         ]
         assert "--tmpfs" in args and "--unshare-all" in args
         assert "--ephemeral" in args and "--ignore-user-config" in args
+        assert ["--bind", str(isolated.auth_file.parent), "/auth"] == args[
+            args.index(str(isolated.auth_file.parent)) - 1:
+            args.index(str(isolated.auth_file.parent)) + 2
+        ]
         assert 'web_search="disabled"' in args
         assert 'default_permissions="summary-read"' in args
         assert '"/auth"="deny"' in " ".join(args)
@@ -45,7 +51,9 @@ def test_auth_symlink_or_shared_credentials_are_refused(tmp_path: Path) -> None:
         with pytest.raises(CodexRunError):
             isolated.command(workspace)
         isolated.auth_file.chmod(0o600)
-        link = tmp_path / "auth-link"
+        link_dir = tmp_path / "linked-auth"
+        link_dir.mkdir(mode=0o700)
+        link = link_dir / "auth.json"
         link.symlink_to(isolated.auth_file)
         with pytest.raises(CodexRunError):
             SandboxedCodex(isolated.contract, link).command(workspace)

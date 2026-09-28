@@ -29,3 +29,5 @@
 - 필수 항목의 FAIL/NOT_RUN 또는 선행 조건 누락을 완료로 계산하지 않는다.
 
 [공통 Git 완료 규칙](../GIT_WORKFLOW.md) · [진행 상태](../STATUS.md) · [전체 로드맵](../README.md)
+
+[Codex 실행·인증 운영 절차](CODEX_RUNTIME.md)

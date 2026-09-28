@@ -34,6 +34,7 @@ class Settings:
     discord_bot_token: str
     database_path: Path
     codex_executable: str
+    codex_auth_directory: Path
     codex_model: str
     codex_reasoning_effort: str
     timezone: ZoneInfo
@@ -95,6 +96,9 @@ class Settings:
             discord_bot_token=token,
             database_path=Path(_text(values, "YOYACK_DB_PATH", "runtime/messages.db")),
             codex_executable=_text(values, "YOYACK_CODEX_EXECUTABLE", "codex"),
+            codex_auth_directory=Path(_text(
+                values, "YOYACK_CODEX_AUTH_DIRECTORY", str(Path.home() / "model-auth")
+            )),
             codex_model=_text(values, "YOYACK_CODEX_MODEL", "gpt-6-luna"),
             codex_reasoning_effort=effort,
             timezone=timezone,

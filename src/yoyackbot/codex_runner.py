@@ -122,6 +122,7 @@ class SandboxedCodex:
             raise CodexRunError(CodexFailure.PROCESS)
         try:
             auth = self.auth_file.lstat()
+            auth_directory = self.auth_file.parent.lstat()
             source = workspace.log_file.lstat()
             directory = workspace.directory.lstat()
         except OSError as exc:
@@ -130,6 +131,10 @@ class SandboxedCodex:
             not stat.S_ISREG(auth.st_mode)
             or auth.st_uid != os.geteuid()
             or auth.st_mode & 0o077
+            or self.auth_file.name != "auth.json"
+            or not stat.S_ISDIR(auth_directory.st_mode)
+            or auth_directory.st_uid != os.geteuid()
+            or auth_directory.st_mode & 0o077
             or not stat.S_ISREG(source.st_mode)
             or source.st_uid != os.geteuid()
             or source.st_mode & 0o077
@@ -160,7 +165,7 @@ class SandboxedCodex:
             "--ro-bind", "/etc/ssl/certs", "/etc/ssl/certs",
             "--ro-bind", "/etc/resolv.conf", "/etc/resolv.conf",
             "--ro-bind", "/etc/hosts", "/etc/hosts",
-            "--ro-bind", str(self.auth_file), "/auth/auth.json",
+            "--bind", str(self.auth_file.parent), "/auth",
             "--ro-bind", str(workspace.log_file), "/work/conversation.jsonl",
             "--bind", str(workspace.directory), "/output",
             "--clearenv", "--setenv", "HOME", "/empty",
