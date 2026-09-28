@@ -18,7 +18,7 @@
 | 1 | [0.3.0-P1 — 메시지·범위 schema와 migration](01-message-schema.md) | `T030-P1-A/B` | DONE |
 | 2 | [0.3.0-P2 — 주시 채널 실시간 upsert·필터](02-realtime-ingest.md) | `T030-P2-A/B` | DONE |
 | 3 | [0.3.0-P3 — 수정·삭제·7일 자동 정리](03-edits-retention.md) | `T030-P3-A/B` | DONE |
-| 4 | [0.3.0-P4 — 완료 구간·빈 구간·연결 공백](04-coverage.md) | `T030-P4-A/B` | IN_PROGRESS |
+| 4 | [0.3.0-P4 — 완료 구간·빈 구간·연결 공백](04-coverage.md) | `T030-P4-A/B` | DONE |
 | 5 | [0.3.0-P5 — 캐시 동시성·장애·버전 검증](05-cache-acceptance.md) | `T030-P5-A/B` | PLANNED |
 
 ## 버전 완료 조건
