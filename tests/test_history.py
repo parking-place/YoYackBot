@@ -194,3 +194,20 @@ def test_out_of_order_or_cross_channel_page_fails_closed() -> None:
             assert failed.value.kind is HistoryFailure.INVALID_PAGE
 
     asyncio.run(scenario())
+
+
+def test_message_count_and_utf8_byte_budgets_stop_paging() -> None:
+    async def scenario() -> None:
+        messages = [message(START + timedelta(minutes=1), index) for index in range(3)]
+        with pytest.raises(HistoryError) as count_error:
+            await HistoryAdapter(FakeSource(messages), max_records=2).collect(
+                channel(), guild_id=1, channel_id=10, start=START, end=END
+            )
+        assert count_error.value.kind is HistoryFailure.SIZE_LIMIT
+        with pytest.raises(HistoryError) as byte_error:
+            await HistoryAdapter(FakeSource(messages), max_content_bytes=5).collect(
+                channel(), guild_id=1, channel_id=10, start=START, end=END
+            )
+        assert byte_error.value.kind is HistoryFailure.SIZE_LIMIT
+
+    asyncio.run(scenario())

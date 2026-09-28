@@ -23,6 +23,7 @@ class HistoryFailure(Enum):
     PAGE_LIMIT = "page_limit"
     CHANNEL_MISMATCH = "channel_mismatch"
     INVALID_PAGE = "invalid_page"
+    SIZE_LIMIT = "size_limit"
 
 
 class HistoryError(RuntimeError):
@@ -74,14 +75,25 @@ class HistoryAdapter:
         max_pages: int = 100,
         timeout_seconds: float = 30,
         retries: int = 2,
+        max_records: int = 10_000,
+        max_content_bytes: int = 4_000_000,
     ) -> None:
-        if not 1 <= page_size <= 100 or max_pages < 1 or timeout_seconds <= 0 or retries < 0:
+        if (
+            not 1 <= page_size <= 100
+            or max_pages < 1
+            or timeout_seconds <= 0
+            or retries < 0
+            or max_records < 1
+            or max_content_bytes < 1
+        ):
             raise ValueError("History limits must be positive and bounded")
         self.source = source or DiscordHistorySource()
         self.page_size = page_size
         self.max_pages = max_pages
         self.timeout_seconds = timeout_seconds
         self.retries = retries
+        self.max_records = max_records
+        self.max_content_bytes = max_content_bytes
 
     async def _page(self, channel: discord.TextChannel, before: int) -> Sequence[discord.Message]:
         for attempt in range(self.retries + 1):
@@ -117,6 +129,7 @@ class HistoryAdapter:
             raise HistoryError(HistoryFailure.CHANNEL_MISMATCH)
         before = discord.utils.time_snowflake(end, high=True) + 1
         records: dict[int, MessageRecord] = {}
+        content_bytes = 0
         pages = 0
         try:
             async with asyncio.timeout(self.timeout_seconds):
@@ -142,7 +155,7 @@ class HistoryAdapter:
                             or message.type not in {discord.MessageType.default, discord.MessageType.reply}
                         ):
                             continue
-                        records[message.id] = MessageRecord(
+                        record = MessageRecord(
                             message_id=message.id,
                             guild_id=guild_id,
                             channel_id=channel_id,
@@ -153,6 +166,13 @@ class HistoryAdapter:
                             created_at=message.created_at,
                             edited_at=message.edited_at,
                         )
+                        previous = records.get(message.id)
+                        if previous is not None:
+                            content_bytes -= len(previous.content.encode("utf-8"))
+                        content_bytes += len(record.content.encode("utf-8"))
+                        records[message.id] = record
+                        if len(records) > self.max_records or content_bytes > self.max_content_bytes:
+                            raise HistoryError(HistoryFailure.SIZE_LIMIT)
                     if len(page) < self.page_size or any(message.created_at < start for message in page):
                         return HistoryResult(tuple(sorted(records.values(), key=_sort_key)), pages)
                     if oldest >= before:
