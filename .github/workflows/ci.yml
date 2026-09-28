@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.13"
@@ -28,4 +29,5 @@ jobs:
         run: |
           ruff check src tests scripts
           python scripts/verify_repo.py
+          python scripts/check_public_secrets.py
           pytest -q
