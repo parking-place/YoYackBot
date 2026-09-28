@@ -32,10 +32,8 @@ class ChannelLease:
 
     def valid(self) -> bool:
         try:
-            return (
-                self.store.version(self.guild_id) == self.version
-                and self.channel_id in self.store.get(self.guild_id)
-            )
+            version, channels = self.store.snapshot(self.guild_id)
+            return version == self.version and self.channel_id in channels
         except Exception:
             LOGGER.exception("watched_channel_lease_check_failed")
             return False
@@ -47,8 +45,8 @@ class WatchGate:
 
     def lease(self, guild_id: int, channel_id: int) -> tuple[GateResult, ChannelLease | None]:
         try:
-            version = self.store.version(guild_id)
-            watched = channel_id in self.store.get(guild_id)
+            version, channels = self.store.snapshot(guild_id)
+            watched = channel_id in channels
         except Exception:
             LOGGER.exception("watched_channel_lookup_failed")
             return GateResult.UNAVAILABLE, None
