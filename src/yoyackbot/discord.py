@@ -10,6 +10,7 @@ from discord import app_commands
 
 from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
 from yoyackbot.config import Settings
+from yoyackbot.parser import HELP_TEXT, RouteKind, route_trigger
 from yoyackbot.watch_gate import ChannelLease, WatchGate
 from yoyackbot.watch_store import SQLiteWatchStore
 
@@ -136,6 +137,10 @@ class YoYackClient(discord.Client):
             self.nonempty_content_events += 1
         if self.observe_channel_id is not None and message.channel.id == self.observe_channel_id:
             LOGGER.info("gateway_test_human_event has_content=%s", bool(message.content))
+        route = route_trigger(message.content)
+        if route.kind is RouteKind.HELP:
+            await message.channel.send(HELP_TEXT, allowed_mentions=discord.AllowedMentions.none())
+            return
         assert message.guild is not None
         await self.watch_gate.ingest(
             message.guild.id,
