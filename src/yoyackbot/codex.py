@@ -1,7 +1,8 @@
 """Pinned Codex CLI/model contract; request execution is added in later phases."""
 
+import json
 import os
-import pwd
+import stat
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
@@ -51,17 +52,26 @@ class CodexContract:
         return result.returncode == 0 and result.stdout.strip() == PINNED_CLI_VERSION
 
     def authentication_ready(self, auth_directory: Path | None = None) -> bool:
+        if auth_directory is not None:
+            try:
+                directory = auth_directory.lstat()
+                auth = (auth_directory / "auth.json").lstat()
+                if (
+                    not stat.S_ISDIR(directory.st_mode)
+                    or directory.st_uid != os.geteuid()
+                    or directory.st_mode & 0o077
+                    or not stat.S_ISREG(auth.st_mode)
+                    or auth.st_uid != os.geteuid()
+                    or auth.st_mode & 0o077
+                ):
+                    return False
+                return isinstance(json.loads((auth_directory / "auth.json").read_text()), dict)
+            except (OSError, ValueError):
+                return False
         try:
-            env = None
-            if auth_directory is not None:
-                env = {
-                    "PATH": "/usr/bin:/bin",
-                    "HOME": pwd.getpwuid(os.geteuid()).pw_dir,
-                    "CODEX_HOME": str(auth_directory),
-                }
             result = subprocess.run(
                 [self.executable, "login", "status"], capture_output=True, text=True,
-                timeout=5, check=False, env=env,
+                timeout=5, check=False,
             )
         except (OSError, subprocess.TimeoutExpired):
             return False

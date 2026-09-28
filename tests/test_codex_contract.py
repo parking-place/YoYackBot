@@ -66,6 +66,21 @@ def test_version_and_authentication_probe_do_not_retain_diagnostics(monkeypatch:
     assert calls == [["codex", "--version"], ["codex", "login", "status"]]
 
 
+def test_dedicated_auth_probe_is_read_only_and_checks_file_permissions(tmp_path: Path) -> None:
+    directory = tmp_path / "model-auth"
+    directory.mkdir(mode=0o700)
+    auth = directory / "auth.json"
+    auth.write_text('{"synthetic":"value"}')
+    auth.chmod(0o600)
+    assert contract().authentication_ready(directory)
+    assert {path.name for path in directory.iterdir()} == {"auth.json"}
+    auth.chmod(0o644)
+    assert not contract().authentication_ready(directory)
+    auth.chmod(0o600)
+    auth.write_text("not JSON")
+    assert not contract().authentication_ready(directory)
+
+
 @pytest.mark.parametrize(
     ("diagnostic", "expected"),
     [
