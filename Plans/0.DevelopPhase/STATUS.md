@@ -41,7 +41,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.3.0-P3 | [수정·삭제·7일 자동 정리](0.3.0/03-edits-retention.md) | DONE | `40787acd7f063c29b0a3baaf6ff6cc5ab1f78c8a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/ea037a767c2a3f23654adf5bee94eb666ed1d272) | OpenJevLXC Python 3.13.5 격리 SQLite + 개발 Gateway 재시작 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P4 | [완료 구간·빈 구간·연결 공백](0.3.0/04-coverage.md) | DONE | `26baaaa2b1110c6ebb9de7b4633f92023820f472` | [evidence E](https://github.com/parking-place/YoYackBot/commit/1e37657de74f580c71732a15edbb0625c23e53fc) | OpenJevLXC Python 3.13.5 합성 coverage + 실제 설정·캐시 DB 격리 복사본 검증; 세부 결과는 증거 파일 |
 | 0.3.0-P5 | [캐시 동시성·장애·버전 검증](0.3.0/05-cache-acceptance.md) | DONE | `25a702434b84a42e33774ed405dc1888be941c75` | [evidence E](https://github.com/parking-place/YoYackBot/commit/a640cb2cb2248ca2f6e1aab705415a7148315b79) | OpenJevLXC Python 3.13.5 격리 장애·동시성 DB + 실제 개발 DB migration·Gateway 검증; 세부 결과는 증거 파일 |
-| 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | IN_PROGRESS | — | — | History 어댑터 및 개발 권한 점검 중 |
+| 0.4.0-P1 | [History 페이지 조회·현재 채널 제한](0.4.0/01-history-pages.md) | IN_PROGRESS | — | — | History 어댑터 및 실제 채널 조회 점검 중 |
 | 0.4.0-P2 | [시간 범위 차집합 조회·완료 확정](0.4.0/02-cache-gaps.md) | PLANNED | — | — | 미착수 |
 | 0.4.0-P3 | [7일 초과·최대 4주 요청 처리](0.4.0/03-older-than-retention.md) | PLANNED | — | — | 미착수 |
 | 0.4.0-P4 | [최신 일반 사용자 X개 보충](0.4.0/04-recent-count.md) | PLANNED | — | — | 미착수 |
@@ -83,7 +83,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 
 0.1.0의 다섯 단계는 [PR #2](https://github.com/parking-place/YoYackBot/pull/2)로 `main`에 통합했다(검증 브랜치 D `d15e6af48d1fd2dec073bed144b7898386ce4402`, merge `e9bb6c13249ddbc18648ddcc7cdc73325c2a0e9f`). 실제 두 Guild 설정 분리·재시작 복원을 확인했고, 권한을 실제로 바꿔 보는 시험은 미실행으로 남겼다. 메시지 캐시·History·Codex 요약·운영 배포는 후속 단계다.
 
-0.2.0의 다섯 단계는 [PR #3](https://github.com/parking-place/YoYackBot/pull/3)로 `main`에 통합했다(검증 브랜치 D `aec621310cbe47c4565dfc5f2956cdc324ed1f78`, merge `330ea2b16a28936b932a80ac08cffcd65af3658f`). 실제 Discord 안내는 사용자가 확인했고, 직접 REST 메시지 조회는 403으로 제한됐다. 실제 요약 엔진과 메시지 캐시는 후속 단계다.
+0.2.0의 다섯 단계는 [PR #3](https://github.com/parking-place/YoYackBot/pull/3)로 `main`에 통합했다(검증 브랜치 D `aec621310cbe47c4565dfc5f2956cdc324ed1f78`, merge `330ea2b16a28936b932a80ac08cffcd65af3658f`). 실제 Discord 안내는 사용자가 확인했다. 당시 직접 REST 조회의 403은 기본 `Python-urllib` User-Agent 때문이었으며, 2026-09-28 올바른 봇 User-Agent로 재검사한 두 주시 채널은 HTTP 200이었다. 실제 요약 엔진과 메시지 캐시는 후속 단계다.
 
 0.3.0의 다섯 단계는 [PR #4](https://github.com/parking-place/YoYackBot/pull/4)로 `main`에 통합했다(검증 브랜치 D `d570260ee9af0721fb55c6b843fa195367b8831d`, merge `83f5fd7b5a03d942adf27698dcc1f31d6485ef4a`). 실제 사용자 메시지 1건의 주시 채널 저장과 미주시 차단을 확인했다. 개발 DB를 백업한 뒤 schema 3으로 이전해 설정·메시지를 보존했다. History 조회·모델 요약은 후속 단계다.
 
