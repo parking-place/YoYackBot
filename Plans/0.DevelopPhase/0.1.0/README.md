@@ -15,7 +15,7 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [0.1.0-P1 — Discord 연결·이벤트 경계 구현](01-gateway.md) | `T010-P1-A/B` | IN_PROGRESS |
+| 1 | [0.1.0-P1 — Discord 연결·이벤트 경계 구현](01-gateway.md) | `T010-P1-A/B` | DONE |
 | 2 | [0.1.0-P2 — 채널 설정 명령·관리 권한 구현](02-channel-selector.md) | `T010-P2-A/B` | PLANNED |
 | 3 | [0.1.0-P3 — 주시 설정 영속화·서버 격리](03-settings-store.md) | `T010-P3-A/B` | PLANNED |
 | 4 | [0.1.0-P4 — 주시 추가·해제·미주시 차단](04-watch-enforcement.md) | `T010-P4-A/B` | PLANNED |
