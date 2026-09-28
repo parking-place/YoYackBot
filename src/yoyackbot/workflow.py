@@ -18,6 +18,7 @@ from yoyackbot.domain import MessageRecord, SummaryRequest, SummaryResult
 from yoyackbot.errors import FailureKind, message_for
 from yoyackbot.history import HistoryAdapter, HistoryError
 from yoyackbot.input_files import InputFileError
+from yoyackbot.job_queue import QueueClosed, QueueFull, QueueWaitExpired, SummaryJobQueue
 from yoyackbot.long_range import LongRangeCollector, LongRangeError
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
@@ -30,6 +31,9 @@ LOGGER = logging.getLogger(__name__)
 BUSY_NOTICE = "요약중이오. 좀 기다리시오."
 FAILED_NOTICE = "요약을 마치지 못했소. 잠시 후 다시 시도하시오."
 INVALIDATED_NOTICE = "채널 주시나 권한이 바뀌어 요약을 멈추었소."
+QUEUE_FULL_NOTICE = "요약 요청이 몰렸소. 잠시 후 다시 시도하시오."
+QUEUE_TIMEOUT_NOTICE = "요약 대기 시간이 지났소. 다시 시도하시오."
+QUEUE_CLOSED_NOTICE = "봇이 종료 중이오. 잠시 후 다시 시도하시오."
 
 
 class JobInvalidated(RuntimeError):
@@ -42,12 +46,33 @@ class SummaryWorkflow:
     engine: CodexSummaryEngine
     publisher: DiscordSummaryPublisher
     states: ChannelStates = field(default_factory=ChannelStates)
+    queue: SummaryJobQueue | None = None
+    closing: bool = False
+    _jobs: set[asyncio.Task] = field(default_factory=set, init=False, repr=False)
 
     @staticmethod
     async def _channel_ready(channel: discord.TextChannel, lease: ChannelLease) -> bool:
         return await asyncio.to_thread(lease.valid) and valid_channel(channel.guild, channel.id)
 
     async def _summarize_guarded(
+        self, messages: Sequence[MessageRecord], *, channel_name: str,
+        trigger_message_id: int | None,
+        channel: discord.TextChannel, lease: ChannelLease,
+    ) -> SummaryResult:
+        if self.queue is not None:
+            async with await self.queue.acquire():
+                if not await self._channel_ready(channel, lease):
+                    raise JobInvalidated
+                return await self._run_model_guarded(
+                    messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
+                    channel=channel, lease=lease,
+                )
+        return await self._run_model_guarded(
+            messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
+            channel=channel, lease=lease,
+        )
+
+    async def _run_model_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
         trigger_message_id: int | None,
         channel: discord.TextChannel, lease: ChannelLease,
@@ -68,7 +93,32 @@ class SummaryWorkflow:
                 model.cancel()
                 await asyncio.gather(model, return_exceptions=True)
 
+    async def shutdown(self) -> None:
+        self.closing = True
+        active = [task for task in self._jobs if task is not asyncio.current_task()]
+        for task in active:
+            task.cancel()
+        if self.queue is not None:
+            await self.queue.close()
+        await asyncio.gather(*active, return_exceptions=True)
+
     async def run(
+        self, request: SummaryRequest, channel: discord.TextChannel,
+        lease: ChannelLease, send_notice: Callable[[str], Awaitable[None]],
+    ) -> None:
+        if self.closing:
+            await send_notice(QUEUE_CLOSED_NOTICE)
+            return
+        task = asyncio.current_task()
+        if task is not None:
+            self._jobs.add(task)
+        try:
+            await self._run(request, channel, lease, send_notice)
+        finally:
+            if task is not None:
+                self._jobs.discard(task)
+
+    async def _run(
         self, request: SummaryRequest, channel: discord.TextChannel,
         lease: ChannelLease, send_notice: Callable[[str], Awaitable[None]],
     ) -> None:
@@ -122,6 +172,12 @@ class SummaryWorkflow:
             await send_notice(message_for(FailureKind.MODEL))
         except PartialPublicationError:
             await send_notice(message_for(FailureKind.SEND))
+        except QueueFull:
+            await send_notice(QUEUE_FULL_NOTICE)
+        except QueueWaitExpired:
+            await send_notice(QUEUE_TIMEOUT_NOTICE)
+        except QueueClosed:
+            await send_notice(QUEUE_CLOSED_NOTICE)
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("summary_job_failed type=%s", type(exc).__name__)
             await send_notice(FAILED_NOTICE)
@@ -153,4 +209,8 @@ def build_workflow(
         ChannelStates(SQLiteCooldownStore(
             settings.database_path, duration_seconds=settings.success_cooldown_seconds
         )),
+        SummaryJobQueue(
+            concurrency=settings.codex_concurrency, capacity=settings.queue_capacity,
+            wait_seconds=settings.queue_wait_seconds,
+        ),
     )

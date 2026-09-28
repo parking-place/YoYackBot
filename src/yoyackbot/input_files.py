@@ -1,5 +1,6 @@
 """Bounded, request-private conversation documents for the Codex summarizer."""
 
+import fcntl
 import json
 import os
 import re
@@ -7,7 +8,8 @@ import shutil
 import stat
 import tempfile
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC
 from pathlib import Path
@@ -20,6 +22,10 @@ MENTION = re.compile(r"<@(?P<role>&)?(?P<member>!)?(?P<user>\d+)>|<#(?P<channel>
 
 class InputFileError(RuntimeError):
     """Input material could not be prepared safely; details never include message text."""
+
+
+class GatewayAlreadyRunning(RuntimeError):
+    """Another process already owns the private input directory."""
 
 
 def _name(raw: str) -> str:
@@ -147,4 +153,49 @@ def cleanup_stale_workspaces(
                 removed += 1
     except OSError as exc:
         raise InputFileError("Stale request cleanup failed") from exc
+    return removed
+
+
+@contextmanager
+def single_gateway(root: Path) -> Iterator[None]:
+    """Hold an exclusive process lock before touching abandoned request files."""
+    _private_root(root)
+    try:
+        fd = os.open(root / ".gateway.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
+            raise InputFileError("Gateway lock must be private and owned by the bot")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise GatewayAlreadyRunning("Gateway input directory is already in use") from exc
+    except BaseException:
+        if "fd" in locals():
+            os.close(fd)
+        raise
+    try:
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def cleanup_abandoned_workspaces(root: Path) -> int:
+    """Remove stopped-service request directories only while single_gateway is held."""
+    _private_root(root)
+    removed = 0
+    try:
+        for child in root.iterdir():
+            if not child.name.startswith("request-"):
+                continue
+            info = child.lstat()
+            if (
+                stat.S_ISDIR(info.st_mode)
+                and info.st_uid == os.geteuid()
+                and not info.st_mode & 0o077
+            ):
+                shutil.rmtree(child)
+                removed += 1
+    except OSError as exc:
+        raise InputFileError("Abandoned request cleanup failed") from exc
     return removed

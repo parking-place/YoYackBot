@@ -20,9 +20,16 @@ from yoyackbot.domain import (
     SummaryResult,
 )
 from yoyackbot.errors import FailureKind, message_for
+from yoyackbot.job_queue import SummaryJobQueue
 from yoyackbot.publisher import PartialPublicationError, PublicationFailure
 from yoyackbot.state import ChannelStates, ChannelStatus
-from yoyackbot.workflow import BUSY_NOTICE, INVALIDATED_NOTICE, SummaryWorkflow
+from yoyackbot.workflow import (
+    BUSY_NOTICE,
+    INVALIDATED_NOTICE,
+    QUEUE_CLOSED_NOTICE,
+    QUEUE_FULL_NOTICE,
+    SummaryWorkflow,
+)
 
 NOW = datetime(2026, 9, 28, 12, 0, tzinfo=UTC)
 RECORD = MessageRecord(1, 1, 2, 3, "가람", "합성 대화", NOW - timedelta(minutes=1))
@@ -335,5 +342,128 @@ def test_external_cancellation_releases_state_at_each_await_point(
         block[0] = False
         await workflow.run(request(), channel(), lease, notice)  # type: ignore[arg-type]
         assert await states.status(1, 2) is ChannelStatus.COOLDOWN
+
+    asyncio.run(scenario())
+
+
+def test_global_model_queue_keeps_waiting_channel_busy_and_rejects_overflow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("yoyackbot.workflow.valid_channel", lambda _guild, _id: True)
+
+    async def scenario() -> None:
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        notices: list[str] = []
+
+        class Collector:
+            async def collect(self, *_args, **_kwargs):
+                return CollectionOutcome((RECORD,), 0, NOW, 0, False)
+
+        class Engine:
+            calls = 0
+            active = 0
+            maximum = 0
+
+            async def summarize(self, *_args, **_kwargs):
+                self.calls += 1
+                self.active += 1
+                self.maximum = max(self.maximum, self.active)
+                try:
+                    if self.calls == 1:
+                        entered.set()
+                        await release.wait()
+                    return SummaryResult("가람이 합성 대화를 했소.", "fake", 1)
+                finally:
+                    self.active -= 1
+
+        class Publisher:
+            async def publish(self, *_args, **_kwargs):
+                return PublicationReceipt((100,), NOW)
+
+        async def notice(value: str) -> None:
+            notices.append(value)
+
+        queue = SummaryJobQueue(concurrency=1, capacity=1, wait_seconds=2)
+        engine = Engine()
+        workflow = SummaryWorkflow(
+            Collector(), engine, Publisher(), ChannelStates(), queue  # type: ignore[arg-type]
+        )
+        lease = SimpleNamespace(valid=lambda: True)
+        first = asyncio.create_task(workflow.run(
+            request(channel_id=2), channel(channel_id=2), lease, notice  # type: ignore[arg-type]
+        ))
+        await asyncio.wait_for(entered.wait(), 2)
+        second = asyncio.create_task(workflow.run(
+            request(channel_id=3), channel(channel_id=3), lease, notice  # type: ignore[arg-type]
+        ))
+        for _ in range(200):
+            if await queue.snapshot() == (1, 1, False):
+                break
+            await asyncio.sleep(0.005)
+        assert await queue.snapshot() == (1, 1, False)
+        assert await workflow.states.status(1, 3) is ChannelStatus.SUMMARIZING
+        await workflow.run(
+            request(channel_id=4), channel(channel_id=4), lease, notice  # type: ignore[arg-type]
+        )
+        assert notices == [QUEUE_FULL_NOTICE]
+        assert await workflow.states.status(1, 4) is ChannelStatus.IDLE
+        release.set()
+        await asyncio.wait_for(asyncio.gather(first, second), 2)
+        assert engine.calls == 2 and engine.maximum == 1
+        assert await queue.snapshot() == (0, 0, False)
+
+    asyncio.run(scenario())
+
+
+def test_shutdown_cancels_running_and_waiting_jobs_without_stale_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("yoyackbot.workflow.valid_channel", lambda _guild, _id: True)
+
+    async def scenario() -> None:
+        entered = asyncio.Event()
+        notices: list[str] = []
+
+        class Collector:
+            async def collect(self, *_args, **_kwargs):
+                return CollectionOutcome((RECORD,), 0, NOW, 0, False)
+
+        class Engine:
+            async def summarize(self, *_args, **_kwargs):
+                entered.set()
+                await asyncio.Event().wait()
+
+        class Publisher:
+            async def publish(self, *_args, **_kwargs):
+                raise AssertionError("Shutdown cannot publish a cancelled job")
+
+        async def notice(value: str) -> None:
+            notices.append(value)
+
+        queue = SummaryJobQueue(concurrency=1, capacity=1, wait_seconds=2)
+        workflow = SummaryWorkflow(
+            Collector(), Engine(), Publisher(), ChannelStates(), queue  # type: ignore[arg-type]
+        )
+        lease = SimpleNamespace(valid=lambda: True)
+        running = asyncio.create_task(workflow.run(
+            request(channel_id=2), channel(channel_id=2), lease, notice  # type: ignore[arg-type]
+        ))
+        await asyncio.wait_for(entered.wait(), 2)
+        waiting = asyncio.create_task(workflow.run(
+            request(channel_id=3), channel(channel_id=3), lease, notice  # type: ignore[arg-type]
+        ))
+        for _ in range(200):
+            if await queue.snapshot() == (1, 1, False):
+                break
+            await asyncio.sleep(0.005)
+        assert await queue.snapshot() == (1, 1, False)
+        await asyncio.wait_for(workflow.shutdown(), 2)
+        assert running.cancelled() and waiting.cancelled()
+        assert await queue.snapshot() == (0, 0, True)
+        assert await workflow.states.status(1, 2) is ChannelStatus.IDLE
+        assert await workflow.states.status(1, 3) is ChannelStatus.IDLE
+        await workflow.run(request(), channel(), lease, notice)  # type: ignore[arg-type]
+        assert notices == [QUEUE_CLOSED_NOTICE]
 
     asyncio.run(scenario())

@@ -14,6 +14,7 @@ from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_chann
 from yoyackbot.codex import CodexContractError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryRequest
+from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.parser import (
     HELP_TEXT,
@@ -151,6 +152,8 @@ class YoYackClient(discord.Client):
         self._disconnected_at = self.clock()
 
     async def close(self) -> None:
+        if self.summary_workflow is not None:
+            await self.summary_workflow.shutdown()
         if self._cleanup_task is not None:
             self._cleanup_task.cancel()
             await asyncio.gather(self._cleanup_task, return_exceptions=True)
@@ -387,6 +390,20 @@ async def run_gateway(
     observe_channel_id: int | None = None,
 ) -> None:
     """Run the gateway; smoke mode closes after a bounded connection check."""
+    with single_gateway(settings.input_directory):
+        removed = cleanup_abandoned_workspaces(settings.input_directory)
+        LOGGER.info("abandoned_requests_cleaned count=%d", removed)
+        await _run_gateway_locked(
+            settings, smoke_seconds=smoke_seconds, observe_channel_id=observe_channel_id
+        )
+
+
+async def _run_gateway_locked(
+    settings: Settings,
+    *,
+    smoke_seconds: float | None,
+    observe_channel_id: int | None,
+) -> None:
     client = YoYackClient(
         observe_channel_id=observe_channel_id,
         watch_store=SQLiteWatchStore(settings.database_path),
