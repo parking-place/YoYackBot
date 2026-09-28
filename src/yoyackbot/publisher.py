@@ -84,7 +84,7 @@ class DiscordSummaryPublisher:
                     PublicationFailure.PERMISSION, sent_ids=tuple(sent_ids),
                     failed_index=index, last_success_at=last_success_at,
                 ) from exc
-            except Exception as exc:  # noqa: BLE001 - response loss means delivery is ambiguous
+            except Exception as exc:  # Response loss means delivery is ambiguous.
                 raise PartialPublicationError(
                     PublicationFailure.UNCERTAIN, sent_ids=tuple(sent_ids),
                     failed_index=index, last_success_at=last_success_at,
