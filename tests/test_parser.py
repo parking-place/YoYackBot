@@ -10,6 +10,7 @@ import pytest
 
 from yoyackbot.channel_config import MemoryWatchStore
 from yoyackbot.config import Settings
+from yoyackbot.cooldown import SQLiteCooldownStore
 from yoyackbot.discord import PREVIEW_NOTICE, YoYackClient
 from yoyackbot.parser import (
     HELP_TEXT,
@@ -22,7 +23,9 @@ from yoyackbot.parser import (
     route_trigger,
     validate_option,
 )
+from yoyackbot.state import ChannelStates, ChannelStatus
 from yoyackbot.watch_gate import UNWATCHED_NOTICE
+from yoyackbot.workflow import SummaryWorkflow
 
 
 def test_included_trigger_uses_only_text_after_first_marker() -> None:
@@ -242,6 +245,50 @@ def test_preview_reply_never_claims_a_model_summary() -> None:
             sent.assert_awaited_once()
             assert sent.await_args.args[0] == PREVIEW_NOTICE
             assert sent.await_args.kwargs["allowed_mentions"].everyone is False
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
+
+
+def test_help_is_available_while_summarizing_and_during_success_cooldown(tmp_path) -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 9, 28, 12, tzinfo=UTC)
+        watch = MemoryWatchStore()
+        watch.replace(1, frozenset({99}))
+        sent = AsyncMock()
+        channel = SimpleNamespace(type=discord.ChannelType.text, id=99, send=sent)
+        message = SimpleNamespace(
+            id=500, guild=SimpleNamespace(id=1), channel=channel,
+            author=SimpleNamespace(bot=False), webhook_id=None,
+            type=discord.MessageType.default, content="!!요약좀 도움",
+        )
+
+        class Unused:
+            async def collect(self, *_args, **_kwargs):
+                raise AssertionError("Help must not enter collection")
+
+            async def summarize(self, *_args, **_kwargs):
+                raise AssertionError("Help must not enter model")
+
+            async def publish(self, *_args, **_kwargs):
+                raise AssertionError("Help must not enter publisher")
+
+        unused = Unused()
+        states = ChannelStates(SQLiteCooldownStore(tmp_path / "state.db"), clock=lambda: now)
+        workflow = SummaryWorkflow(unused, unused, unused, states)  # type: ignore[arg-type]
+        client = YoYackClient(
+            watch_store=watch, summary_workflow=workflow,
+            settings=Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"}),
+        )
+        try:
+            assert await states.begin(1, 99)
+            await client.on_message(message)
+            assert await states.status(1, 99) is ChannelStatus.SUMMARIZING
+            await states.finish_success(1, 99, now)
+            await client.on_message(message)
+            assert await states.status(1, 99) is ChannelStatus.COOLDOWN
+            assert [call.args[0] for call in sent.await_args_list] == [HELP_TEXT, HELP_TEXT]
         finally:
             await client.close()
 
