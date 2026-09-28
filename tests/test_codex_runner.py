@@ -94,9 +94,11 @@ def test_failure_never_surfaces_raw_cli_diagnostics(
         return FakeProcess()
 
     monkeypatch.setattr("yoyackbot.codex_runner.asyncio.create_subprocess_exec", create_process)
-    with InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace:
-        with pytest.raises(CodexRunError) as raised:
-            asyncio.run(isolated.execute(workspace, "synthetic prompt"))
+    with (
+        InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace,
+        pytest.raises(CodexRunError) as raised,
+    ):
+        asyncio.run(isolated.execute(workspace, "synthetic prompt"))
     assert raised.value.kind is CodexFailure.AUTH
     assert "secret-bearing" not in str(raised.value)
 

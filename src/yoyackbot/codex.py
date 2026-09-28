@@ -68,8 +68,10 @@ class CodexContract:
             args.extend([
                 "--config", 'default_permissions="summary-read"',
                 "--config", 'approval_policy="never"',
-                "--config", 'permissions.summary-read.filesystem={":root"="deny",'
-                '":minimal"="read","/work"="read","/auth"="deny","/output"="deny"}',
+                "--config", (
+                    'permissions.summary-read.filesystem={":root"="deny",'
+                    '":minimal"="read","/work"="read","/auth"="deny","/output"="deny"}'
+                ),
                 "--config", "permissions.summary-read.network.enabled=false",
                 "--config", 'web_search="disabled"',
             ])
