@@ -330,8 +330,9 @@ class SQLiteMessageStore:
         exhausted: bool,
         expected_version: int,
         verified_at: datetime,
+        fetched_after: datetime | None = None,
     ) -> bool:
-        """Publish records and coverage together only after full History exhaustion."""
+        """Atomically publish a complete page pass and reconcile older cached rows."""
         if not exhausted:
             return False
         if any(
@@ -346,6 +347,7 @@ class SQLiteMessageStore:
             _microseconds(interval.end),
             _microseconds(verified_at),
         )
+        fetched_after_us = _microseconds(fetched_after) if fetched_after is not None else None
         try:
             with self._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
@@ -358,7 +360,27 @@ class SQLiteMessageStore:
                 ).fetchone()
                 if row is None or row[0] != expected_version or watched is None:
                     return False
+                if fetched_after_us is not None:
+                    connection.execute("CREATE TEMP TABLE history_ids (message_id INTEGER PRIMARY KEY)")
+                    connection.executemany(
+                        "INSERT INTO history_ids(message_id) VALUES (?)",
+                        ((record.message_id,) for record in records),
+                    )
+                    connection.execute(
+                        "DELETE FROM messages WHERE guild_id=? AND channel_id=? "
+                        "AND created_at_us>=? AND created_at_us<? AND cached_at_us<=? "
+                        "AND NOT EXISTS (SELECT 1 FROM history_ids "
+                        "WHERE history_ids.message_id=messages.message_id)",
+                        (guild_id, interval.channel_id, start_us, end_us, fetched_after_us),
+                    )
                 for record in records:
+                    if fetched_after_us is not None:
+                        cached = connection.execute(
+                            "SELECT cached_at_us FROM messages WHERE message_id=?",
+                            (record.message_id,),
+                        ).fetchone()
+                        if cached is not None and cached[0] > fetched_after_us:
+                            continue
                     self._upsert(connection, record, verified_at)
                 connection.execute(
                     "INSERT INTO coverage "
