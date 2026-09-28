@@ -83,6 +83,8 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 
 0.1.0의 다섯 단계는 [PR #2](https://github.com/parking-place/YoYackBot/pull/2)로 `main`에 통합했다(검증 브랜치 D `d15e6af48d1fd2dec073bed144b7898386ce4402`, merge `e9bb6c13249ddbc18648ddcc7cdc73325c2a0e9f`). 실제 두 Guild 설정 분리·재시작 복원을 확인했고, 권한을 실제로 바꿔 보는 시험은 미실행으로 남겼다. 메시지 캐시·History·Codex 요약·운영 배포는 후속 단계다.
 
+0.2.0의 다섯 단계는 [PR #3](https://github.com/parking-place/YoYackBot/pull/3)로 `main`에 통합했다(검증 브랜치 D `aec621310cbe47c4565dfc5f2956cdc324ed1f78`, merge `330ea2b16a28936b932a80ac08cffcd65af3658f`). 실제 Discord 안내는 사용자가 확인했고, 직접 REST 메시지 조회는 403으로 제한됐다. 실제 요약 엔진과 메시지 캐시는 후속 단계다.
+
 ## 실행 증거
 
 실행을 시작한 뒤에만 `evidence/<version>-P<n>.md`를 작성한다. raw Discord 대화, 실제 서버 주소, 앱/사용자 식별값, 인증정보와 DB는 증거 파일에 넣지 않는다.
