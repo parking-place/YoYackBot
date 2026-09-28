@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | [0.2.0-P1 — 포함형 트리거·도움말 우선 처리](01-trigger-help.md) | `T020-P1-A/B` | DONE |
 | 2 | [0.2.0-P2 — 옵션 우선순위·문법 구현](02-option-parser.md) | `T020-P2-A/B` | DONE |
-| 3 | [0.2.0-P3 — 숫자·설정 상한 검증](03-limits.md) | `T020-P3-A/B` | PLANNED |
+| 3 | [0.2.0-P3 — 숫자·설정 상한 검증](03-limits.md) | `T020-P3-A/B` | IN_PROGRESS |
 | 4 | [0.2.0-P4 — KST 오늘·수락 시각·정렬 경계](04-time-window.md) | `T020-P4-A/B` | PLANNED |
 | 5 | [0.2.0-P5 — 명령 전체 회귀·Discord 안내 검증](05-parser-acceptance.md) | `T020-P5-A/B` | PLANNED |
 
