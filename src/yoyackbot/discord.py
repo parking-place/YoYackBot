@@ -6,7 +6,9 @@ from enum import Enum
 from typing import Protocol
 
 import discord
+from discord import app_commands
 
+from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
 from yoyackbot.config import Settings
 
 LOGGER = logging.getLogger(__name__)
@@ -51,13 +53,32 @@ def required_intents() -> discord.Intents:
 
 
 class YoYackClient(discord.Client):
-    def __init__(self, *, observe_channel_id: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        observe_channel_id: int | None = None,
+        watch_store: WatchStore | None = None,
+        dev_guild_id: int | None = None,
+    ) -> None:
         super().__init__(intents=required_intents(), member_cache_flags=discord.MemberCacheFlags.none())
         self.observe_channel_id = observe_channel_id
         self.ready_event = asyncio.Event()
         self.accepted_events = 0
         self.nonempty_content_events = 0
         self.connection_count = 0
+        self.watch_store = watch_store or MemoryWatchStore()
+        self.dev_guild_id = dev_guild_id
+        self.tree = app_commands.CommandTree(self)
+        install_channel_commands(self.tree, self.watch_store)
+
+    async def setup_hook(self) -> None:
+        if self.dev_guild_id is not None:
+            guild = discord.Object(id=self.dev_guild_id)
+            self.tree.copy_global_to(guild=guild)
+            commands = await self.tree.sync(guild=guild)
+        else:
+            commands = await self.tree.sync()
+        LOGGER.info("commands_synced count=%d", len(commands))
 
     async def on_ready(self) -> None:
         self.connection_count += 1
@@ -88,7 +109,10 @@ async def run_gateway(
     observe_channel_id: int | None = None,
 ) -> None:
     """Run the gateway; smoke mode closes after a bounded connection check."""
-    client = YoYackClient(observe_channel_id=observe_channel_id)
+    client = YoYackClient(
+        observe_channel_id=observe_channel_id,
+        dev_guild_id=settings.dev_guild_id,
+    )
     async with client:
         if smoke_seconds is None:
             await client.start(settings.discord_bot_token)
