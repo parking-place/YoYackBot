@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-28. 개발 완료 **5 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 53개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-28. 개발 완료 **10 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 45개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -26,11 +26,11 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.0.0-P3 | [LXC·Discord·Codex 선행 조건 확인](0.0.0/03-environment-preflight.md) | DONE | `1fcd9952460ea515228d898a313577c79d73040a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/ddd0a36d7cfdab231e362def5d70f9a9f9685781) | OpenJevLXC와 실제 Discord REST 읽기 점검; 공개 문서 비밀정보 검사 검증; 세부 결과는 증거 파일 |
 | 0.0.0-P4 | [설정·인터페이스·오류 계약 정의](0.0.0/04-interfaces-config.md) | DONE | `82d66ba8ba21098abfbb8da8c64c995c76b7f7c2` | [evidence E](https://github.com/parking-place/YoYackBot/commit/85015483ebd7958b01c3ea050d0710826dbdd421) | OpenJevLXC 격리 Python 3.13.5/discord.py 2.7.1; 합성 계약·설정 검사 검증; 세부 결과는 증거 파일 |
 | 0.0.0-P5 | [검증 실행 기반·초기 버전 게이트](0.0.0/05-verification-baseline.md) | DONE | `366050bf2a6698577a286b35c635ca40c05f4510` | [evidence E](https://github.com/parking-place/YoYackBot/commit/7d99013bd027cfeede5a95ed7a007d9ff6d20895) | OpenJevLXC 독립 체크아웃의 pinned runner + GitHub Actions Source checks 검증; 세부 결과는 증거 파일 |
-| 0.1.0-P1 | [Discord 연결·이벤트 경계 구현](0.1.0/01-gateway.md) | PLANNED | — | — | 미착수 |
-| 0.1.0-P2 | [채널 설정 명령·관리 권한 구현](0.1.0/02-channel-selector.md) | PLANNED | — | — | 미착수 |
-| 0.1.0-P3 | [주시 설정 영속화·서버 격리](0.1.0/03-settings-store.md) | PLANNED | — | — | 미착수 |
-| 0.1.0-P4 | [주시 추가·해제·미주시 차단](0.1.0/04-watch-enforcement.md) | PLANNED | — | — | 미착수 |
-| 0.1.0-P5 | [채널 설정 실환경 검증·버전 종료](0.1.0/05-channel-acceptance.md) | PLANNED | — | — | 미착수 |
+| 0.1.0-P1 | [Discord 연결·이벤트 경계 구현](0.1.0/01-gateway.md) | DONE | `5c8ba1716605a626166e48099936cb81649d822e` | [evidence E](https://github.com/parking-place/YoYackBot/commit/b21f194b6ed8a0e89916d72520845e5af63c4c8b) | OpenJevLXC 개발 Discord Guild·Gateway, Python 3.13.5 검증; 세부 결과는 증거 파일 |
+| 0.1.0-P2 | [채널 설정 명령·관리 권한 구현](0.1.0/02-channel-selector.md) | DONE | `eaa8b54faaf7632449412d07ce3f8c9ce80accc1` | [evidence E](https://github.com/parking-place/YoYackBot/commit/bc992203f91a9016d8cbc58e70f64eaeff79ebac) | OpenJevLXC 개발 Discord Guild; 관리자 실제 선택·저장, Python 3.13.5 검증; 세부 결과는 증거 파일 |
+| 0.1.0-P3 | [주시 설정 영속화·서버 격리](0.1.0/03-settings-store.md) | DONE | `3135a352b1358ee4e7d86e10c4a17c1cf0b38bca` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d9f6de656841d309245a349a221aaa9165c0c876) | OpenJevLXC Python 3.13.5, 실제 개발 Guild의 SQLite 설정 및 재시작 검증; 세부 결과는 증거 파일 |
+| 0.1.0-P4 | [주시 추가·해제·미주시 차단](0.1.0/04-watch-enforcement.md) | DONE | `93911253e629692326cbcf9999076f8f6e7b827f` | [evidence E](https://github.com/parking-place/YoYackBot/commit/2703e30277b9aa746a9870674a16caee08ab11f6) | OpenJevLXC Python 3.13.5 합성 어댑터 검사; 실제 Gateway Guild 2개 접속 확인 검증; 세부 결과는 증거 파일 |
+| 0.1.0-P5 | [채널 설정 실환경 검증·버전 종료](0.1.0/05-channel-acceptance.md) | DONE | `16f5af9391d8fd539b23f5ee89aab24d36f67991` | [evidence E](https://github.com/parking-place/YoYackBot/commit/7dc6b4edd9f8473da643aca4d22456a20b6dc3d5) | OpenJevLXC Python 3.13.5, 개발 Discord Guild 2개 실제 관리자 설정·재시작 검증; 세부 결과는 증거 파일 |
 | 0.2.0-P1 | [포함형 트리거·도움말 우선 처리](0.2.0/01-trigger-help.md) | PLANNED | — | — | 미착수 |
 | 0.2.0-P2 | [옵션 우선순위·문법 구현](0.2.0/02-option-parser.md) | PLANNED | — | — | 미착수 |
 | 0.2.0-P3 | [숫자·설정 상한 검증](0.2.0/03-limits.md) | PLANNED | — | — | 미착수 |

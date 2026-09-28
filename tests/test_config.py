@@ -5,13 +5,13 @@ import subprocess
 import sys
 
 
-def invoke(command: str, token: str | None) -> subprocess.CompletedProcess[str]:
+def invoke(command: str, token: str | None, *options: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.pop("DISCORD_BOT_TOKEN", None)
     if token is not None:
         env["DISCORD_BOT_TOKEN"] = token
     return subprocess.run(
-        [sys.executable, "-m", "yoyackbot", command],
+        [sys.executable, "-m", "yoyackbot", command, *options],
         capture_output=True,
         text=True,
         env=env,
@@ -34,7 +34,7 @@ def test_config_check_with_secret_never_prints_value() -> None:
     assert fake_secret not in result.stdout + result.stderr
 
 
-def test_run_is_explicitly_unavailable_until_gateway_stage() -> None:
-    result = invoke("run", "only-a-test-secret-value")
+def test_invalid_smoke_duration_rejects_before_network_access() -> None:
+    result = invoke("run", "only-a-test-secret-value", "--smoke-seconds", "0")
     assert result.returncode == 2
-    assert "not implemented yet" in result.stdout
+    assert "Gateway smoke duration must be positive" in result.stdout

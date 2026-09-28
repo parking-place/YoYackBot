@@ -54,6 +54,7 @@ class Settings:
     max_input_bytes: int
     max_output_bytes: int
     max_history_pages: int
+    dev_guild_id: int | None = None
 
     @classmethod
     def from_environment(cls, source: Mapping[str, str] | None = None) -> "Settings":
@@ -78,6 +79,17 @@ class Settings:
         message_limit = _integer(values, "YOYACK_DISCORD_MESSAGE_LIMIT", 1900)
         if message_limit > 2000:
             raise ConfigurationError("YOYACK_DISCORD_MESSAGE_LIMIT cannot exceed 2000")
+
+        dev_guild_raw = values.get("YOYACK_DEV_GUILD_ID", "").strip()
+        if dev_guild_raw:
+            try:
+                dev_guild_id = int(dev_guild_raw)
+            except ValueError as exc:
+                raise ConfigurationError("YOYACK_DEV_GUILD_ID must be an integer") from exc
+            if dev_guild_id < 1:
+                raise ConfigurationError("YOYACK_DEV_GUILD_ID must be positive")
+        else:
+            dev_guild_id = None
 
         return cls(
             discord_bot_token=token,
@@ -107,4 +119,5 @@ class Settings:
             max_input_bytes=_integer(values, "YOYACK_MAX_INPUT_BYTES", 1_000_000),
             max_output_bytes=_integer(values, "YOYACK_MAX_OUTPUT_BYTES", 50_000),
             max_history_pages=_integer(values, "YOYACK_MAX_HISTORY_PAGES", 100),
+            dev_guild_id=dev_guild_id,
         )
