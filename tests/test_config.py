@@ -67,7 +67,7 @@ def test_systemd_credential_copy_precedes_manual_file(tmp_path) -> None:
     directory.mkdir()
     copied = directory / "discord_token"
     copied.write_text("only-a-test-systemd-token")
-    copied.chmod(0o600)
+    copied.chmod(0o444)
     settings = Settings.from_environment({
         "CREDENTIALS_DIRECTORY": str(directory),
         "DISCORD_BOT_TOKEN_FILE": "/missing/manual-token",

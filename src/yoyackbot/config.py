@@ -73,7 +73,9 @@ class Settings:
                 raise ConfigurationError("DISCORD_BOT_TOKEN_FILE must be absolute")
             try:
                 info = path.stat()
-                if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+                if not stat.S_ISREG(info.st_mode) or (
+                    not credentials_root and info.st_mode & 0o077
+                ):
                     raise ConfigurationError("DISCORD_BOT_TOKEN_FILE is not private")
                 token = path.read_text(encoding="utf-8").strip()
             except (OSError, UnicodeError) as exc:
