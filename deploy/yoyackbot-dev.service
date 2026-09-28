@@ -11,6 +11,7 @@ User=yoyackbot-dev
 Group=yoyackbot-dev
 WorkingDirectory=/opt/yoyackbot-dev
 EnvironmentFile=/var/lib/yoyackbot-dev/secrets.env
+LoadCredential=discord_token:/var/lib/yoyackbot-dev/discord-token
 ExecStartPre=/opt/yoyackbot-dev/.venv/bin/python -m yoyackbot check-ready
 ExecStart=/opt/yoyackbot-dev/.venv/bin/python -m yoyackbot run
 Restart=on-failure

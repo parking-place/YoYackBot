@@ -1,5 +1,6 @@
 """Validated runtime configuration with secret-safe errors."""
 
+import stat
 from collections.abc import Mapping
 from dataclasses import dataclass
 from os import environ
@@ -61,9 +62,26 @@ class Settings:
     @classmethod
     def from_environment(cls, source: Mapping[str, str] | None = None) -> "Settings":
         values = environ if source is None else source
-        token = values.get("DISCORD_BOT_TOKEN", "")
+        credentials_root = values.get("CREDENTIALS_DIRECTORY", "").strip()
+        token_file = (
+            str(Path(credentials_root) / "discord_token") if credentials_root
+            else values.get("DISCORD_BOT_TOKEN_FILE", "").strip()
+        )
+        if token_file:
+            path = Path(token_file)
+            if not path.is_absolute():
+                raise ConfigurationError("DISCORD_BOT_TOKEN_FILE must be absolute")
+            try:
+                info = path.stat()
+                if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+                    raise ConfigurationError("DISCORD_BOT_TOKEN_FILE is not private")
+                token = path.read_text(encoding="utf-8").strip()
+            except (OSError, UnicodeError) as exc:
+                raise ConfigurationError("DISCORD_BOT_TOKEN_FILE is unavailable") from exc
+        else:
+            token = values.get("DISCORD_BOT_TOKEN", "")
         if not token:
-            raise ConfigurationError("DISCORD_BOT_TOKEN is not set")
+            raise ConfigurationError("Discord bot credential is not set")
 
         zone_name = _text(values, "YOYACK_TIMEZONE", "Asia/Seoul")
         try:
