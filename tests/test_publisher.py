@@ -64,7 +64,13 @@ def test_success_sends_only_to_requested_channel_and_returns_last_time(
     receipt = asyncio.run(publisher.publish(request, result, selected))
     assert len(receipt.message_ids) == len(channel.sent)
     assert receipt.last_success_at == NOW + timedelta(seconds=len(channel.sent))
-    assert all(kwargs["allowed_mentions"].everyone is False for _, kwargs in channel.sent)
+    assert all(
+        kwargs["allowed_mentions"].everyone is False
+        and kwargs["allowed_mentions"].users is False
+        and kwargs["allowed_mentions"].roles is False
+        and kwargs["allowed_mentions"].replied_user is False
+        for _, kwargs in channel.sent
+    )
     assert all(kwargs["suppress_embeds"] is True for _, kwargs in channel.sent)
     assert "부터 지금까지의 요약이오" in channel.sent[0][0]
     assert all("부터 지금까지의 요약이오" not in item[0] for item in channel.sent[1:])
