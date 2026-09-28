@@ -1,7 +1,7 @@
 """Fill only missing verified time intervals before reading a channel request."""
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
@@ -57,6 +57,7 @@ class TimeRangeCollector:
         start: datetime,
         end: datetime,
         trigger_message_id: int | None = None,
+        can_continue: Callable[[], Awaitable[bool]] | None = None,
     ) -> TimeCollectionResult:
         request = CoverageInterval(channel_id, start, end)
         if (
@@ -79,6 +80,7 @@ class TimeRangeCollector:
                 start=gap.start,
                 end=gap.end,
                 trigger_message_id=trigger_message_id,
+                can_continue=can_continue,
             )
             if not result.exhausted:
                 raise CollectionError(CollectionFailure.INCOMPLETE)

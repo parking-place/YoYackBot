@@ -1,6 +1,7 @@
 """Fail-closed collection routing with a settings-verified cache fallback."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -74,6 +75,7 @@ class CollectionCoordinator:
         guild_id: int,
         channel_id: int,
         request: RangeRequest,
+        can_continue: Callable[[], Awaitable[bool]] | None = None,
     ) -> CollectionOutcome:
         if (
             getattr(channel, "type", None) is not discord.ChannelType.text
@@ -93,6 +95,7 @@ class CollectionCoordinator:
                     end=request.accepted_at,
                     accepted_at=request.accepted_at,
                     trigger_message_id=request.trigger_message_id,
+                    can_continue=can_continue,
                 )
                 outcome = CollectionOutcome(result.messages, 0, request.start, result.pages, False)
             else:
@@ -104,6 +107,7 @@ class CollectionCoordinator:
                     count=request.count,
                     accepted_at=request.accepted_at,
                     trigger_message_id=request.trigger_message_id,
+                    can_continue=can_continue,
                 )
                 outcome = CollectionOutcome(
                     result.messages, result.shortage, result.searched_since, result.pages, False
@@ -111,7 +115,9 @@ class CollectionCoordinator:
         except MessageStoreError:
             if await self._trusted_version(guild_id, channel_id) != version:
                 raise CollectionUnavailable("Channel settings changed during cache failure") from None
-            outcome = await self._direct(channel, guild_id, channel_id, request)
+            outcome = await self._direct(
+                channel, guild_id, channel_id, request, can_continue=can_continue
+            )
         except WatchStoreError as exc:
             raise CollectionUnavailable("Channel settings are unavailable") from exc
         if await self._trusted_version(guild_id, channel_id) != version:
@@ -128,7 +134,8 @@ class CollectionCoordinator:
         return version
 
     async def _direct(
-        self, channel: discord.TextChannel, guild_id: int, channel_id: int, request: RangeRequest
+        self, channel: discord.TextChannel, guild_id: int, channel_id: int, request: RangeRequest,
+        *, can_continue: Callable[[], Awaitable[bool]] | None = None,
     ) -> CollectionOutcome:
         floor = request.accepted_at - timedelta(days=self.max_days)
         if request.kind is RequestKind.TIME:
@@ -139,6 +146,7 @@ class CollectionCoordinator:
                 channel, guild_id=guild_id, channel_id=channel_id,
                 start=request.start, end=request.accepted_at,
                 trigger_message_id=request.trigger_message_id,
+                can_continue=can_continue,
             )
             if not history.exhausted:
                 raise CollectionError(CollectionFailure.INCOMPLETE)
@@ -154,6 +162,7 @@ class CollectionCoordinator:
                 start=floor, end=request.accepted_at,
                 trigger_message_id=request.trigger_message_id,
                 limit_messages=request.count,
+                can_continue=can_continue,
             )
             messages = history.messages
             shortage = request.count - len(messages)

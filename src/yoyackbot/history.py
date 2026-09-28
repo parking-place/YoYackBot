@@ -1,7 +1,7 @@
 """Bounded Discord History paging for one frozen Guild/channel time window."""
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -96,8 +96,13 @@ class HistoryAdapter:
         self.max_records = max_records
         self.max_content_bytes = max_content_bytes
 
-    async def _page(self, channel: discord.TextChannel, before: int) -> Sequence[discord.Message]:
+    async def _page(
+        self, channel: discord.TextChannel, before: int,
+        can_continue: Callable[[], Awaitable[bool]] | None = None,
+    ) -> Sequence[discord.Message]:
         for attempt in range(self.retries + 1):
+            if can_continue is not None and not await can_continue():
+                raise HistoryError(HistoryFailure.PERMISSION)
             try:
                 return await self.source.fetch_page(channel, before=before, limit=self.page_size)
             except (discord.HTTPException, ClientError, OSError) as exc:
@@ -119,6 +124,7 @@ class HistoryAdapter:
         end: datetime,
         trigger_message_id: int | None = None,
         limit_messages: int | None = None,
+        can_continue: Callable[[], Awaitable[bool]] | None = None,
     ) -> HistoryResult:
         """Return oldest-first records; count-limited results never claim full coverage."""
         if start.tzinfo is None or end.tzinfo is None or start >= end:
@@ -138,7 +144,7 @@ class HistoryAdapter:
         try:
             async with asyncio.timeout(self.timeout_seconds):
                 while pages < self.max_pages:
-                    page = await self._page(channel, before)
+                    page = await self._page(channel, before, can_continue)
                     pages += 1
                     if not page:
                         return HistoryResult(tuple(sorted(records.values(), key=_sort_key)), pages)

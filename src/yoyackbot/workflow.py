@@ -2,30 +2,38 @@
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 
 import discord
 
 from yoyackbot.channel_config import valid_channel
 from yoyackbot.codex_engine import CodexSummaryEngine
-from yoyackbot.collection import EMPTY_NOTICE, CollectionCoordinator
+from yoyackbot.collection import EMPTY_NOTICE, CollectionCoordinator, CollectionUnavailable
 from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore, cooldown_notice
-from yoyackbot.count_collection import CountCollector
-from yoyackbot.domain import SummaryRequest
-from yoyackbot.history import HistoryAdapter
-from yoyackbot.long_range import LongRangeCollector
-from yoyackbot.message_store import SQLiteMessageStore
-from yoyackbot.publisher import DiscordSummaryPublisher
-from yoyackbot.range_collection import TimeRangeCollector
+from yoyackbot.codex_runner import CodexRunError
+from yoyackbot.count_collection import CountCollector, CountError
+from yoyackbot.domain import MessageRecord, SummaryRequest, SummaryResult
+from yoyackbot.errors import FailureKind, message_for
+from yoyackbot.history import HistoryAdapter, HistoryError
+from yoyackbot.input_files import InputFileError
+from yoyackbot.long_range import LongRangeCollector, LongRangeError
+from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
+from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
+from yoyackbot.range_collection import CollectionError, TimeRangeCollector
 from yoyackbot.state import AdmissionKind, ChannelStates
 from yoyackbot.watch_gate import ChannelLease
-from yoyackbot.watch_store import SQLiteWatchStore
+from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 
 LOGGER = logging.getLogger(__name__)
 BUSY_NOTICE = "요약중이오. 좀 기다리시오."
 FAILED_NOTICE = "요약을 마치지 못했소. 잠시 후 다시 시도하시오."
+INVALIDATED_NOTICE = "채널 주시나 권한이 바뀌어 요약을 멈추었소."
+
+
+class JobInvalidated(RuntimeError):
+    """The watched-channel lease or Discord permission changed during a job."""
 
 
 @dataclass
@@ -34,6 +42,31 @@ class SummaryWorkflow:
     engine: CodexSummaryEngine
     publisher: DiscordSummaryPublisher
     states: ChannelStates = field(default_factory=ChannelStates)
+
+    @staticmethod
+    async def _channel_ready(channel: discord.TextChannel, lease: ChannelLease) -> bool:
+        return await asyncio.to_thread(lease.valid) and valid_channel(channel.guild, channel.id)
+
+    async def _summarize_guarded(
+        self, messages: Sequence[MessageRecord], *, channel_name: str,
+        trigger_message_id: int | None,
+        channel: discord.TextChannel, lease: ChannelLease,
+    ) -> SummaryResult:
+        model = asyncio.create_task(self.engine.summarize(
+            messages, channel_name=channel_name, range_label="선택한 대화",
+            trigger_message_id=trigger_message_id,
+        ))
+        try:
+            while True:
+                done, _ = await asyncio.wait({model}, timeout=0.5)
+                if done:
+                    return await model
+                if not await self._channel_ready(channel, lease):
+                    raise JobInvalidated
+        finally:
+            if not model.done():
+                model.cancel()
+                await asyncio.gather(model, return_exceptions=True)
 
     async def run(
         self, request: SummaryRequest, channel: discord.TextChannel,
@@ -44,8 +77,7 @@ class SummaryWorkflow:
             getattr(channel, "type", None) is not discord.ChannelType.text
             or getattr(channel, "id", None) != channel_id
             or getattr(getattr(channel, "guild", None), "id", None) != guild_id
-            or not await asyncio.to_thread(lease.valid)
-            or not valid_channel(channel.guild, channel_id)
+            or not await self._channel_ready(channel, lease)
         ):
             await send_notice(FAILED_NOTICE)
             return
@@ -58,26 +90,38 @@ class SummaryWorkflow:
             return
         completed = False
         try:
+            async def can_continue() -> bool:
+                return await self._channel_ready(channel, lease)
+
             outcome = await self.collector.collect(
                 channel, guild_id=guild_id, channel_id=channel_id,
                 request=request.requested_range,
+                can_continue=can_continue,
             )
             if outcome.empty:
                 await send_notice(EMPTY_NOTICE)
                 return
-            if not await asyncio.to_thread(lease.valid):
-                await send_notice(FAILED_NOTICE)
-                return
-            result = await self.engine.summarize(
+            if not await can_continue():
+                raise JobInvalidated
+            result = await self._summarize_guarded(
                 outcome.messages, channel_name=channel.name,
-                range_label="선택한 대화", trigger_message_id=request.requested_range.trigger_message_id,
+                trigger_message_id=request.requested_range.trigger_message_id,
+                channel=channel, lease=lease,
             )
-            if not await asyncio.to_thread(lease.valid):
-                await send_notice(FAILED_NOTICE)
-                return
+            if not await can_continue():
+                raise JobInvalidated
             receipt = await self.publisher.publish(request, result, outcome.messages)
             await self.states.finish_success(guild_id, channel_id, receipt.last_success_at)
             completed = True
+        except JobInvalidated:
+            await send_notice(INVALIDATED_NOTICE)
+        except (CollectionError, CollectionUnavailable, HistoryError, CountError, LongRangeError,
+                MessageStoreError, WatchStoreError):
+            await send_notice(message_for(FailureKind.HISTORY))
+        except (CodexRunError, InputFileError):
+            await send_notice(message_for(FailureKind.MODEL))
+        except PartialPublicationError:
+            await send_notice(message_for(FailureKind.SEND))
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("summary_job_failed type=%s", type(exc).__name__)
             await send_notice(FAILED_NOTICE)

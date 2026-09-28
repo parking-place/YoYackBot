@@ -88,6 +88,32 @@ def test_cancelled_run_kills_child_process(tmp_path: Path) -> None:
     assert _child_state(int(pid_file.read_text())) in {None, "Z", "X"}
 
 
+def test_cancelled_model_call_removes_private_input_and_auth_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    isolated = runner(tmp_path)
+    entered = asyncio.Event()
+
+    async def hanging_invoke(*_args):
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr("yoyackbot.codex_runner._invoke", hanging_invoke)
+
+    async def scenario() -> None:
+        workspace = InputWorkspace.create(tmp_path / "inputs", b"synthetic only")
+        task = asyncio.create_task(isolated.execute(workspace, "synthetic prompt"))
+        await asyncio.wait_for(entered.wait(), 2)
+        temporary_auth = workspace.directory / "auth" / "auth.json"
+        assert temporary_auth.exists()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 2)
+        assert not workspace.directory.exists()
+
+    asyncio.run(scenario())
+
+
 def test_rejects_large_prompt_final_and_symlink_then_cleans(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

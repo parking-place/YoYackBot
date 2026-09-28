@@ -8,6 +8,9 @@ import discord
 import pytest
 
 from yoyackbot.collection import EMPTY_NOTICE, CollectionOutcome
+from yoyackbot.codex import CodexFailure
+from yoyackbot.codex_runner import CodexRunError
+from yoyackbot.cooldown import SQLiteCooldownStore
 from yoyackbot.domain import (
     MessageRecord,
     PublicationReceipt,
@@ -16,8 +19,10 @@ from yoyackbot.domain import (
     SummaryRequest,
     SummaryResult,
 )
+from yoyackbot.publisher import PartialPublicationError, PublicationFailure
 from yoyackbot.state import ChannelStates, ChannelStatus
-from yoyackbot.workflow import BUSY_NOTICE, SummaryWorkflow
+from yoyackbot.workflow import BUSY_NOTICE, INVALIDATED_NOTICE, SummaryWorkflow
+from yoyackbot.errors import FailureKind, message_for
 
 NOW = datetime(2026, 9, 28, 12, 0, tzinfo=UTC)
 RECORD = MessageRecord(1, 1, 2, 3, "가람", "합성 대화", NOW - timedelta(minutes=1))
@@ -134,5 +139,201 @@ def test_empty_result_never_calls_model_or_publisher(monkeypatch: pytest.MonkeyP
         )
         assert notices == [EMPTY_NOTICE]
         assert await workflow.states.status(1, 2) is ChannelStatus.IDLE
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", ["collection", "model", "publication"])
+def test_failure_releases_channel_and_allows_retry_without_success_cooldown(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, failure: str,
+) -> None:
+    monkeypatch.setattr("yoyackbot.workflow.valid_channel", lambda _guild, _id: True)
+    fail = [True]
+
+    class Collector:
+        async def collect(self, *_args, **_kwargs):
+            if fail[0] and failure == "collection":
+                raise OSError("synthetic cache failure")
+            return CollectionOutcome((RECORD,), 0, NOW, 0, False)
+
+    class Engine:
+        async def summarize(self, *_args, **_kwargs):
+            if fail[0] and failure == "model":
+                raise CodexRunError(CodexFailure.PROCESS)
+            return SummaryResult("가람이 합성 대화를 했소.", "fake", 1)
+
+    class Publisher:
+        async def publish(self, *_args, **_kwargs):
+            if fail[0] and failure == "publication":
+                raise PartialPublicationError(
+                    PublicationFailure.UNCERTAIN, sent_ids=(99,),
+                    failed_index=2, last_success_at=NOW,
+                )
+            return PublicationReceipt((100,), NOW)
+
+    async def scenario() -> None:
+        notices: list[str] = []
+
+        async def notice(value: str) -> None:
+            notices.append(value)
+
+        store = SQLiteCooldownStore(tmp_path / "state.db")
+        states = ChannelStates(store, clock=lambda: NOW)
+        workflow = SummaryWorkflow(Collector(), Engine(), Publisher(), states)  # type: ignore[arg-type]
+        lease = SimpleNamespace(valid=lambda: True)
+        await workflow.run(request(), channel(), lease, notice)  # type: ignore[arg-type]
+        expected = {
+            "collection": "요약을 마치지 못했소. 잠시 후 다시 시도하시오.",
+            "model": message_for(FailureKind.MODEL),
+            "publication": message_for(FailureKind.SEND),
+        }[failure]
+        assert notices == [expected]
+        assert store.remaining(1, 2, NOW) == 0
+        assert await states.status(1, 2) is ChannelStatus.IDLE
+        fail[0] = False
+        await workflow.run(request(), channel(), lease, notice)  # type: ignore[arg-type]
+        assert await states.status(1, 2) is ChannelStatus.COOLDOWN
+
+    asyncio.run(scenario())
+
+
+def test_watch_removed_after_collection_prevents_model_and_releases_state(
+    tmp_path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("yoyackbot.workflow.valid_channel", lambda _guild, _id: True)
+    watched = [True]
+
+    class Collector:
+        async def collect(self, *_args, **_kwargs):
+            watched[0] = False
+            return CollectionOutcome((RECORD,), 0, NOW, 0, False)
+
+    class Unused:
+        async def summarize(self, *_args, **_kwargs):
+            raise AssertionError("Model must not run after watch removal")
+
+        async def publish(self, *_args, **_kwargs):
+            raise AssertionError("Publisher must not run after watch removal")
+
+    async def scenario() -> None:
+        notices: list[str] = []
+
+        async def notice(value: str) -> None:
+            notices.append(value)
+
+        store = SQLiteCooldownStore(tmp_path / "state.db")
+        states = ChannelStates(store, clock=lambda: NOW)
+        unused = Unused()
+        workflow = SummaryWorkflow(Collector(), unused, unused, states)  # type: ignore[arg-type]
+        await workflow.run(
+            request(), channel(), SimpleNamespace(valid=lambda: watched[0]), notice  # type: ignore[arg-type]
+        )
+        assert notices == [INVALIDATED_NOTICE]
+        assert await states.status(1, 2) is ChannelStatus.IDLE
+        assert store.remaining(1, 2, NOW) == 0
+
+    asyncio.run(scenario())
+
+
+def test_permission_loss_during_model_cancels_it_before_publication(
+    tmp_path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allowed = [True]
+    monkeypatch.setattr("yoyackbot.workflow.valid_channel", lambda _guild, _id: allowed[0])
+
+    class Collector:
+        async def collect(self, *_args, **_kwargs):
+            return CollectionOutcome((RECORD,), 0, NOW, 0, False)
+
+    class Engine:
+        def __init__(self) -> None:
+            self.entered = asyncio.Event()
+            self.cancelled = asyncio.Event()
+
+        async def summarize(self, *_args, **_kwargs):
+            self.entered.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                self.cancelled.set()
+                raise
+
+    class Publisher:
+        async def publish(self, *_args, **_kwargs):
+            raise AssertionError("Publisher must not run after permission loss")
+
+    async def scenario() -> None:
+        notices: list[str] = []
+
+        async def notice(value: str) -> None:
+            notices.append(value)
+
+        engine = Engine()
+        store = SQLiteCooldownStore(tmp_path / "state.db")
+        states = ChannelStates(store, clock=lambda: NOW)
+        workflow = SummaryWorkflow(Collector(), engine, Publisher(), states)  # type: ignore[arg-type]
+        task = asyncio.create_task(workflow.run(
+            request(), channel(), SimpleNamespace(valid=lambda: True), notice  # type: ignore[arg-type]
+        ))
+        await asyncio.wait_for(engine.entered.wait(), 2)
+        allowed[0] = False
+        await asyncio.wait_for(task, 2)
+        assert engine.cancelled.is_set()
+        assert notices == [INVALIDATED_NOTICE]
+        assert await states.status(1, 2) is ChannelStatus.IDLE
+        assert store.remaining(1, 2, NOW) == 0
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("blocked_stage", ["collection", "model", "publication"])
+def test_external_cancellation_releases_state_at_each_await_point(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, blocked_stage: str,
+) -> None:
+    monkeypatch.setattr("yoyackbot.workflow.valid_channel", lambda _guild, _id: True)
+
+    async def scenario() -> None:
+        entered = asyncio.Event()
+        block = [True]
+
+        async def maybe_block(stage: str) -> None:
+            if block[0] and stage == blocked_stage:
+                entered.set()
+                await asyncio.Event().wait()
+
+        class Collector:
+            async def collect(self, *_args, **_kwargs):
+                await maybe_block("collection")
+                return CollectionOutcome((RECORD,), 0, NOW, 0, False)
+
+        class Engine:
+            async def summarize(self, *_args, **_kwargs):
+                await maybe_block("model")
+                return SummaryResult("가람이 합성 대화를 했소.", "fake", 1)
+
+        class Publisher:
+            async def publish(self, *_args, **_kwargs):
+                await maybe_block("publication")
+                return PublicationReceipt((100,), NOW)
+
+        async def notice(_value: str) -> None:
+            pass
+
+        store = SQLiteCooldownStore(tmp_path / "state.db")
+        states = ChannelStates(store, clock=lambda: NOW)
+        workflow = SummaryWorkflow(Collector(), Engine(), Publisher(), states)  # type: ignore[arg-type]
+        lease = SimpleNamespace(valid=lambda: True)
+        task = asyncio.create_task(workflow.run(
+            request(), channel(), lease, notice  # type: ignore[arg-type]
+        ))
+        await asyncio.wait_for(entered.wait(), 2)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 2)
+        assert await states.status(1, 2) is ChannelStatus.IDLE
+        assert store.remaining(1, 2, NOW) == 0
+        block[0] = False
+        await workflow.run(request(), channel(), lease, notice)  # type: ignore[arg-type]
+        assert await states.status(1, 2) is ChannelStatus.COOLDOWN
 
     asyncio.run(scenario())
