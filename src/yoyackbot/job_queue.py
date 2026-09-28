@@ -3,6 +3,7 @@
 import asyncio
 from collections import deque
 from dataclasses import dataclass
+from typing import Self
 
 
 class QueueFull(RuntimeError):
@@ -22,7 +23,7 @@ class QueueLease:
     queue: "SummaryJobQueue"
     released: bool = False
 
-    async def __aenter__(self) -> "QueueLease":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *_error: object) -> None:

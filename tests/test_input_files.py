@@ -96,9 +96,8 @@ def test_exclusive_restart_removes_abandoned_requests_only(tmp_path: Path) -> No
     unrelated.mkdir()
     (root / "request-link").symlink_to(unrelated, target_is_directory=True)
     with single_gateway(root):
-        with pytest.raises(GatewayAlreadyRunning):
-            with single_gateway(root):
-                pass
+        with pytest.raises(GatewayAlreadyRunning), single_gateway(root):
+            pass
         assert cleanup_abandoned_workspaces(root) == 1
         assert not abandoned.directory.exists()
         assert unrelated.exists() and (root / "request-link").is_symlink()
