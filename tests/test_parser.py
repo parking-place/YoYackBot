@@ -8,15 +8,18 @@ import discord
 import pytest
 
 from yoyackbot.channel_config import MemoryWatchStore
+from yoyackbot.config import Settings
 from yoyackbot.discord import YoYackClient
 from yoyackbot.parser import (
     HELP_TEXT,
+    CommandLimitError,
     CommandSyntaxError,
     OptionKind,
     ParsedOption,
     RouteKind,
     parse_option,
     route_trigger,
+    validate_option,
 )
 
 
@@ -85,6 +88,41 @@ def test_all_supported_option_forms(option: str, expected: ParsedOption) -> None
     ],
 )
 def test_conflicting_or_unknown_options_are_rejected(option: str) -> None:
+    with pytest.raises(CommandSyntaxError):
+        parse_option(option)
+
+
+@pytest.mark.parametrize(
+    ("unit", "maximum"),
+    [("분", 1440), ("시간", 168), ("일", 7), ("주", 4), ("개", 1000)],
+)
+def test_each_numeric_limit_has_closed_upper_boundary(unit: str, maximum: int) -> None:
+    settings = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
+    for value in (maximum - 1, maximum):
+        assert validate_option(parse_option(f"{value}{unit}"), settings).value == value
+    for value in (0, maximum + 1):
+        with pytest.raises(CommandLimitError, match="!!요약좀 도움"):
+            validate_option(parse_option(f"{value}{unit}"), settings)
+
+
+def test_limits_are_configurable_and_do_not_truncate_four_weeks_to_cache_retention() -> None:
+    settings = Settings.from_environment(
+        {"DISCORD_BOT_TOKEN": "test-token", "YOYACK_MAX_WEEKS": "2", "YOYACK_MAX_DAYS": "3"}
+    )
+    assert validate_option(parse_option("2주"), settings).value == 2
+    assert validate_option(parse_option("3일"), settings).value == 3
+    with pytest.raises(CommandLimitError, match="2까지"):
+        validate_option(parse_option("3주"), settings)
+
+    defaults = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
+    assert defaults.cache_retention_days == 7
+    assert validate_option(parse_option("4주"), defaults).value == 4
+    with pytest.raises(CommandLimitError):
+        validate_option(parse_option("5주"), defaults)
+
+
+@pytest.mark.parametrize("option", ["-1시간", "+1시간", "1.5시간", "99광년", "999999999999999999999주"])
+def test_invalid_numeric_spelling_stops_before_validation(option: str) -> None:
     with pytest.raises(CommandSyntaxError):
         parse_option(option)
 

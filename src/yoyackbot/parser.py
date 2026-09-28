@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
+from yoyackbot.config import Settings
+
 TRIGGER = "!!요약좀"
 HELP_WORD = re.compile(r"(?<!\S)도움(?:말)?(?=\s|$)")
 
@@ -55,6 +57,10 @@ class CommandSyntaxError(ValueError):
     """An option cannot be interpreted without guessing a range."""
 
 
+class CommandLimitError(ValueError):
+    """A syntactically valid option exceeds the configured range."""
+
+
 USAGE_NOTICE = "그 명은 알아듣기 어렵소. `!!요약좀 도움`에서 사용법을 살펴보시오."
 POLITE_ENDINGS = ("부탁하오", "부탁해요", "해주세요")
 OPTION_PATTERN = re.compile(r"([0-9]+)\s*(개|분|시간|일|주)?\Z")
@@ -96,3 +102,22 @@ def parse_option(options: str) -> ParsedOption:
     value = int(match.group(1))
     kind = UNIT_KIND.get(match.group(2), OptionKind.HOURS)
     return ParsedOption(kind, value)
+
+
+def validate_option(option: ParsedOption, settings: Settings) -> ParsedOption:
+    """Reject nonpositive and over-limit requests before any costly work begins."""
+    if option.kind is OptionKind.TODAY:
+        return option
+    limits = {
+        OptionKind.MINUTES: (settings.max_minutes, "분"),
+        OptionKind.HOURS: (settings.max_hours, "시간"),
+        OptionKind.DAYS: (settings.max_days, "일"),
+        OptionKind.WEEKS: (settings.max_weeks, "주"),
+        OptionKind.COUNT: (settings.max_messages, "개"),
+    }
+    maximum, unit = limits[option.kind]
+    if option.value is None or not 1 <= option.value <= maximum:
+        raise CommandLimitError(
+            f"{unit} 단위는 1부터 {maximum}까지 고르시오. `!!요약좀 도움`에서 사용법을 살펴보시오."
+        )
+    return option
