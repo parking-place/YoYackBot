@@ -4,7 +4,6 @@ import re
 import subprocess
 from pathlib import Path
 
-
 REPO = Path(__file__).resolve().parents[1]
 PLAN = REPO / "Plans/0.DevelopPhase"
 VERSIONS = [f"0.{number}.0" for number in range(10)] + ["1.0.0"]
