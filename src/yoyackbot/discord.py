@@ -10,6 +10,7 @@ from discord import app_commands
 
 from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
 from yoyackbot.config import Settings
+from yoyackbot.watch_store import SQLiteWatchStore
 
 LOGGER = logging.getLogger(__name__)
 
@@ -91,6 +92,20 @@ class YoYackClient(discord.Client):
     async def on_disconnect(self) -> None:
         LOGGER.info("gateway_disconnected")
 
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
+        try:
+            if self.watch_store.remove_channel(channel.guild.id, channel.id):
+                LOGGER.info("watched_channel_deleted")
+        except Exception:
+            LOGGER.exception("watched_channel_delete_cleanup_failed")
+
+    async def on_guild_remove(self, guild: discord.Guild) -> None:
+        try:
+            self.watch_store.remove_guild(guild.id)
+            LOGGER.info("watched_guild_removed")
+        except Exception:
+            LOGGER.exception("watched_guild_cleanup_failed")
+
     async def on_message(self, message: discord.Message) -> None:
         if classify_message(message) is not MessageClass.HUMAN_TEXT:
             return
@@ -111,6 +126,7 @@ async def run_gateway(
     """Run the gateway; smoke mode closes after a bounded connection check."""
     client = YoYackClient(
         observe_channel_id=observe_channel_id,
+        watch_store=SQLiteWatchStore(settings.database_path),
         dev_guild_id=settings.dev_guild_id,
     )
     async with client:
