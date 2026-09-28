@@ -31,7 +31,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.1.0-P3 | [주시 설정 영속화·서버 격리](0.1.0/03-settings-store.md) | DONE | `3135a352b1358ee4e7d86e10c4a17c1cf0b38bca` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d9f6de656841d309245a349a221aaa9165c0c876) | OpenJevLXC Python 3.13.5, 실제 개발 Guild의 SQLite 설정 및 재시작 검증; 세부 결과는 증거 파일 |
 | 0.1.0-P4 | [주시 추가·해제·미주시 차단](0.1.0/04-watch-enforcement.md) | DONE | `93911253e629692326cbcf9999076f8f6e7b827f` | [evidence E](https://github.com/parking-place/YoYackBot/commit/2703e30277b9aa746a9870674a16caee08ab11f6) | OpenJevLXC Python 3.13.5 합성 어댑터 검사; 실제 Gateway Guild 2개 접속 확인 검증; 세부 결과는 증거 파일 |
 | 0.1.0-P5 | [채널 설정 실환경 검증·버전 종료](0.1.0/05-channel-acceptance.md) | DONE | `16f5af9391d8fd539b23f5ee89aab24d36f67991` | [evidence E](https://github.com/parking-place/YoYackBot/commit/7dc6b4edd9f8473da643aca4d22456a20b6dc3d5) | OpenJevLXC Python 3.13.5, 개발 Discord Guild 2개 실제 관리자 설정·재시작 검증; 세부 결과는 증거 파일 |
-| 0.2.0-P1 | [포함형 트리거·도움말 우선 처리](0.2.0/01-trigger-help.md) | IN_PROGRESS | — | — | 포함형 트리거·도움말 라우터 구현 중 |
+| 0.2.0-P1 | [포함형 트리거·도움말 우선 처리](0.2.0/01-trigger-help.md) | PUSH_PENDING | `071dde3b14361f8cd152eae8a71d677adc4ff94c` | — | 검증 통과, 원격 확인 대기 |
 | 0.2.0-P2 | [옵션 우선순위·문법 구현](0.2.0/02-option-parser.md) | PLANNED | — | — | 미착수 |
 | 0.2.0-P3 | [숫자·설정 상한 검증](0.2.0/03-limits.md) | PLANNED | — | — | 미착수 |
 | 0.2.0-P4 | [KST 오늘·수락 시각·정렬 경계](0.2.0/04-time-window.md) | PLANNED | — | — | 미착수 |
