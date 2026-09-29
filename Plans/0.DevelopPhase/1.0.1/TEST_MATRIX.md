@@ -6,8 +6,8 @@
 |---|---|---|---|---|
 | `T101-P1-A` | [P1](01-app-server-contract.md) | LXC 합성 | app-server JSON 버킷·창·남은 비율 경계와 누락/오류 처리의 결정성 | PASS — [증거](../evidence/1.0.1-P1.md) |
 | `T101-P1-B` | [P1](01-app-server-contract.md) | LXC 읽기 전용 | 실제 봇 계정 응답·고정 CLI 호환, 비밀 비노출·자식 정리·비게시 | PASS(주간 창만 존재, 계약 갱신) — [증거](../evidence/1.0.1-P1.md) |
-| `T101-P2-A` | [P2](02-usage-command.md) | LXC 합성 | 사용량 문구 74/82·74/9·10%·0%, 실패·미주시 라우팅 | NOT_RUN |
-| `T101-P2-B` | [P2](02-usage-command.md) | LXC/시험 Discord | 진짜 한도 초과만 확정 안내, 일시 오류 분리, 실패 후 재시도, 실제 사용량 표시 | NOT_RUN |
+| `T101-P2-A` | [P2](02-usage-command.md) | LXC 합성 | 사용량 문구 74/82·74/9·10%·0%, 실패·미주시 라우팅 | PASS — [증거](../evidence/1.0.1-P2.md) |
+| `T101-P2-B` | [P2](02-usage-command.md) | LXC/시험 Discord | 진짜 한도 초과만 확정 안내, 일시 오류 분리, 실패 후 재시도, 실제 사용량 표시 | 합성·실제 조회 PASS, 시험 채널 NOT_RUN(P6 사용자 확인) — [증거](../evidence/1.0.1-P2.md) |
 | `T101-P3-A` | [P3](03-detailed-summary.md) | LXC 합성 | 같은 범위 옵션의 기본 요약과 동일한 수집·권한·명령 제외, 모드 단독 시 1시간, 잘못된 순서·중복 모드 거부 | NOT_RUN |
 | `T101-P3-B` | [P3](03-detailed-summary.md) | LXC 실제 모델 | 화자·결정·미해결점 사실성 및 하오체의 사람 검토, 쿨타임 회귀 | NOT_RUN |
 | `T101-P4-A` | [P4](04-short-summary.md) | LXC 합성 | 같은 범위 옵션의 기본 요약과 동일한 수집, 잘못된 순서·`자세히`와 결합 거부 | NOT_RUN |

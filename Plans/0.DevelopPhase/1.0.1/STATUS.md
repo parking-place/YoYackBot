@@ -5,7 +5,7 @@
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 제한·다음 작업 |
 |---|---|---|---|---|
 | [1.0.1-P1](01-app-server-contract.md) | app-server JSON 계약 | DONE | [C `a9cb8cb`](https://github.com/parking-place/YoYackBot/commit/a9cb8cbcfd3e8b02f5b852090792338ce05bc45e) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36555209064) / [E `7b8b08d`](https://github.com/parking-place/YoYackBot/commit/7b8b08d10b0f626599b33d4a426478a35aa078ad) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36555316652) / [증거](../evidence/1.0.1-P1.md); 원격 확인 | P1-A/B PASS(OpenJevLXC). 봇 계정은 주간 창만 반환 → 사용자 결정으로 있는 창만 표시 |
-| [1.0.1-P2](02-usage-command.md) | 사용량·한도 초과 | IN_PROGRESS | — | P1 선행 |
+| [1.0.1-P2](02-usage-command.md) | 사용량·한도 초과 | PUSH_PENDING | C `d477dd5` / [증거](../evidence/1.0.1-P2.md) | P2-A PASS, P2-B 합성·실제 조회 PASS; 시험 채널은 P6 사용자 확인 |
 | [1.0.1-P3](03-detailed-summary.md) | 범위 지정 자세한 요약 | PLANNED | — | P2 선행 |
 | [1.0.1-P4](04-short-summary.md) | 범위 지정 짧은 요약 | PLANNED | — | P3 선행 |
 | [1.0.1-P5](05-status-command.md) | 실측 상태 응답 | PLANNED | — | P4 선행 |
