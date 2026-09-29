@@ -38,8 +38,12 @@ class MetricCapture(logging.Handler):
 
 
 class Collector:
+    def __init__(self) -> None:
+        self.started = asyncio.Event()
+
     async def collect(self, _channel: object, *, guild_id: int, channel_id: int,
                       request: RangeRequest, **_kwargs: object) -> CollectionOutcome:
+        self.started.set()
         await asyncio.sleep(0.003)
         count = request.count or 1
         records = tuple(MessageRecord(
@@ -85,8 +89,9 @@ async def scenario(count: int, *, mixed_guilds: bool) -> dict:
     try:
         with tempfile.TemporaryDirectory() as temporary:
             publisher = Publisher()
+            collector = Collector()
             workflow = SummaryWorkflow(
-                Collector(), Engine(), publisher,
+                collector, Engine(), publisher,
                 ChannelStates(SQLiteCooldownStore(Path(temporary) / "state.db")),
                 SummaryJobQueue(concurrency=1, capacity=4, wait_seconds=0.08),
             )
@@ -109,9 +114,10 @@ async def scenario(count: int, *, mixed_guilds: bool) -> dict:
                 lease = SimpleNamespace(valid=lambda: True)
                 return asyncio.create_task(workflow.run(request, channel, lease, notice))
 
-            jobs = [job(guild_id, channel_id, 120 if index % 2 == 0 else 8)
-                    for index, (guild_id, channel_id) in enumerate(channels)]
-            await asyncio.sleep(0.01)
+            jobs = [job(*channels[0], 120)]
+            await collector.started.wait()
+            jobs.extend(job(guild_id, channel_id, 120 if index % 2 == 0 else 8)
+                        for index, (guild_id, channel_id) in enumerate(channels[1:], start=1))
             duplicate = job(*channels[0], 8)
             await asyncio.gather(*jobs, duplicate)
             if publisher.published:
