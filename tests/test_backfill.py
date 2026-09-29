@@ -326,3 +326,40 @@ def test_permanent_failure_blocks_only_one_channel_until_access_returns(tmp_path
     assert {item.channel_id for item in backfills.pending(datetime.now(UTC))} == {99, 100}
     assert backfills.block(other, reason="invalid_page")
     assert not backfills.resume_blocked(1, 100)
+
+
+def test_disk_full_rolls_back_history_page_and_keeps_cursor_for_retry(
+    tmp_path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "messages.db"
+    SQLiteWatchStore(path).replace(1, frozenset({99}))
+    backfills = SQLiteBackfillStore(path)
+    state = backfills.get(1, 99)
+    assert state is not None
+    now = datetime.now(UTC)
+    record = MessageRecord(123, 1, 99, 7, "합성 화자", "합성 본문", now)
+    original = SQLiteMessageStore._upsert
+
+    def full(*_args, **_kwargs) -> None:
+        raise sqlite3.OperationalError("database or disk is full")
+
+    monkeypatch.setattr(SQLiteMessageStore, "_upsert", staticmethod(full))
+    with pytest.raises(BackfillError):
+        backfills.save_page(
+            state, (record,), next_cursor=state.cursor - 1,
+            next_phase="history", finished_at=None, cached_at=now,
+        )
+    unchanged = backfills.get(1, 99)
+    assert unchanged is not None and unchanged.cursor == state.cursor
+    assert unchanged.phase == "history" and unchanged.blocked_reason is None
+    assert SQLiteMessageStore(path).recent(1, 99, now - timedelta(seconds=1),
+                                           now + timedelta(seconds=1)) == []
+
+    monkeypatch.setattr(SQLiteMessageStore, "_upsert", staticmethod(original))
+    assert backfills.save_page(
+        unchanged, (record,), next_cursor=state.cursor - 1,
+        next_phase="history", finished_at=None, cached_at=now,
+    )
+    assert [item.message_id for item in SQLiteMessageStore(path).recent(
+        1, 99, now - timedelta(seconds=1), now + timedelta(seconds=1)
+    )] == [123]
