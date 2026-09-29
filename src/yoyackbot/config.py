@@ -108,11 +108,9 @@ class Settings:
         if max_hours > 720:
             raise ConfigurationError("YOYACK_MAX_HOURS cannot exceed 720")
         max_minutes = _integer(values, "YOYACK_MAX_MINUTES", 1440)
-        model_concurrency = _integer(values, "YOYACK_CODEX_CONCURRENCY", 1)
-        if model_concurrency != 1:
-            raise ConfigurationError(
-                "YOYACK_CODEX_CONCURRENCY must be 1 with the shared model account"
-            )
+        model_concurrency = _integer(values, "YOYACK_CODEX_CONCURRENCY", 4)
+        if model_concurrency > 4:
+            raise ConfigurationError("YOYACK_CODEX_CONCURRENCY cannot exceed 4")
         if max_minutes > 43_200:
             raise ConfigurationError("YOYACK_MAX_MINUTES cannot exceed 43200")
         message_limit = _integer(values, "YOYACK_DISCORD_MESSAGE_LIMIT", 1900)

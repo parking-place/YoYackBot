@@ -1,11 +1,11 @@
 """Run one Codex summary with only its input and final-output directory mounted."""
 
 import asyncio
+import fcntl
 import json
 import os
 import pwd
 import re
-import shutil
 import signal
 import stat
 import tempfile
@@ -196,6 +196,7 @@ class SandboxedCodex:
     async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
         """Return the final model message and delete this request's files on every exit."""
         temporary_auth: Path | None = None
+        auth_snapshot: bytes | None = None
         try:
             encoded = prompt.encode("utf-8")
             if not encoded or len(encoded) > self.max_prompt_bytes:
@@ -206,7 +207,11 @@ class SandboxedCodex:
             temporary_auth = workspace.directory / "auth"
             temporary_auth.mkdir(mode=0o700)
             copied_auth = temporary_auth / "auth.json"
-            shutil.copyfile(self.auth_file, copied_auth)
+            try:
+                auth_snapshot = self.auth_file.read_bytes()
+                copied_auth.write_bytes(auth_snapshot)
+            except OSError as exc:
+                raise CodexRunError(CodexFailure.AUTH) from exc
             copied_auth.chmod(0o600)
             command = replace(self, auth_file=copied_auth).command(workspace)
             account = pwd.getpwuid(os.geteuid())
@@ -236,20 +241,38 @@ class SandboxedCodex:
             except OSError as exc:
                 raise CodexRunError(CodexFailure.PROCESS) from exc
         finally:
-            if temporary_auth is not None:
-                self._persist_refreshed_auth(temporary_auth / "auth.json")
+            if temporary_auth is not None and auth_snapshot is not None:
+                self._persist_refreshed_auth(temporary_auth / "auth.json", auth_snapshot)
             workspace.close()
 
-    def _persist_refreshed_auth(self, candidate: Path) -> None:
-        """Only a valid updated auth.json escapes the disposable request directory."""
+    def _persist_refreshed_auth(self, candidate: Path, snapshot: bytes) -> None:
+        """Keep only a valid refresh based on the current auth, even across processes."""
+        lock_fd: int | None = None
         try:
             info = candidate.lstat()
             if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
                 return
             updated = candidate.read_bytes()
-            if updated == self.auth_file.read_bytes():
+            if updated == snapshot:
                 return
-            if not isinstance(json.loads(updated), dict):
+            parsed = json.loads(updated)
+            if not isinstance(parsed, dict) or not isinstance(parsed.get("tokens"), dict):
+                return
+            tokens = parsed["tokens"]
+            if not all(isinstance(tokens.get(key), str) and tokens[key] for key in (
+                "access_token", "refresh_token",
+            )):
+                return
+            lock_fd = os.open(
+                self.auth_file.parent / ".auth-refresh.lock",
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600,
+            )
+            lock_info = os.fstat(lock_fd)
+            if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != os.geteuid()
+                    or lock_info.st_mode & 0o077):
+                return
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            if self.auth_file.read_bytes() != snapshot:
                 return
             fd, name = tempfile.mkstemp(prefix=".auth-update-", dir=self.auth_file.parent)
             try:
@@ -264,3 +287,6 @@ class SandboxedCodex:
                     os.unlink(name)
         except (OSError, ValueError, UnicodeDecodeError):
             return
+        finally:
+            if lock_fd is not None:
+                os.close(lock_fd)

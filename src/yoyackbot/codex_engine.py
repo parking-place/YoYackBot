@@ -18,7 +18,10 @@ from yoyackbot.summary_prompt import SPEAKER_RETRY_PROMPT, SUMMARY_PROMPT
 class CodexSummaryEngine:
     settings: Settings
     runner: SandboxedCodex
-    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False, compare=False)
+    _slots: asyncio.Semaphore = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_slots", asyncio.Semaphore(self.settings.codex_concurrency))
 
     @classmethod
     def from_settings(cls, settings: Settings) -> Self:
@@ -47,7 +50,7 @@ class CodexSummaryEngine:
             on_size=on_input_size,
         )
         root = self.settings.input_directory.absolute()
-        async with self._lock:
+        async with self._slots:
             workspace = InputWorkspace.create(root, data)
             result = await self.runner.execute(workspace, SUMMARY_PROMPT)
             source_bodies = [item.content for item in included]

@@ -1,6 +1,7 @@
 """Bound resource use and remove private files after every process outcome."""
 
 import asyncio
+import json
 import os
 import sys
 import time
@@ -121,6 +122,43 @@ def test_cancelled_model_call_removes_private_input_and_auth_copy(
         assert not workspace.directory.exists()
 
     asyncio.run(scenario())
+
+
+def test_competing_refresh_cannot_overwrite_newer_shared_credentials(tmp_path: Path) -> None:
+    isolated = runner(tmp_path)
+
+    def auth(access: str, refresh: str) -> bytes:
+        return json.dumps({"tokens": {"access_token": access, "refresh_token": refresh}}).encode()
+
+    original = auth("access-1", "refresh-1")
+    isolated.auth_file.write_bytes(original)
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    for path, data in ((first, auth("access-2", "refresh-2")),
+                       (second, auth("access-stale", "refresh-stale"))):
+        path.write_bytes(data)
+        path.chmod(0o600)
+
+    isolated._persist_refreshed_auth(first, original)
+    assert isolated.auth_file.read_bytes() == first.read_bytes()
+    isolated._persist_refreshed_auth(second, original)
+    assert isolated.auth_file.read_bytes() == first.read_bytes()
+    assert (isolated.auth_file.parent / ".auth-refresh.lock").stat().st_mode & 0o777 == 0o600
+
+    current = isolated.auth_file.read_bytes()
+    isolated._persist_refreshed_auth(second, current)
+    assert isolated.auth_file.read_bytes() == second.read_bytes()
+
+
+def test_invalid_refreshed_credentials_never_replace_shared_auth(tmp_path: Path) -> None:
+    isolated = runner(tmp_path)
+    original = b'{"tokens":{"access_token":"valid","refresh_token":"valid"}}'
+    isolated.auth_file.write_bytes(original)
+    candidate = tmp_path / "invalid.json"
+    candidate.write_bytes(b'{"tokens":{}}')
+    candidate.chmod(0o600)
+    isolated._persist_refreshed_auth(candidate, original)
+    assert isolated.auth_file.read_bytes() == original
 
 
 def test_rejects_large_prompt_final_and_symlink_then_cleans(
