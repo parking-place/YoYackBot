@@ -224,7 +224,8 @@ def test_normal_summary_uses_ready_cache_only(tmp_path) -> None:
     asyncio.run(scenario())
 
 
-def test_network_failure_keeps_cursor_for_a_later_retry(tmp_path) -> None:
+@pytest.mark.parametrize("status", [None, 403, 429])
+def test_network_permission_or_rate_failure_keeps_cursor_for_retry(tmp_path, status) -> None:
     async def scenario() -> None:
         path = tmp_path / "messages.db"
         watches = SQLiteWatchStore(path)
@@ -239,7 +240,10 @@ def test_network_failure_keeps_cursor_for_a_later_retry(tmp_path) -> None:
             async def fetch_page(self, *_args, **_kwargs):
                 self.calls += 1
                 if self.calls == 1:
-                    raise OSError("synthetic network loss")
+                    if status is None:
+                        raise OSError("synthetic network loss")
+                    response = SimpleNamespace(status=status, reason="synthetic", headers={})
+                    raise discord.HTTPException(response, "synthetic")
                 return []
 
         worker = InitialBackfill(backfills, FlakyPages())
