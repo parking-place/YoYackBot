@@ -52,7 +52,7 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
         backfills = SQLiteBackfillStore(path)
         state = backfills.get(1, 99)
         assert state is not None and state.first_watch
-        started = datetime.fromtimestamp(state.started_us / 1_000_000, UTC)
+        started = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=state.started_us)
         channel = fake_channel()
         old = [
             fake_message(channel, started - timedelta(minutes=index), index=index)
@@ -60,6 +60,9 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
         ]
         live = fake_message(channel, started + timedelta(seconds=1), index=20_102)
         missed = fake_message(channel, started + timedelta(seconds=2), index=20_103)
+        at_start = fake_message(channel, started, index=20_108)
+        at_finish = fake_message(channel, started + timedelta(seconds=10), index=20_109)
+        at_cutoff = fake_message(channel, started - timedelta(days=30), index=20_110)
         older = fake_message(channel, started - timedelta(days=31), index=20_104)
         command = fake_message(channel, started - timedelta(seconds=3), index=20_105)
         command.content = "!!요약좀 5분"
@@ -67,11 +70,20 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
         bot.author.bot = True
         webhook = fake_message(channel, started - timedelta(seconds=5), index=20_107)
         webhook.webhook_id = 9
-        source = FakePages([*old, live, missed, older, command, bot, webhook])
+        source = FakePages([
+            *old, live, missed, at_start, at_finish, at_cutoff,
+            older, command, bot, webhook,
+        ])
         messages = SQLiteMessageStore(path)
         watches_version = watches.version(1)
         assert messages.upsert_if_watched(
             MessageRecord(live.id, 1, 99, 7, "합성 화자", live.content, live.created_at),
+            expected_version=watches_version, cached_at=started,
+        )
+        assert messages.upsert_if_watched(
+            MessageRecord(
+                at_finish.id, 1, 99, 7, "합성 화자", at_finish.content, at_finish.created_at
+            ),
             expected_version=watches_version, cached_at=started,
         )
         worker = InitialBackfill(backfills, source, clock=lambda: started + timedelta(seconds=10))
@@ -94,9 +106,11 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
         stored = messages.recent(
             1, 99, started - timedelta(days=30), started + timedelta(seconds=11)
         )
-        assert len(stored) == 20_102
+        assert len(stored) == 20_105
         assert len({item.message_id for item in stored}) == len(stored)
-        assert {live.id, missed.id} <= {item.message_id for item in stored}
+        assert {live.id, missed.id, at_start.id, at_finish.id, at_cutoff.id} <= {
+            item.message_id for item in stored
+        }
 
     asyncio.run(scenario())
 
@@ -142,7 +156,7 @@ def test_normal_summary_uses_ready_cache_only(tmp_path) -> None:
         collector = CacheOnlyCollector(watches, messages, backfills)
         state = backfills.get(1, 99)
         assert state is not None
-        started = datetime.fromtimestamp(state.started_us / 1_000_000, UTC)
+        started = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=state.started_us)
         request = RangeRequest(
             RequestKind.TIME, started + timedelta(seconds=10),
             start=started - timedelta(hours=1),
