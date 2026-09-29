@@ -34,6 +34,15 @@ def test_oversized_stdout_is_stopped() -> None:
     assert raised.value.kind is CodexFailure.OUTPUT_LIMIT
 
 
+def test_diagnostic_limit_cannot_be_raised_with_final_output_limit() -> None:
+    with pytest.raises(CodexRunError) as raised:
+        asyncio.run(_invoke(
+            [sys.executable, "-c", "print('x' * 5_000_100)"], b"synthetic", os.environ.copy(),
+            timeout=5, output_limit=10_000_000,
+        ))
+    assert raised.value.kind is CodexFailure.OUTPUT_LIMIT
+
+
 def _child_state(pid: int) -> str | None:
     try:
         return Path(f"/proc/{pid}/stat").read_text().split()[2]

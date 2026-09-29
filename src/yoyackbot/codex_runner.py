@@ -16,6 +16,7 @@ from yoyackbot.codex import CodexContract, CodexFailure, classify_cli_failure
 from yoyackbot.input_files import InputWorkspace
 
 _ANSI = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))")
+_DIAGNOSTIC_STREAM_LIMIT_BYTES = 5_000_000
 
 
 class CodexRunError(RuntimeError):
@@ -76,11 +77,10 @@ async def _invoke(
         env=env, start_new_session=True,
     )
     assert process.stdin is not None and process.stdout is not None and process.stderr is not None
-    diagnostic_limit = max(5_000_000, output_limit)
     tasks = [
         asyncio.create_task(_send_prompt(process.stdin, prompt)),
-        asyncio.create_task(_bounded_read(process.stdout, diagnostic_limit)),
-        asyncio.create_task(_bounded_read(process.stderr, diagnostic_limit)),
+        asyncio.create_task(_bounded_read(process.stdout, _DIAGNOSTIC_STREAM_LIMIT_BYTES)),
+        asyncio.create_task(_bounded_read(process.stderr, _DIAGNOSTIC_STREAM_LIMIT_BYTES)),
         asyncio.create_task(process.wait()),
     ]
     try:

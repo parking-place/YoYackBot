@@ -4,7 +4,7 @@
 
 | 단계 | 목표 | 상태 | C/E/D 원격 증거 | 선행 |
 |---|---|---|---|---|
-| [P1](01-large-input.md) | 대량 입력·모델 오류 | PLANNED | — | 1.0.0a 출시 |
+| [P1](01-large-input.md) | 대량 입력·모델 오류 | IN_PROGRESS | 후보 구현 중 | 1.0.0a 출시 |
 | [P2](02-backfill.md) | 30일 초기 수집·실시간 DB | PLANNED | — | P1 DONE |
 | [P3](03-readiness.md) | 준비 안내·요약 차단 | PLANNED | — | P2 DONE |
 | [P4](04-queue.md) | 모델 대기열 시간 정책 | PLANNED | — | P3 DONE |
