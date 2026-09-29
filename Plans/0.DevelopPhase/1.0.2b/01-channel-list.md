@@ -1,6 +1,6 @@
 # 1.0.2b-P1 — 명령 라우팅·현재 서버 주시 채널 조회
 
-- 상태: **PLANNED** · 검사: `T102b-P1-A/B` · 환경: 개발 LXC, 합성 Discord 객체·격리 DB
+- 상태: **PUSH_PENDING** · 검사: `T102b-P1-A/B` · 환경: 개발 LXC, 합성 Discord 객체·격리 DB
 
 ## 선행 조건·작업
 
