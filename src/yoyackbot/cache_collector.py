@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import discord
 
-from yoyackbot.backfill import SQLiteBackfillStore
+from yoyackbot.backfill import SQLiteBackfillStore, summary_ready
 from yoyackbot.collection import CollectionOutcome, CollectionUnavailable
 from yoyackbot.count_collection import CountError, CountFailure
 from yoyackbot.domain import RangeRequest, RequestKind
@@ -37,6 +37,10 @@ class CacheOnlyCollector:
         self.max_count = max_count
         self.max_content_bytes = max_content_bytes
 
+    async def ready(self, guild_id: int, channel_id: int) -> bool:
+        """True only when the channel is past initial collection and any gap recheck."""
+        return summary_ready(await asyncio.to_thread(self.backfills.get, guild_id, channel_id))
+
     async def collect(
         self, channel: discord.TextChannel, *, guild_id: int, channel_id: int,
         request: RangeRequest,
@@ -53,9 +57,7 @@ class CacheOnlyCollector:
             if channel_id not in selected:
                 raise CollectionError(CollectionFailure.UNWATCHED)
             state = await asyncio.to_thread(self.backfills.get, guild_id, channel_id)
-            if state is None or not state.ready or (
-                state.first_watch and state.ready_notice_id is None
-            ):
+            if not summary_ready(state):
                 raise BackfillNotReady("Initial collection is not complete")
             if can_continue is not None and not await can_continue():
                 raise CollectionError(CollectionFailure.WATCH_CHANGED)
@@ -93,8 +95,7 @@ class CacheOnlyCollector:
             final_state = await asyncio.to_thread(self.backfills.get, guild_id, channel_id)
             if (
                 version != final_version or channel_id not in final_selected
-                or final_state is None or final_state.token != state.token or not final_state.ready
-                or (final_state.first_watch and final_state.ready_notice_id is None)
+                or not summary_ready(final_state) or final_state.token != state.token
                 or (can_continue is not None and not await can_continue())
             ):
                 raise CollectionError(CollectionFailure.WATCH_CHANGED)

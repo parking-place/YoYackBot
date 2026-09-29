@@ -36,7 +36,7 @@ class RequestMetrics:
         allowed_outcomes = {
             "success", "empty", "busy", "cooldown", "invalidated", "history_error",
             "model_error", "input_error", "post_error", "queue_full", "queue_timeout", "queue_closed",
-            "channel_unavailable", "unexpected", "cancelled", "not_ready",
+            "channel_unavailable", "unexpected", "cancelled", "not_ready", "notice_error",
         }
         if self.outcome not in allowed_outcomes:
             self.outcome = "unexpected"

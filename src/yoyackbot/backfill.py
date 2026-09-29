@@ -110,6 +110,13 @@ class BackfillState:
         return self.before_id
 
 
+def summary_ready(state: BackfillState | None) -> bool:
+    """Ready only after the full collection or gap recheck and any first-watch ready notice."""
+    return state is not None and state.ready and not (
+        state.first_watch and state.ready_notice_id is None
+    )
+
+
 class SQLiteBackfillStore:
     """Share the watch database so page records and cursor commit atomically."""
 

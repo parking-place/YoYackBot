@@ -104,7 +104,7 @@ def test_gateway_passes_mode_with_the_same_request() -> None:
         seen: list[tuple[RangeRequest, SummaryMode]] = []
 
         class SpyClient(YoYackClient):
-            async def on_summary_request(self, message, request, lease, *, mode) -> None:
+            async def on_summary_request(self, message, request, lease, *, mode, scope) -> None:
                 seen.append((request, mode))
 
         client = SpyClient(watch_store=store, settings=SETTINGS, clock=lambda: ACCEPTED)

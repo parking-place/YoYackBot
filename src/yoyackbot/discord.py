@@ -21,6 +21,7 @@ from yoyackbot.backfill import (
     InitialBackfill,
     SQLiteBackfillStore,
     round_robin_backfills,
+    summary_ready,
 )
 from yoyackbot.channel_config import (
     MemoryWatchStore,
@@ -43,6 +44,7 @@ from yoyackbot.parser import (
     split_mode,
 )
 from yoyackbot.range_request import resolve_range
+from yoyackbot.scope import RangeScope, describe_range
 from yoyackbot.status_report import StatusReport, collect_status, status_message
 from yoyackbot.usage import (
     USAGE_UNAVAILABLE_NOTICE,
@@ -525,13 +527,12 @@ class YoYackClient(discord.Client):
                     except BackfillError:
                         await send_notice(UNAVAILABLE_NOTICE)
                         return
-                    if backfill is None or not backfill.ready or (
-                        backfill.first_watch and backfill.ready_notice_id is None
-                    ):
+                    if not summary_ready(backfill):
                         await send_notice(NOT_READY_NOTICE)
                         return
                 try:
                     range_text, mode = split_mode(route.options)
+                    scope = describe_range(range_text, self.settings)
                     request = resolve_range(
                         range_text,
                         self.settings,
@@ -541,7 +542,7 @@ class YoYackClient(discord.Client):
                 except (CommandSyntaxError, CommandLimitError) as exc:
                     await send_notice(str(exc))
                     return
-                await self.on_summary_request(message, request, lease, mode=mode)
+                await self.on_summary_request(message, request, lease, mode=mode, scope=scope)
 
             await self.watch_gate.request(
                 message.guild.id,
@@ -626,7 +627,7 @@ class YoYackClient(discord.Client):
 
     async def on_summary_request(
         self, message: discord.Message, request: RangeRequest, lease: ChannelLease,
-        *, mode: SummaryMode = SummaryMode.NORMAL,
+        *, mode: SummaryMode = SummaryMode.NORMAL, scope: RangeScope | None = None,
     ) -> None:
         """Run the model path when the persistent runtime is configured."""
         LOGGER.info("summary_request_parsed kind=%s mode=%s", request.kind.value, mode.value)
@@ -658,7 +659,7 @@ class YoYackClient(discord.Client):
 
         await self.summary_workflow.run(
             SummaryRequest(
-                message.guild.id, message.channel.id, message.author.id, request, mode
+                message.guild.id, message.channel.id, message.author.id, request, mode, scope
             ),
             message.channel, lease, send_notice,
         )
