@@ -1,6 +1,6 @@
 # 1.0.1-P5 — 상태 명령·실측 지표
 
-- 상태: **PLANNED** · 검사: `T101-P5-A/B` · 환경: 개발 LXC, 격리 DB·시험 Discord
+- 상태: **IN_PROGRESS** · 검사: `T101-P5-A/B` · 환경: 개발 LXC, 격리 DB·시험 Discord
 
 ## 선행 조건과 작업
 

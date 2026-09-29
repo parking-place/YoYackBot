@@ -1,6 +1,6 @@
 # 1.0.1 — 사용량·요약 밀도·운영 상태 명령
 
-- 상태: **IN_PROGRESS** (P1~P3 완료, P4 진행 중)
+- 상태: **IN_PROGRESS** (P1~P4 완료, P5 진행 중)
 - 단계 수: **6단계**
 - 선행: [1.0.0a~d 패치 계획](../README.md)의 실제 완료·원격 증거. 현재 출시된 `v1.0.0`의 명령·주시 채널·5분 성공 쿨타임을 후속 버전까지 유지한다.
 
@@ -23,8 +23,8 @@
 | 1 | [P1 — app-server JSON·계정 범위 계약](01-app-server-contract.md) | `T101-P1-A/B` | DONE |
 | 2 | [P2 — 사용량 명령·한도 초과 안내](02-usage-command.md) | `T101-P2-A/B` | DONE |
 | 3 | [P3 — 범위 지정 자세한 요약](03-detailed-summary.md) | `T101-P3-A/B` | DONE |
-| 4 | [P4 — 범위 지정 짧은 요약](04-short-summary.md) | `T101-P4-A/B` | IN_PROGRESS |
-| 5 | [P5 — 상태 명령·실측 지표](05-status-command.md) | `T101-P5-A/B` | PLANNED |
+| 4 | [P4 — 범위 지정 짧은 요약](04-short-summary.md) | `T101-P4-A/B` | DONE |
+| 5 | [P5 — 상태 명령·실측 지표](05-status-command.md) | `T101-P5-A/B` | IN_PROGRESS |
 | 6 | [P6 — 도움말·통합 회귀·1.0.1 출시](06-help-release.md) | `T101-P6-A/B` | PLANNED |
 
 [검증 목록](TEST_MATRIX.md)과 [1.0.1 상태](STATUS.md)를 각 단계의 실제 증거로 갱신한다. 현재 두 문서의 결과는 모두 `NOT_RUN`이다. 기존 55단계 완료 표시는 [1.0.0까지의 기록](../STATUS.md)에 보존한다.
