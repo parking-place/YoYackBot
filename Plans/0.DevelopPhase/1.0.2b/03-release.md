@@ -1,6 +1,6 @@
 # 1.0.2b-P3 — 통합·배포·출시
 
-- 상태: **PLANNED** · 검사: `T102b-P3-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **IN_PROGRESS** · 검사: `T102b-P3-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 선행 조건·작업
 
