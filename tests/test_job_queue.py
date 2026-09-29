@@ -144,7 +144,7 @@ def test_short_jobs_and_other_guild_progress_without_starving_oldest() -> None:
 
         await first.__aexit__(None, None, None)
         for index, name in enumerate(expected):
-            await asyncio.wait_for(_until(lambda: len(order) == index + 1), 2)
+            await asyncio.wait_for(_until(lambda wanted=index + 1: len(order) == wanted), 2)
             assert order[index] == name
             releases[name].set()
         await asyncio.gather(*jobs)
@@ -172,7 +172,7 @@ def test_size_aware_queue_has_bounded_overtaking() -> None:
             await asyncio.wait_for(_until_queue_waiters(queue, index + 1), 2)
         await first.__aexit__(None, None, None)
         for index, name in enumerate(("a", "b", "long", "c")):
-            await asyncio.wait_for(_until(lambda: len(order) == index + 1), 2)
+            await asyncio.wait_for(_until(lambda wanted=index + 1: len(order) == wanted), 2)
             assert order[index] == name
             releases[name].set()
         await asyncio.gather(*jobs)
