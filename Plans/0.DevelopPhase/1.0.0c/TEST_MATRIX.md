@@ -8,8 +8,8 @@
 | C2 | [P1](01-baseline.md) | 동일 채널 중복 차단·채널별 쿨타임·다른 채널 데이터 분리를 기준선에서 확인한다. | PASS (LXC 축척 합성 기준선) — [증거](../evidence/1.0.0c-P1.md) |
 | C3 | [P2](02-fair-queue.md) | 2/4/8개 채널에서 작업 기아·중복 실행·결과 섞임이 없는지 시간 제어 시험을 한다. | PASS (LXC 합성·시간 제어; 용량 포화·대기 만료는 남음) — [증거](../evidence/1.0.0c-P2.md) |
 | C4 | [P2](02-fair-queue.md) | 큐 포화·취소·종료·동일 채널 연속 요청 뒤 용량과 슬롯 수가 복구되는지 확인한다. | PASS (LXC 합성 회귀) — [증거](../evidence/1.0.0c-P2.md) |
-| C5 | [P3](03-collection-db.md) | 여러 채널 수집 중 rate limit·DB busy·페이지 실패를 주입해 성공 또는 명시적 실패가 결정적인지 확인한다. | NOT_RUN |
-| C6 | [P3](03-collection-db.md) | 한 채널의 주시/권한 변경이 다른 채널에 영향을 주지 않고 자료가 교차하지 않는지 확인한다. | NOT_RUN |
+| C5 | [P3](03-collection-db.md) | 여러 채널 수집 중 rate limit·DB busy·페이지 실패를 주입해 성공 또는 명시적 실패가 결정적인지 확인한다. | PASS (LXC 합성 장애·임시 SQLite, 실제 Discord rate limit 미실행) — [증거](../evidence/1.0.0c-P3.md) |
+| C6 | [P3](03-collection-db.md) | 한 채널의 주시/권한 변경이 다른 채널에 영향을 주지 않고 자료가 교차하지 않는지 확인한다. | PASS (LXC 합성) — [증거](../evidence/1.0.0c-P3.md) |
 | C7 | [P4](04-model.md) | 단일/복수 슬롯 후보의 처리량·p95 지연·오류율·한도 소비를 합성 작업으로 비교해 선택 근거를 남긴다. | NOT_RUN |
 | C8 | [P4](04-model.md) | 모델 실패·한도 초과·취소에도 다른 채널이 진행되고 출력/임시 파일이 교차하지 않는지 확인한다. | NOT_RUN |
 | C9 | [P5](05-release.md) | 기준선 대비 개선과 공정성·유한 대기·데이터 분리를 수치와 재현 조건으로 기록한다. | NOT_RUN |
