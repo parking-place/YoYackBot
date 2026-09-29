@@ -5,7 +5,7 @@
 | 단계 | 목표 | 상태 | C/E/D 원격 증거 | 선행 |
 |---|---|---|---|---|
 | [P1](01-contract.md) | 설정·보존 계약 | DONE | [C `d0f6bd4`](https://github.com/parking-place/YoYackBot/commit/d0f6bd4d63f4a800d29684b75a1d9670802bcdbd) / [E `57546b7`](https://github.com/parking-place/YoYackBot/commit/57546b74e8f179161b7fe6718b2102240b55d3ce) / D 원격 확인 | 1.0.0 완료 |
-| [P2](02-cache.md) | DB 정리·복원 | IN_PROGRESS | — | P1 DONE |
+| [P2](02-cache.md) | DB 정리·복원 | PUSH_PENDING | C `e0f981d` / [증거 E](../evidence/1.0.0a-P2.md) / D 대기 | P1 DONE |
 | [P3](03-collection.md) | 기간·개수 수집 | PLANNED | — | P2 DONE |
 | [P4](04-help.md) | 명령·도움말 | PLANNED | — | P3 DONE |
 | [P5](05-release.md) | 운영 회귀·출시 | PLANNED | — | P4 DONE |
