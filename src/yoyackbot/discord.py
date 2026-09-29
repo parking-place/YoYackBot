@@ -12,8 +12,12 @@ import discord
 from discord import app_commands
 
 from yoyackbot.backfill import BackfillError, InitialBackfill, SQLiteBackfillStore
-from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
-from yoyackbot.channel_config import valid_channel
+from yoyackbot.channel_config import (
+    MemoryWatchStore,
+    WatchStore,
+    install_channel_commands,
+    valid_channel,
+)
 from yoyackbot.codex import CodexContractError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryRequest
@@ -126,6 +130,10 @@ class YoYackClient(discord.Client):
         if self.backfill_store is not None:
             seeded = await asyncio.to_thread(self.backfill_store.ensure_existing)
             LOGGER.info("initial_backfill_seeded count=%d", seeded)
+            gaps = await asyncio.to_thread(
+                self.backfill_store.schedule_ready_recheck, end=self.clock()
+            )
+            LOGGER.info("initial_backfill_recheck_scheduled count=%d", gaps)
             self._backfill_task = asyncio.create_task(self._backfill_loop())
         if self.dev_guild_id is not None:
             await self._sync_guild_commands(discord.Object(id=self.dev_guild_id))
@@ -143,12 +151,13 @@ class YoYackClient(discord.Client):
 
     async def on_ready(self) -> None:
         self.connection_count += 1
+        if self._disconnected_at is not None:
+            await self._schedule_backfill_gap(self._disconnected_at)
+            await self._mark_recheck("gateway_gap")
+            self._disconnected_at = None
         self.ready_event.set()
         self._write_heartbeat()
         LOGGER.info("gateway_ready guild_count=%d", len(self.guilds))
-        if self._disconnected_at is not None:
-            await self._mark_recheck("gateway_gap")
-            self._disconnected_at = None
         if self.dev_guild_id is not None:
             for guild in self.guilds:
                 try:
@@ -165,11 +174,12 @@ class YoYackClient(discord.Client):
 
     async def on_resumed(self) -> None:
         LOGGER.info("gateway_resumed")
-        self.ready_event.set()
-        self._write_heartbeat()
         if self._disconnected_at is not None:
+            await self._schedule_backfill_gap(self._disconnected_at)
             await self._mark_recheck("gateway_gap")
             self._disconnected_at = None
+        self.ready_event.set()
+        self._write_heartbeat()
 
     async def on_disconnect(self) -> None:
         LOGGER.info("gateway_disconnected")
@@ -230,6 +240,18 @@ class YoYackClient(discord.Client):
             LOGGER.info("cache_recheck_marked count=%d reason=%s", count, reason)
         except MessageStoreError:
             LOGGER.warning("cache_recheck_mark_failed")
+
+    async def _schedule_backfill_gap(self, disconnected_at: datetime) -> None:
+        if self.backfill_store is None:
+            return
+        try:
+            count = await asyncio.to_thread(
+                self.backfill_store.schedule_ready_recheck,
+                start=disconnected_at, end=self.clock(),
+            )
+            LOGGER.info("backfill_gap_scheduled count=%d", count)
+        except BackfillError:
+            LOGGER.warning("backfill_gap_schedule_failed")
 
     async def _prune_loop(self) -> None:
         assert self.settings is not None

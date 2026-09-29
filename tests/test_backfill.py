@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import discord
 import pytest
 
-from yoyackbot.backfill import InitialBackfill, SQLiteBackfillStore
+from yoyackbot.backfill import BackfillError, InitialBackfill, SQLiteBackfillStore
 from yoyackbot.cache_collector import BackfillNotReady, CacheOnlyCollector
 from yoyackbot.domain import MessageRecord, RangeRequest, RequestKind
 from yoyackbot.message_store import SQLiteMessageStore
@@ -143,5 +143,48 @@ def test_normal_summary_uses_ready_cache_only(tmp_path) -> None:
         assert [item.message_id for item in result.messages] == [101]
         assert result.pages == 0 and result.history_count == 0 and result.cache_count == 1
         assert empty.calls == 2
+
+        assert backfills.schedule_ready_recheck(
+            start=started + timedelta(seconds=2), end=started + timedelta(seconds=10)
+        ) == 1
+        with pytest.raises(BackfillNotReady):
+            await collector.collect(channel, guild_id=1, channel_id=99, request=request)
+        gap_message = fake_message(channel, started + timedelta(seconds=3), index=202)
+        empty.messages = [gap_message]
+        gap = backfills.get(1, 99)
+        assert gap is not None and gap.phase == "overlap"
+        assert await worker.step(channel, gap)
+        repaired = await collector.collect(channel, guild_id=1, channel_id=99, request=request)
+        assert {item.message_id for item in repaired.messages} == {101, gap_message.id}
+
+    asyncio.run(scenario())
+
+
+def test_network_failure_keeps_cursor_for_a_later_retry(tmp_path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "messages.db"
+        watches = SQLiteWatchStore(path)
+        watches.replace(1, frozenset({99}))
+        backfills = SQLiteBackfillStore(path)
+        state = backfills.get(1, 99)
+        assert state is not None
+
+        class FlakyPages:
+            calls = 0
+
+            async def fetch_page(self, *_args, **_kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    raise OSError("synthetic network loss")
+                return []
+
+        worker = InitialBackfill(backfills, FlakyPages())
+        with pytest.raises(BackfillError):
+            await worker.step(fake_channel(), state)
+        unchanged = backfills.get(1, 99)
+        assert unchanged is not None and unchanged.cursor == state.cursor
+        assert unchanged.phase == "history"
+        assert await worker.step(fake_channel(), unchanged)
+        assert backfills.get(1, 99).phase == "overlap"  # type: ignore[union-attr]
 
     asyncio.run(scenario())

@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 
 import discord
 
-from yoyackbot.channel_config import valid_channel
 from yoyackbot.backfill import SQLiteBackfillStore
 from yoyackbot.cache_collector import CacheOnlyCollector
+from yoyackbot.channel_config import valid_channel
 from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.collection import EMPTY_NOTICE, CollectionUnavailable

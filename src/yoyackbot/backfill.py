@@ -4,7 +4,7 @@ import asyncio
 import sqlite3
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
 
@@ -36,6 +36,7 @@ class BackfillState:
     before_id: int
     phase: str
     finished_us: int | None
+    overlap_start_us: int | None
     overlap_before_id: int | None
     verified_us: int | None
     retry_at_us: int
@@ -62,14 +63,15 @@ class SQLiteBackfillStore:
     def _state(row: tuple) -> BackfillState:
         return BackfillState(
             row[0], row[1], row[2], bool(row[3]), row[4], row[5], row[6],
-            row[7], row[8], row[9], row[10], row[11],
+            row[7], row[8], row[9], row[10], row[11], row[12],
         )
 
     @staticmethod
     def _select() -> str:
         return (
             "SELECT guild_id, channel_id, token, first_watch, started_us, cutoff_us, "
-            "before_id, phase, finished_us, overlap_before_id, verified_us, retry_at_us "
+            "before_id, phase, finished_us, overlap_start_us, overlap_before_id, "
+            "verified_us, retry_at_us "
             "FROM backfill_state "
         )
 
@@ -129,6 +131,37 @@ class SQLiteBackfillStore:
         except sqlite3.Error as exc:
             raise BackfillError("Unable to defer initial collection") from exc
 
+    def schedule_ready_recheck(self, *, end: datetime, start: datetime | None = None) -> int:
+        """Reconcile a disconnected interval independently of summary requests."""
+        end_us = _us(end)
+        floor_us = _us(end - timedelta(days=30))
+        start_us = _us(start - timedelta(seconds=1)) if start is not None else None
+        count = 0
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                rows = connection.execute(
+                    "SELECT guild_id, channel_id, verified_us FROM backfill_state "
+                    "WHERE phase='ready'"
+                ).fetchall()
+                for guild_id, channel_id, verified_us in rows:
+                    if verified_us is None:
+                        continue
+                    lower = max(floor_us, start_us if start_us is not None else verified_us)
+                    if lower >= end_us:
+                        continue
+                    before = discord.utils.time_snowflake(end, high=True) + 1
+                    connection.execute(
+                        "UPDATE backfill_state SET phase='overlap', finished_us=?, "
+                        "overlap_start_us=?, overlap_before_id=?, retry_at_us=0 "
+                        "WHERE guild_id=? AND channel_id=? AND phase='ready'",
+                        (end_us, lower, before, guild_id, channel_id),
+                    )
+                    count += 1
+            return count
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to schedule connection-gap check") from exc
+
     def save_page(
         self, state: BackfillState, records: Sequence[MessageRecord], *,
         next_cursor: int, next_phase: str, finished_at: datetime | None,
@@ -164,7 +197,8 @@ class SQLiteBackfillStore:
                         ) + 1
                         connection.execute(
                             "UPDATE backfill_state SET before_id=?, phase='overlap', "
-                            "finished_us=?, overlap_before_id=?, retry_at_us=0 "
+                            "finished_us=?, overlap_start_us=started_us, "
+                            "overlap_before_id=?, retry_at_us=0 "
                             "WHERE guild_id=? AND channel_id=? AND token=?",
                             (next_cursor, finished_us, overlap_before,
                              state.guild_id, state.channel_id, state.token),
@@ -247,7 +281,10 @@ class InitialBackfill:
             for message in page
         ) or any(left.id <= right.id for left, right in pairwise(page)):
             raise BackfillError("Invalid History page")
-        lower_us = state.cutoff_us if state.phase == "history" else state.started_us
+        lower_us = (
+            state.cutoff_us if state.phase == "history"
+            else state.overlap_start_us or state.started_us
+        )
         upper_us = state.started_us if state.phase == "history" else state.finished_us
         assert upper_us is not None
         records = tuple(
