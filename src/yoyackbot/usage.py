@@ -30,12 +30,16 @@ class UsageUnavailable(RuntimeError):
 
 @dataclass(frozen=True)
 class UsageSnapshot:
-    five_hour_remaining: int
-    weekly_remaining: int
+    """Remaining whole percent per window; None means the account reports no such window."""
+
+    five_hour_remaining: int | None
+    weekly_remaining: int | None
 
     @property
     def warning(self) -> bool:
-        return min(self.five_hour_remaining, self.weekly_remaining) <= WARNING_PERCENT
+        shown = [value for value in (self.five_hour_remaining, self.weekly_remaining)
+                 if value is not None]
+        return min(shown) <= WARNING_PERCENT
 
 
 def remaining_percent(used: object) -> int:
@@ -62,7 +66,11 @@ def _select_bucket(result: Mapping[str, object]) -> Mapping[str, object]:
 
 
 def parse_rate_limits(result: object) -> UsageSnapshot:
-    """Pick the 5-hour and weekly windows by duration, never by primary/secondary order."""
+    """Pick the 5-hour and weekly windows by duration, never by primary/secondary order.
+
+    An account may report only one of the two windows; any unknown duration is unavailable
+    rather than shown under a guessed label.
+    """
     if not isinstance(result, Mapping):
         raise UsageUnavailable("result is not an object")
     bucket = _select_bucket(result)
@@ -79,9 +87,9 @@ def parse_rate_limits(result: object) -> UsageSnapshot:
         if duration in windows:
             raise UsageUnavailable("duplicate window duration")
         windows[duration] = remaining_percent(window.get("usedPercent"))
-    if set(windows) != {FIVE_HOUR_MINUTES, WEEKLY_MINUTES}:
-        raise UsageUnavailable("both windows are required")
-    return UsageSnapshot(windows[FIVE_HOUR_MINUTES], windows[WEEKLY_MINUTES])
+    if not windows:
+        raise UsageUnavailable("no usage window is reported")
+    return UsageSnapshot(windows.get(FIVE_HOUR_MINUTES), windows.get(WEEKLY_MINUTES))
 
 
 class _Session:

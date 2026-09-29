@@ -92,10 +92,26 @@ def test_invalid_used_percent_is_unavailable(used: object) -> None:
 
 
 @pytest.mark.parametrize(
+    ("primary", "secondary", "expected"),
+    [
+        (window(1, 10080), None, UsageSnapshot(None, 99)),
+        (None, window(95, 300), UsageSnapshot(5, None)),
+        (window(90, 10080), None, UsageSnapshot(None, 10)),
+    ],
+)
+def test_a_single_reported_window_is_shown_alone(
+    primary: object, secondary: object, expected: UsageSnapshot,
+) -> None:
+    snapshot = parse_rate_limits(single(primary, secondary))
+    assert snapshot == expected
+    assert snapshot.warning is (min(v for v in (expected.five_hour_remaining,
+                                                   expected.weekly_remaining) if v is not None) <= 10)
+
+
+@pytest.mark.parametrize(
     ("primary", "secondary"),
     [
-        (window(1, 300), None),
-        (None, window(1, 10080)),
+        (None, None),
         (window(1, 300), window(1, 300)),
         (window(1, 300), window(1, 1440)),
         (window(1, None), window(1, 10080)),
