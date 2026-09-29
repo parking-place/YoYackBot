@@ -7,7 +7,7 @@
 | 순서 | 독립 단계 | 검사 | 상태 |
 |---|---|---|---|
 | 1 | [동시 부하 기준선](01-baseline.md) | C1/C2 | DONE |
-| 2 | [공정한 대기열](02-fair-queue.md) | C3/C4 | IN_PROGRESS |
+| 2 | [공정한 대기열](02-fair-queue.md) | C3/C4 | PUSH_PENDING |
 | 3 | [수집·DB 병목](03-collection-db.md) | C5/C6 | PLANNED |
 | 4 | [모델 처리량·역압](04-model.md) | C7/C8 | PLANNED |
 | 5 | [다중 채널 통합·출시](05-release.md) | C9/C10 | PLANNED |
