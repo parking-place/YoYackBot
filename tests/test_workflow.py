@@ -123,6 +123,63 @@ def test_different_guild_and_channel_states_are_independent() -> None:
     asyncio.run(scenario())
 
 
+def test_model_limit_in_one_channel_does_not_block_another(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("yoyackbot.workflow.valid_channel", lambda _guild, _id: True)
+
+    class Collector:
+        async def collect(self, _channel, *, guild_id, channel_id, request, **_kwargs):
+            row = MessageRecord(
+                channel_id, guild_id, channel_id, 3, "합성 화자", "합성 대화",
+                request.accepted_at - timedelta(minutes=1),
+            )
+            return CollectionOutcome((row,), 0, request.accepted_at, 0, False)
+
+    class Engine:
+        failed = False
+
+        async def summarize(self, messages, **_kwargs):
+            if messages[0].channel_id == 2 and not self.failed:
+                self.failed = True
+                raise CodexRunError(CodexFailure.LIMIT)
+            return SummaryResult("합성 대화를 정리하였소.", "synthetic", 1)
+
+    class Publisher:
+        def __init__(self) -> None:
+            self.published: list[int] = []
+
+        async def publish(self, request, _result, messages):
+            assert all(row.channel_id == request.channel_id for row in messages)
+            self.published.append(request.channel_id)
+            return PublicationReceipt((request.channel_id + 100,), NOW)
+
+    async def scenario() -> None:
+        notices: list[str] = []
+
+        async def notice(value: str) -> None:
+            notices.append(value)
+
+        publisher = Publisher()
+        queue = SummaryJobQueue(concurrency=1, capacity=2, wait_seconds=2)
+        workflow = SummaryWorkflow(
+            Collector(), Engine(), publisher, ChannelStates(), queue,  # type: ignore[arg-type]
+        )
+        lease = SimpleNamespace(valid=lambda: True)
+        await asyncio.gather(
+            workflow.run(request(1, 2), channel(1, 2), lease, notice),  # type: ignore[arg-type]
+            workflow.run(request(2, 3), channel(2, 3), lease, notice),  # type: ignore[arg-type]
+        )
+        assert publisher.published == [3]
+        assert len(notices) == 1 and notices[0] == message_for(FailureKind.MODEL)
+        assert await queue.snapshot() == (0, 0, False)
+        await workflow.run(request(1, 2), channel(1, 2), lease, notice)  # type: ignore[arg-type]
+        assert publisher.published == [3, 2]
+        assert await queue.snapshot() == (0, 0, False)
+
+    asyncio.run(scenario())
+
+
 def test_empty_result_never_calls_model_or_publisher(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("yoyackbot.workflow.valid_channel", lambda _guild, _id: True)
 

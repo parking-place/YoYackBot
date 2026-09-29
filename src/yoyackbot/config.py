@@ -108,6 +108,11 @@ class Settings:
         if max_hours > 720:
             raise ConfigurationError("YOYACK_MAX_HOURS cannot exceed 720")
         max_minutes = _integer(values, "YOYACK_MAX_MINUTES", 1440)
+        model_concurrency = _integer(values, "YOYACK_CODEX_CONCURRENCY", 1)
+        if model_concurrency != 1:
+            raise ConfigurationError(
+                "YOYACK_CODEX_CONCURRENCY must be 1 with the shared model account"
+            )
         if max_minutes > 43_200:
             raise ConfigurationError("YOYACK_MAX_MINUTES cannot exceed 43200")
         message_limit = _integer(values, "YOYACK_DISCORD_MESSAGE_LIMIT", 1900)
@@ -151,9 +156,9 @@ class Settings:
                 values, "YOYACK_CACHE_CLEANUP_INTERVAL_SECONDS", 3600
             ),
             discord_message_limit=message_limit,
-            codex_concurrency=_integer(values, "YOYACK_CODEX_CONCURRENCY", 1),
-            queue_capacity=_integer(values, "YOYACK_QUEUE_CAPACITY", 4, minimum=0),
-            queue_wait_seconds=_integer(values, "YOYACK_QUEUE_WAIT_SECONDS", 180),
+            codex_concurrency=model_concurrency,
+            queue_capacity=_integer(values, "YOYACK_QUEUE_CAPACITY", 8, minimum=0),
+            queue_wait_seconds=_integer(values, "YOYACK_QUEUE_WAIT_SECONDS", 600),
             max_input_bytes=_integer(values, "YOYACK_MAX_INPUT_BYTES", 1_000_000),
             max_output_bytes=_integer(values, "YOYACK_MAX_OUTPUT_BYTES", 50_000),
             max_history_pages=_integer(values, "YOYACK_MAX_HISTORY_PAGES", 100),

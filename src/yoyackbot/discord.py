@@ -15,8 +15,11 @@ from yoyackbot.backfill import (
     NOT_READY_NOTICE,
     BackfillError,
     BackfillNotifier,
+    BackfillPageScheduler,
+    BackfillState,
     InitialBackfill,
     SQLiteBackfillStore,
+    round_robin_backfills,
 )
 from yoyackbot.channel_config import (
     MemoryWatchStore,
@@ -125,6 +128,7 @@ class YoYackClient(discord.Client):
                 clock=self.clock,
             ) if self.backfill_store is not None else None
         )
+        self.backfill_scheduler = BackfillPageScheduler() if self.backfill_store else None
         self._backfill_task: asyncio.Task[None] | None = None
         self._cleanup_task: asyncio.Task[None] | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
@@ -316,7 +320,7 @@ class YoYackClient(discord.Client):
 
     async def _backfill_loop(self) -> None:
         assert self.backfill_store is not None and self.initial_backfill is not None
-        assert self.backfill_notifier is not None
+        assert self.backfill_notifier is not None and self.backfill_scheduler is not None
         while True:
             await self.ready_event.wait()
             try:
@@ -325,49 +329,59 @@ class YoYackClient(discord.Client):
                 LOGGER.warning("initial_backfill_state_unavailable")
                 await asyncio.sleep(5)
                 continue
-            for state in pending:
-                if not self.ready_event.is_set():
-                    break
-                channel = self.get_channel(state.channel_id)
-                if (
-                    not isinstance(channel, discord.TextChannel)
-                    or channel.guild.id != state.guild_id
-                    or not valid_channel(channel.guild, channel.id)
-                ):
-                    await asyncio.to_thread(
-                        self.backfill_store.defer, state,
-                        until=self.clock() + timedelta(minutes=1),
-                    )
-                    continue
-                try:
-                    if state.first_watch and state.started_notice_id is None and not state.ready:
-                        await self.backfill_notifier.ensure(channel, state, ready=False)
-                    elif state.ready:
-                        if state.first_watch and state.ready_notice_id is None:
-                            await self.backfill_notifier.ensure(channel, state, ready=True)
-                    else:
-                        await asyncio.wait_for(
-                            self.initial_backfill.step(channel, state), timeout=60
-                        )
-                except BackfillError as exc:
-                    if not exc.retryable:
-                        LOGGER.warning("initial_backfill_blocked kind=%s", exc.kind)
-                        await asyncio.to_thread(
-                            self.backfill_store.block, state, reason=exc.kind
-                        )
-                        continue
-                    LOGGER.warning("initial_backfill_page_deferred")
-                    await asyncio.to_thread(
-                        self.backfill_store.defer, state,
-                        until=self.clock() + timedelta(seconds=30),
-                    )
-                except (MessageStoreError, TimeoutError):
-                    LOGGER.warning("initial_backfill_page_deferred")
-                    await asyncio.to_thread(
-                        self.backfill_store.defer, state,
-                        until=self.clock() + timedelta(seconds=30),
-                    )
+            await asyncio.gather(*(
+                self._backfill_one(state) for state in round_robin_backfills(pending)
+            ))
             await asyncio.sleep(0.05 if pending else 3)
+
+    async def _backfill_one(self, state: BackfillState) -> bool:
+        assert self.backfill_store is not None and self.initial_backfill is not None
+        assert self.backfill_notifier is not None and self.backfill_scheduler is not None
+
+        async def process() -> bool:
+            if not self.ready_event.is_set():
+                return False
+            channel = self.get_channel(state.channel_id)
+            if (
+                not isinstance(channel, discord.TextChannel)
+                or channel.guild.id != state.guild_id
+                or not valid_channel(channel.guild, channel.id)
+            ):
+                await asyncio.to_thread(
+                    self.backfill_store.defer, state,
+                    until=self.clock() + timedelta(minutes=1),
+                )
+                return False
+            try:
+                if state.first_watch and state.started_notice_id is None and not state.ready:
+                    return await self.backfill_notifier.ensure(channel, state, ready=False)
+                if state.ready:
+                    if state.first_watch and state.ready_notice_id is None:
+                        return await self.backfill_notifier.ensure(channel, state, ready=True)
+                    return True
+                return await asyncio.wait_for(
+                    self.initial_backfill.step(
+                        channel, state,
+                        can_continue=lambda: valid_channel(channel.guild, channel.id),
+                    ), timeout=60,
+                )
+            except BackfillError as exc:
+                if not exc.retryable:
+                    LOGGER.warning("initial_backfill_blocked kind=%s", exc.kind)
+                    await asyncio.to_thread(
+                        self.backfill_store.block, state, reason=exc.kind
+                    )
+                    return False
+                LOGGER.warning("initial_backfill_page_deferred")
+            except (MessageStoreError, TimeoutError):
+                LOGGER.warning("initial_backfill_page_deferred")
+            await asyncio.to_thread(
+                self.backfill_store.defer, state,
+                until=self.clock() + timedelta(seconds=30),
+            )
+            return False
+
+        return await self.backfill_scheduler.run(state.guild_id, process)
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
         try:

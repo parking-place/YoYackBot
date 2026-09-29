@@ -75,7 +75,16 @@ def test_systemd_credential_copy_precedes_manual_file(tmp_path) -> None:
     assert settings.discord_bot_token == "only-a-test-systemd-token"
 
 
-def test_model_queue_default_waits_longer_than_model_timeout() -> None:
+def test_model_queue_has_bounded_eight_channel_policy() -> None:
     settings = Settings.from_environment({"DISCORD_BOT_TOKEN": "only-a-test-token"})
     assert settings.codex_timeout_seconds == 120
-    assert settings.queue_wait_seconds == 180
+    assert settings.codex_concurrency == 1
+    assert settings.queue_capacity == 8
+    assert settings.queue_wait_seconds == 600
+
+
+def test_shared_model_account_rejects_misleading_parallel_setting() -> None:
+    with pytest.raises(ConfigurationError, match="YOYACK_CODEX_CONCURRENCY"):
+        Settings.from_environment({
+            "DISCORD_BOT_TOKEN": "only-a-test-token", "YOYACK_CODEX_CONCURRENCY": "2",
+        })
