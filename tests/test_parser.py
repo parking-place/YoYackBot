@@ -61,6 +61,7 @@ def test_help_examples_cover_all_supported_forms() -> None:
         "`!!요약좀 5시간 짧게`",
         "`!!요약좀 사용량`",
         "`!!요약좀 상태`",
+        "`!!요약좀 채널`",
     ):
         assert example in HELP_TEXT
     assert "요약을 시작하면 범위를 먼저 알려주고" in HELP_TEXT and "준비 중이라고 답하오" in HELP_TEXT

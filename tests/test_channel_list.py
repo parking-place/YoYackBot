@@ -179,3 +179,32 @@ def test_reply_while_a_summary_is_running() -> None:
         assert (await states.active(1, 11)) is not None
 
     asyncio.run(scenario())
+
+
+def test_gateway_sends_split_parts_in_order_without_mentions() -> None:
+    from yoyackbot.config import Settings
+
+    async def scenario() -> list[object]:
+        names = [f"채널{index:02d}" + "나" * 40 for index in range(30)]
+        channels = [text_channel(100 + i, name, i) for i, name in enumerate(names)]
+        store = MemoryWatchStore()
+        store.replace(1, frozenset(channel.id for channel in channels))
+        here = channels[0]
+        settings = Settings.from_environment({
+            "DISCORD_BOT_TOKEN": "x", "YOYACK_DISCORD_MESSAGE_LIMIT": "400",
+        })
+        client = YoYackClient(watch_store=store, settings=settings,
+                              summary_workflow=NoWorkflow())  # type: ignore[arg-type]
+        try:
+            await client.on_message(event("!!요약좀 채널", here, guild(1, channels), Requester()))
+        finally:
+            await client.close()
+        calls = here.send.await_args_list
+        assert len(calls) > 1 and all(len(call.args[0]) <= 400 for call in calls)
+        assert all(call.kwargs["allowed_mentions"].to_dict()["parse"] == [] for call in calls)
+        lines = "\n".join(call.args[0] for call in calls).splitlines()
+        assert lines[0] == "지금 본인이 보고 있는 채널을 알려주겠소" and lines[-1] == "이상이오."
+        assert lines[1:-1] == [f" - {name}" for name in names]
+        return calls
+
+    asyncio.run(scenario())

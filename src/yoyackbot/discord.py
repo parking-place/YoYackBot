@@ -597,7 +597,8 @@ class YoYackClient(discord.Client):
             return [UNAVAILABLE_NOTICE]
         channels = visible_watched_channels(guild, watched, requester)
         LOGGER.info("channel_list_request count=%d", len(channels))
-        return channel_list_messages([channel.name for channel in channels])
+        limit = self.settings.discord_message_limit if self.settings is not None else 1900
+        return channel_list_messages([channel.name for channel in channels], limit=limit)
 
     async def status_reply(self, guild_id: int) -> str:
         """Report this Guild only, read-only, without the summary queue, model, or cooldown."""
