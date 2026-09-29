@@ -68,7 +68,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.8.0-P5 | [자원 한도·장시간 실행·운영 게이트](0.8.0/05-resource-soak.md) | DONE | `790c047715f7e1a3c93d8f2f007bc2b3094e01bd` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d0bbe3ea1b40bfc7661578c994521e667bd90eaf) | 개발 LXC 고정 SHA 790c047, 실제 봇 서비스와 격리 합성 부하; GitHub CI 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P1 | [요구사항 전체 회귀·누락 확인](0.9.0/01-full-regression.md) | DONE | `797de3578c9583135d69b6ed014a3bbb5643d018` | [evidence E](https://github.com/parking-place/YoYackBot/commit/6ce31dd17d12f4d671b81bb1b57b059c701dcf26) | 개발 LXC 고정 SHA 797de35, GitHub CI; 로컬 원격 이력 대조는 문서 검증 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P2 | [개발 Discord 사용자 흐름·품질 베타](0.9.0/02-beta-usage.md) | DONE | `b0e8946975417cba0e251e18ee3739faf3696ef3` | [evidence E](https://github.com/parking-place/YoYackBot/commit/a4fd40263be24eee6b9f0e8cfb1df0caa85ea5dd) | 개발 LXC 정확 SHA b0e8946, 실제 Discord 시험 채널·일반 사용자 이벤트와 실제 GPT-6 Luna 합성 fixture; GitHub CI 검증; 세부 결과는 증거 파일 |
-| 0.9.0-P3 | [장애 복구·권한 회수·재시작 훈련](0.9.0/03-fault-drills.md) | PLANNED | — | — | 미착수 |
+| 0.9.0-P3 | [장애 복구·권한 회수·재시작 훈련](0.9.0/03-fault-drills.md) | IN_PROGRESS | — | — | 격리 장애 주입·실서비스 복구 순서 검증 중 |
 | 0.9.0-P4 | [베타 부하·보존 경계 검증](0.9.0/04-beta-soak.md) | PLANNED | — | — | 24시간 지속 시간 생략; 나머지 검증 미착수 |
 | 0.9.0-P5 | [출시 후보 고정·차단 결함 종료](0.9.0/05-rc-freeze.md) | PLANNED | — | — | 미착수 |
 | 1.0.0-P1 | [정식 출시 범위·증거 최종 검토](1.0.0/01-release-review.md) | PLANNED | — | — | 미착수 |
