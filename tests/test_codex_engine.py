@@ -124,6 +124,43 @@ def test_engine_rejects_unusable_model_output(tmp_path: Path) -> None:
     assert raised.value.kind is CodexFailure.OUTPUT_INVALID
 
 
+def test_internal_speaker_heading_retries_with_same_private_input(tmp_path: Path) -> None:
+    calls: list[tuple[str, bytes]] = []
+
+    class Runner:
+        contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
+
+        async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            calls.append((prompt, workspace.log_file.read_bytes()))
+            workspace.close()
+            return "P1은 회의를 제안했소." if len(calls) == 1 else "시험 사용자가 회의를 제안했소."
+
+    engine = CodexSummaryEngine(settings(tmp_path), Runner())  # type: ignore[arg-type]
+    result = asyncio.run(engine.summarize([message(1, "회의를 제안했소")]))
+    assert result.text == "시험 사용자가 회의를 제안했소."
+    assert len(calls) == 2 and calls[0][1] == calls[1][1]
+    assert calls[0][0] != calls[1][0]
+
+
+def test_repeated_internal_speaker_heading_fails_without_unsafe_replacement(tmp_path: Path) -> None:
+    count = 0
+
+    class Runner:
+        contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
+
+        async def execute(self, workspace: InputWorkspace, _prompt: str) -> str:
+            nonlocal count
+            count += 1
+            workspace.close()
+            return "- P1: 회의를 제안했소."
+
+    engine = CodexSummaryEngine(settings(tmp_path), Runner())  # type: ignore[arg-type]
+    with pytest.raises(CodexRunError) as raised:
+        asyncio.run(engine.summarize([message(1, "회의를 제안했소")]))
+    assert raised.value.kind is CodexFailure.OUTPUT_INVALID
+    assert count == 2
+
+
 def test_engine_reports_attempted_input_size_before_rejecting_large_input(tmp_path: Path) -> None:
     sizes: list[int] = []
 
