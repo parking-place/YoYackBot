@@ -9,6 +9,6 @@
 | [P3](03-readiness.md) | 준비 안내·요약 차단 | DONE | [C `bff9c70`](https://github.com/parking-place/YoYackBot/commit/bff9c70953c51e5f7a8f6b612cec8f9bdb18e158) / [E `44896f6`](https://github.com/parking-place/YoYackBot/commit/44896f655c5671872c2c54b23d83013e034dfddf) / [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36530160424) / D 원격 확인은 브랜치 이력 | P2 DONE |
 | [P4](04-queue.md) | 모델 대기열 시간 정책 | DONE | [C `7d51471`](https://github.com/parking-place/YoYackBot/commit/7d5147110a8d80520b55eade0c02e23fa0b7aa56) / [E `a1ac752`](https://github.com/parking-place/YoYackBot/commit/a1ac7524cc6666a9766a0dbabb810dc4823ad659) / [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36531115351) / D 원격 확인은 브랜치 이력 | P3 DONE |
 | [P5](05-recovery.md) | 장애·중단·롤백 처리 | DONE | [C `39a18a1`](https://github.com/parking-place/YoYackBot/commit/39a18a15106fef36a58cf2effa75ae36dd031c27) / [E `93ade49`](https://github.com/parking-place/YoYackBot/commit/93ade498525d778abd2824748434d8b82e883f9a) / [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36532186176) / D 원격 확인은 브랜치 이력 | P4 DONE |
-| [P6](06-release.md) | 통합 검증·출시 | PLANNED | — | P5 DONE |
+| [P6](06-release.md) | 통합 검증·출시 | IN_PROGRESS | — | P5 DONE |
 
 검증 결과·실행 SHA·원격 URL을 단계마다 기록한다. IN_PROGRESS → PUSH_PENDING → DONE은 [공통 Git 규칙](../GIT_WORKFLOW.md)에 따라 실제 원격 반영 뒤에만 진행한다. 미실행 또는 실패는 PASS가 아니다.
