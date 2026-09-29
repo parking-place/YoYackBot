@@ -158,8 +158,9 @@ class SQLiteBackfillStore:
                 connection.execute("BEGIN IMMEDIATE")
                 cursor = connection.execute(
                     f"UPDATE backfill_state SET {column}=? "
-                    f"WHERE guild_id=? AND channel_id=? AND token=? AND {id_column} IS NULL",
-                    (_us(at), state.guild_id, state.channel_id, state.token),
+                    f"WHERE guild_id=? AND channel_id=? AND token=? AND phase=? "
+                    f"AND first_watch=1 AND {id_column} IS NULL",
+                    (_us(at), state.guild_id, state.channel_id, state.token, state.phase),
                 )
                 return cursor.rowcount == 1
         except sqlite3.Error as exc:
@@ -176,7 +177,8 @@ class SQLiteBackfillStore:
                 connection.execute("BEGIN IMMEDIATE")
                 cursor = connection.execute(
                     f"UPDATE backfill_state SET {column}=?, retry_at_us=0 "
-                    f"WHERE guild_id=? AND channel_id=? AND token=? AND {column} IS NULL",
+                    f"WHERE guild_id=? AND channel_id=? AND token=? AND first_watch=1 "
+                    f"AND {column} IS NULL",
                     (message_id, state.guild_id, state.channel_id, state.token),
                 )
                 return cursor.rowcount == 1

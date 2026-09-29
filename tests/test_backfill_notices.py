@@ -1,6 +1,7 @@
 """Initial collection announcements survive uncertain sends and block early summaries."""
 
 import asyncio
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -108,6 +109,24 @@ def test_ambiguous_send_is_found_before_retry(tmp_path) -> None:
         assert len(channel.sent) == 1
         recorded = store.get(1, 99)
         assert recorded is not None and recorded.started_notice_id == channel.sent[0].id
+
+    asyncio.run(scenario())
+
+
+def test_migrated_watch_has_no_first_watch_announcement(tmp_path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "messages.db"
+        SQLiteWatchStore(path).replace(1, frozenset({99}))
+        with sqlite3.connect(path) as connection:
+            connection.execute("DELETE FROM backfill_state")
+        store = SQLiteBackfillStore(path)
+        assert store.ensure_existing() == 1
+        migrated = store.get(1, 99)
+        assert migrated is not None and not migrated.first_watch
+        channel = FakeChannel(lambda: datetime.now(UTC))
+        notifier = BackfillNotifier(store, bot_user_id=lambda: 42)
+        assert await notifier.ensure(channel, migrated, ready=False)
+        assert channel.sent == []
 
     asyncio.run(scenario())
 
