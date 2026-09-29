@@ -1,0 +1,22 @@
+# YoYackBot 1.0.0 운영 인수
+
+## 배포 기준
+
+- 운영 대상은 사용자가 선택한 기존 개발 LXC·전용 봇 계정이다. 서비스 이름은 `yoyackbot-dev.service`를 유지한다.
+- 1.0.0 배포 및 `v1.0.0` 태그의 대상 Git SHA는 `aed79b1d5ae7a869154479fbbd7c2daa2424727a`이다. 실행 패키지는 이 SHA의 wheel이며, 패키지 메타데이터·모듈 버전은 `1.0.0`이다. [설치 산출물과 checksum](install-release.md)은 [GitHub Release](https://github.com/parking-place/YoYackBot/releases/tag/v1.0.0)에 게시했다.
+- 운영 DB는 schema 5다. 전환 당시 주시 설정과 성공 대기 기록을 유지했고, DB 무결성·입력 임시 디렉터리·7일 경계를 확인했다. 실제 개인 대화와 인증 파일은 Release 자산에 없다.
+
+## 평시 운영과 복구
+
+1. [서비스 절차](service-operations.md)에 따라 `systemctl is-active yoyackbot-dev.service`와 전용 계정의 `python -m yoyackbot health`를 확인한다. 정상은 단일 서비스/Gateway, `ready=true`다. [운영 지표·전용 journal](observability.md)의 오류 분류와 1분 점검 기준을 사용한다. 자동 외부 알림은 아직 없다.
+2. Discord 토큰은 systemd `LoadCredential`의 보호된 파일에서 공급한다. 모델 인증을 갱신할 때는 전용 계정의 보호된 Codex 로그인만 사용하고, 이후 `check-ready`와 비게시 합성 호출·서비스 상태를 확인한다. 토큰·인증값을 채팅, Git, 진단 로그에 복사하지 않는다.
+3. 설정 백업은 [설정 전용 백업·빈 캐시 복원](restore.md)을 따른다. 메시지·요약 원문을 백업하지 않으며 캐시는 최대 7일 정책으로 정리한다. 장기 서비스 중지 중에는 만료 삭제가 늦어질 수 있으므로 재기동 뒤 보존 상태를 확인한다.
+4. `ready=false`, DB 무결성 오류, 잘못된 채널 게시, 원문 누출, 반복 모델·History·게시 실패가 확인되면 새 요청 수락을 중단하고 [1.0.0 업데이트·복귀 절차](upgrade-rollback-1.0.0.md)를 따른다. 이전 검증 코드와 schema 5의 호환성·설정 전용 백업을 격리 환경에서 확인했다. 운영 DB를 리허설 대상으로 복사하거나 이전 코드에 무작정 연결하지 않는다.
+
+## 출시 시 남긴 공백
+
+- 사용자 요청으로 8시간·24시간 지속 시험을 생략해 장시간 가용성·누적 누수는 미검증이다.
+- 사용자 요청으로 **새 1.0.0 배포의 실제 시험 채널 게시 결과**를 확인하지 않고 진행했다. 0.9.0 베타에서 실제 게시·중복·대기를 확인했고 실행 코드 변경은 버전 문자열 한 줄이지만, 1.0.0의 실제 게시·cooldown 성공으로 간주하지 않는다. 허용된 합성 채널의 첫 게시에서 실패가 나오면 위 복귀 절차를 적용한다.
+- 실제 Discord 권한 회수와 일반 사용자 `/채널 설정` 거부 조작은 미실행이다. 모델 평가에서 낮은 심각도의 시점 생략 1건이 있었으므로 중요한 날짜·결정은 원문과 대조한다.
+
+검증 판정과 제외 근거는 [1.0.0-P4 증거](../Plans/0.DevelopPhase/evidence/1.0.0-P4.md), [실게시 생략 결정](../Plans/0.DevelopPhase/1.0.0/POSTING_WAIVER.md), [전체 단계 상태](../Plans/0.DevelopPhase/STATUS.md)에서 확인한다. 이 문서는 공개 운영 절차이며 실제 서버 주소·Guild/채널 식별자·인증값은 포함하지 않는다.

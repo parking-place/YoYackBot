@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-29. 개발 완료 **50 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 5개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-29. 개발 완료 **55 / 55**. 완료한 단계는 원격 증거를 확인했다. 55개 단계의 증거·종료 커밋은 원격 확인 대상이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -71,11 +71,11 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.9.0-P3 | [장애 복구·권한 회수·재시작 훈련](0.9.0/03-fault-drills.md) | DONE | `24e0d1a1039d9fb222c5a94a810eece7144a0f26` | [evidence E](https://github.com/parking-place/YoYackBot/commit/caeed531d604d65a9afc6ceeb5381c15f40dac2b) | 개발 LXC 정확 SHA 24e0d1a; 격리 pytest fault fixtures와 실제 전용 봇 서비스 SIGKILL/자동 복구; GitHub CI 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P4 | [베타 부하·보존 경계 검증](0.9.0/04-beta-soak.md) | DONE | `ee042c809ab4006ad66018eb872714e003e11306` | [evidence E](https://github.com/parking-place/YoYackBot/commit/c049fd3a78132813b9f0f0c6f1a518678d5e4f92) | 개발 LXC 정확 SHA ee042c8, 실제 서비스 관측+격리 합성 120초/120회, SQLite 보존 fixture, 실제 인증 모델 비게시 probe; GitHub CI 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P5 | [출시 후보 고정·차단 결함 종료](0.9.0/05-rc-freeze.md) | DONE | `3930c409136cf9630e2cadfddd228fcb86ce50be` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d54b9199c892ec453cc3d7cb8f449525739b376b) | 개발 LXC 정확 SHA 3930c40, 공개 원격 이력 및 GitHub CI 검토 검증; 세부 결과는 증거 파일 |
-| 1.0.0-P1 | [정식 출시 범위·증거 최종 검토](1.0.0/01-release-review.md) | PLANNED | — | — | 미착수 |
-| 1.0.0-P2 | [버전·배포 산출물·설정 재현성](1.0.0/02-release-package.md) | PLANNED | — | — | 미착수 |
-| 1.0.0-P3 | [업데이트·migration·롤백 리허설](1.0.0/03-rollback-rehearsal.md) | PLANNED | — | — | 미착수 |
-| 1.0.0-P4 | [운영 배포·동일 SHA smoke·초기 관측](1.0.0/04-production-validation.md) | PLANNED | — | — | 미착수 |
-| 1.0.0-P5 | [GitHub 정식 릴리스·최종 인수](1.0.0/05-release-publish.md) | PLANNED | — | — | 미착수 |
+| 1.0.0-P1 | [정식 출시 범위·증거 최종 검토](1.0.0/01-release-review.md) | DONE | `343aa7c19409f595686b22ac2dc758c008ea7446` | [evidence E](https://github.com/parking-place/YoYackBot/commit/31c46c94c90f08b60714ab4313b9bf0a790d8a81) | 원격 main 선행 50단계 이력, 개발 LXC 정확 SHA 343aa7c, GitHub CI 검증; 세부 결과는 증거 파일 |
+| 1.0.0-P2 | [버전·배포 산출물·설정 재현성](1.0.0/02-release-package.md) | DONE | `f15a135e0a4c53dc3773e60202384e170100c343` | [evidence E](https://github.com/parking-place/YoYackBot/commit/58d757133ec9405b26ea56a3986bfecd7232b587) | 개발 LXC의 격리된 새 가상환경·새 DB, GitHub CI 검증; 세부 결과는 증거 파일 |
+| 1.0.0-P3 | [업데이트·migration·롤백 리허설](1.0.0/03-rollback-rehearsal.md) | DONE | `38b5a671011f39ac56a4e52be3f03a68812f5a83` | [evidence E](https://github.com/parking-place/YoYackBot/commit/0c5dcd27c4f1b36e6fbc3aa199a22a614fea775f) | 개발 LXC 격리 DB·0.9 후보 소스 SHA 3930c40·1.0.0 설치 wheel·GitHub CI 검증; 세부 결과는 증거 파일 |
+| 1.0.0-P4 | [운영 배포·동일 SHA smoke·초기 관측](1.0.0/04-production-validation.md) | DONE | `aed79b1d5ae7a869154479fbbd7c2daa2424727a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/285a15e48bfd33c354f6083af262cfe53d9e7df5) | 새 배포 실게시 SKIPPED_BY_USER, 즉시 운영 점검 PASS; 상세 결과는 증거 파일 |
+| 1.0.0-P5 | [GitHub 정식 릴리스·최종 인수](1.0.0/05-release-publish.md) | DONE | `78582b7a8c2e98e8650bc2c69b380f4aa1c3b5a3` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3ac1d50595c904ed5c0fbfba60d12cc22e8355ec) | 태그·Release·운영 인수 확인, 새 배포 실게시 SKIPPED_BY_USER; 상세 결과는 증거 파일 |
 
 ## 버전/배포 기록
 
@@ -98,6 +98,8 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 0.8.0의 다섯 단계는 [PR #9](https://github.com/parking-place/YoYackBot/pull/9)로 `main`에 통합했다(검증 브랜치 D `ab95047b15cd76b6bb611924d130ed2b402cb6c7`, merge `54855985efd41731e01c4140b9421dca8e3b06a4`). 전용 서비스·상태/로그·설정 복원·비밀정보 검사를 검증했다. 8시간 시험은 [사용자 결정](DURATION_WAIVER.md)에 따라 7시간 38분/459표본에서 중단했고 `SKIPPED_BY_USER`로 기록했다. 0.9.0·1.0.0의 24시간 지속 시간 요건도 생략하지만 각 단계의 기능·보안·복구 검사는 계속 필요하다.
 
 0.9.0의 다섯 단계는 [PR #10](https://github.com/parking-place/YoYackBot/pull/10)으로 `main`에 통합했다(검증 브랜치 D `ec9ecaa655df153f9fdbf084cba398b155464a51`, merge `4039777aa32550d443874e97f26f57e86317ad0b`). 명세 §53 46개 항목의 회귀, 실제 Discord 베타 명령·요약, 실제 모델 합성 품질, 격리 장애와 서비스 재시작 복구, 120초/120회 짧은 부하를 검증했다. 24시간 베타 관측은 사용자 요청에 따라 생략했고 실제 권한 거부 조작·장시간 신뢰성은 미검증으로 남겼다. 1.0.0 패키지 버전·롤백·운영 전환은 다음 버전의 대상이다.
+
+1.0.0은 기존 개발 LXC·봇 계정을 제자리 승격하고, 배포 코드 `aed79b1d5ae7a869154479fbbd7c2daa2424727a`에 [v1.0.0 태그와 GitHub Release](https://github.com/parking-place/YoYackBot/releases/tag/v1.0.0)를 게시했다. 소스 tar·wheel·checksum을 제공한다. [P4 실게시 확인](1.0.0/POSTING_WAIVER.md)은 사용자 요청으로 `SKIPPED_BY_USER`이며 새 배포의 게시·cooldown은 미검증이다. 8/24시간 지속 시험과 실제 권한 조작 미실행도 Release·운영 인수에 공개했다.
 
 ## 실행 증거
 

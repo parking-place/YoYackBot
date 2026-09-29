@@ -2,6 +2,7 @@
 
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -25,6 +26,12 @@ def main() -> None:
         assert len(files) == 5, f"{version}: expected five phase documents"
         all_phases.extend(files)
     assert len(all_phases) == 55
+
+    version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
+    project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    package = (REPO / "src/yoyackbot/__init__.py").read_text(encoding="utf-8")
+    assert version == project["project"]["version"] == "1.0.0"
+    assert f'__version__ = "{version}"' in package
 
     matrix = (PLAN / "TEST_MATRIX.md").read_text()
     checks = re.findall(r"^\| `(T\d+-P\d-[AB])` \|", matrix, re.MULTILINE)

@@ -11,17 +11,17 @@
 
 이전 버전 [0.9.0](../0.9.0/README.md)의 마지막 단계와 원격 업로드 확인을 완료한다.
 
-[운영 대상 결정](TARGET_DECISION.md): 현재 개발 LXC와 봇 계정을 제자리 승격한다. 배포와 즉시 점검은 아래 단계에서 검증하며, 24시간 관측은 [사용자 요청](../DURATION_WAIVER.md)으로 생략한다.
+[운영 대상 결정](TARGET_DECISION.md): 현재 개발 LXC와 봇 계정을 제자리 승격한다. 배포와 즉시 점검은 아래 단계에서 검증하며, 24시간 관측과 새 배포의 [실제 게시 확인](POSTING_WAIVER.md)은 각각 사용자 요청으로 생략한다.
 
 ## 단계
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [1.0.0-P1 — 정식 출시 범위·증거 최종 검토](01-release-review.md) | `T100-P1-A/B` | PLANNED |
-| 2 | [1.0.0-P2 — 버전·배포 산출물·설정 재현성](02-release-package.md) | `T100-P2-A/B` | PLANNED |
-| 3 | [1.0.0-P3 — 업데이트·migration·롤백 리허설](03-rollback-rehearsal.md) | `T100-P3-A/B` | PLANNED |
-| 4 | [1.0.0-P4 — 운영 배포·동일 SHA smoke·초기 관측](04-production-validation.md) | `T100-P4-A/B` | PLANNED |
-| 5 | [1.0.0-P5 — GitHub 정식 릴리스·최종 인수](05-release-publish.md) | `T100-P5-A/B` | PLANNED |
+| 1 | [1.0.0-P1 — 정식 출시 범위·증거 최종 검토](01-release-review.md) | `T100-P1-A/B` | DONE |
+| 2 | [1.0.0-P2 — 버전·배포 산출물·설정 재현성](02-release-package.md) | `T100-P2-A/B` | DONE |
+| 3 | [1.0.0-P3 — 업데이트·migration·롤백 리허설](03-rollback-rehearsal.md) | `T100-P3-A/B` | DONE |
+| 4 | [1.0.0-P4 — 운영 배포·동일 SHA smoke·초기 관측](04-production-validation.md) | `T100-P4-A/B` | DONE |
+| 5 | [1.0.0-P5 — GitHub 정식 릴리스·최종 인수](05-release-publish.md) | `T100-P5-A/B` | DONE |
 
 ## 버전 완료 조건
 

@@ -6,4 +6,4 @@ The package provides `version`, `check-config`, and a `run` Gateway entry point.
 
 Create an isolated virtual environment and install the lock file with `pip install -r requirements.lock`, followed by `pip install --no-deps -e .`. Run `pytest` and `ruff check src tests` in the development LXC. Keep credentials out of shell history, repository files, test output, and CI artifacts. `check-config` names missing settings without printing supplied values.
 
-On the provided LXC, the isolated development checkout is `/opt/yoyackbot-dev`. It is not the final service path; the service, privileges, and runtime data location will be finalized in 0.8.0. No product version is ready for deployment at this stage.
+On the provided LXC, the development checkout is `/opt/yoyackbot-dev`. A dedicated `systemd` service, account, and private runtime data path were established in 0.8.0; see [service operations](docs/service-operations.md). The user selected in-place promotion of this LXC and bot account for 1.0.0. Follow the [release install guide](docs/install-release.md) and its staged validation before deployment or tagging.
