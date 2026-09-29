@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 1 | [닉네임 출처·표시 계약](01-contract.md) | D1/D2 | DONE |
 | 2 | [안정적 화자 매핑](02-speaker-map.md) | D3/D4 | DONE |
-| 3 | [프롬프트·결과 검증](03-output.md) | D5/D6 | IN_PROGRESS |
+| 3 | [프롬프트·결과 검증](03-output.md) | D5/D6 | PUSH_PENDING |
 | 4 | [품질·안전 평가](04-quality.md) | D7/D8 | PLANNED |
 | 5 | [Discord 통합·출시](05-release.md) | D9/D10 | PLANNED |
 
