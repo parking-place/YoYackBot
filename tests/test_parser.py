@@ -75,6 +75,31 @@ def test_help_uses_effective_day_limit_when_operator_lowers_it() -> None:
         validate_option(parse_option("8일"), settings)
 
 
+def test_discord_help_route_sends_effective_limit_without_mention(tmp_path) -> None:
+    async def scenario() -> None:
+        settings = Settings.from_environment({
+            "DISCORD_BOT_TOKEN": "test-token", "YOYACK_MAX_DAYS": "7",
+            "YOYACK_INPUT_DIRECTORY": str(tmp_path / "inputs"),
+        })
+        sent = AsyncMock()
+        channel = SimpleNamespace(type=discord.ChannelType.text, id=99, send=sent)
+        message = SimpleNamespace(
+            guild=SimpleNamespace(id=1), channel=channel,
+            author=SimpleNamespace(bot=False), webhook_id=None,
+            type=discord.MessageType.default, content="!!요약좀 도움",
+        )
+        client = YoYackClient(settings=settings, watch_store=MemoryWatchStore())
+        try:
+            await client.on_message(message)
+            assert sent.await_args.args[0] == help_text(settings)
+            mentions = sent.await_args.kwargs["allowed_mentions"]
+            assert not mentions.everyone and not mentions.users and not mentions.roles
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize(
     ("option", "expected"),
     [
