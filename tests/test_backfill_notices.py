@@ -90,6 +90,37 @@ def test_start_and_ready_notices_are_exact_and_once_per_new_watch(tmp_path) -> N
     asyncio.run(scenario())
 
 
+def test_blocked_first_collection_never_announces_ready_before_recovery(tmp_path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "messages.db"
+        SQLiteWatchStore(path).replace(1, frozenset({99}))
+        store = SQLiteBackfillStore(path)
+        state = store.get(1, 99)
+        assert state is not None
+        now = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=state.started_us)
+        channel = FakeChannel(lambda: now + timedelta(seconds=1))
+        notifier = BackfillNotifier(store, bot_user_id=lambda: 42,
+                                    clock=lambda: now + timedelta(seconds=1))
+        assert await notifier.ensure(channel, state, ready=False)
+        assert store.block(state, reason="permission")
+        blocked = store.get(1, 99)
+        assert blocked is not None and blocked.blocked_reason == "permission"
+        assert not await notifier.ensure(channel, blocked, ready=True)
+        assert [item.content for item in channel.sent] == [START_NOTICE]
+
+        assert store.resume_blocked(1, 99)
+        worker = InitialBackfill(store, EmptyPages(), clock=lambda: now + timedelta(seconds=1))
+        for _ in range(2):
+            current = store.get(1, 99)
+            assert current is not None and await worker.step(channel, current)
+        ready = store.get(1, 99)
+        assert ready is not None and ready.ready
+        assert await notifier.ensure(channel, ready, ready=True)
+        assert [item.content for item in channel.sent] == [START_NOTICE, READY_NOTICE]
+
+    asyncio.run(scenario())
+
+
 def test_ambiguous_send_is_found_before_retry(tmp_path) -> None:
     async def scenario() -> None:
         path = tmp_path / "messages.db"
