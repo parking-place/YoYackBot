@@ -6,12 +6,12 @@
 
 | 순서 | 독립 단계 | 검사 | 상태 |
 |---|---|---|---|
-| 1 | [설정·보존 계약](01-contract.md) | A1/A2 | PUSH_PENDING |
+| 1 | [설정·보존 계약](01-contract.md) | A1/A2 | DONE |
 | 2 | [DB 정리·복원](02-cache.md) | A3/A4 | PLANNED |
 | 3 | [기간·개수 수집](03-collection.md) | A5/A6 | PLANNED |
 | 4 | [명령·도움말](04-help.md) | A7/A8 | PLANNED |
 | 5 | [운영 회귀·출시](05-release.md) | A9/A10 | PLANNED |
 
-각 단계는 **구현 → 개발 LXC 검증 → 증거 기록 → 독립 C/E/D 커밋의 GitHub push → 원격 반영·필요 CI 확인**까지 끝나야 완료다. [Git 완료 규칙](../GIT_WORKFLOW.md)을 적용한다. [검증 목록](TEST_MATRIX.md)은 전부 NOT_RUN이며 [상태](STATUS.md)는 전부 PLANNED이다. 계획 게시만으로 제품 검증을 PASS로 세지 않는다. 8/24시간 연속 시험은 요구하지 않는다.
+각 단계는 **구현 → 개발 LXC 검증 → 증거 기록 → 독립 C/E/D 커밋의 GitHub push → 원격 반영·필요 CI 확인**까지 끝나야 완료다. [Git 완료 규칙](../GIT_WORKFLOW.md)을 적용한다. 단계별 실제 판정은 [검증 목록](TEST_MATRIX.md)과 [상태](STATUS.md)를 따른다. 계획 게시만으로 제품 검증을 PASS로 세지 않는다. 8/24시간 연속 시험은 요구하지 않는다.
 
 태그 표시명 `v1.0.0a`와 Python 패키지 버전 `1.0.0.1`은 [버전 대응표](../PATCH_VERSIONING.md)를 따른다.

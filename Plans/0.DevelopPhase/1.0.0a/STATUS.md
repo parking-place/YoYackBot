@@ -1,10 +1,10 @@
 # 1.0.0a 진행 상태
 
-2026-09-29 기준 **계획 5단계, 구현 완료 0단계**. 1.0.0의 후속 계획 게시와 제품 배포는 별개다.
+2026-09-29 기준 **계획 5단계, 구현 완료 1단계**. P1은 설정 계약 검증만 완료했으며 제품 배포는 아직 아니다.
 
 | 단계 | 목표 | 상태 | C/E/D 원격 증거 | 선행 |
 |---|---|---|---|---|
-| [P1](01-contract.md) | 설정·보존 계약 | PUSH_PENDING | C `d0f6bd4` / [증거 E](../evidence/1.0.0a-P1.md) / D 대기 | 1.0.0 완료 |
+| [P1](01-contract.md) | 설정·보존 계약 | DONE | [C `d0f6bd4`](https://github.com/parking-place/YoYackBot/commit/d0f6bd4d63f4a800d29684b75a1d9670802bcdbd) / [E `57546b7`](https://github.com/parking-place/YoYackBot/commit/57546b74e8f179161b7fe6718b2102240b55d3ce) / D 원격 확인 | 1.0.0 완료 |
 | [P2](02-cache.md) | DB 정리·복원 | PLANNED | — | P1 DONE |
 | [P3](03-collection.md) | 기간·개수 수집 | PLANNED | — | P2 DONE |
 | [P4](04-help.md) | 명령·도움말 | PLANNED | — | P3 DONE |
