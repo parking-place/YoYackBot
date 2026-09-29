@@ -12,6 +12,7 @@ from yoyackbot.channel_config import MemoryWatchStore
 from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore
 from yoyackbot.discord import PREVIEW_NOTICE, YoYackClient
+from yoyackbot.domain import SummaryMode
 from yoyackbot.parser import (
     HELP_TEXT,
     CommandLimitError,
@@ -56,8 +57,13 @@ def test_help_examples_cover_all_supported_forms() -> None:
         "`!!요약좀 30일`",
         "`!!요약좀 1주`",
         "`/채널 설정`",
+        "`!!요약좀 오늘 자세히`",
+        "`!!요약좀 5시간 짧게`",
+        "`!!요약좀 사용량`",
+        "`!!요약좀 상태`",
     ):
         assert example in HELP_TEXT
+    assert "범위를 생략하면 최근 1시간" in HELP_TEXT and "모든 서버가 함께 쓰는 파일" in HELP_TEXT
     assert len(HELP_TEXT) < 2000
     assert "기간 요약은 최대 30일까지 가능하오." in HELP_TEXT
 
@@ -213,8 +219,9 @@ def test_all_command_forms_reach_normalized_request_and_invalid_options_stop() -
         requests = []
 
         class SpyClient(YoYackClient):
-            async def on_summary_request(self, message, request, lease) -> None:
+            async def on_summary_request(self, message, request, lease, *, mode) -> None:
                 assert lease.valid()
+                assert mode is SummaryMode.NORMAL
                 requests.append(request)
 
         client = SpyClient(

@@ -11,13 +11,14 @@ import discord
 from yoyackbot.backfill import NOT_READY_NOTICE, SQLiteBackfillStore
 from yoyackbot.cache_collector import BackfillNotReady, CacheOnlyCollector
 from yoyackbot.channel_config import valid_channel
+from yoyackbot.codex import CodexFailure
 from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.collection import EMPTY_NOTICE, CollectionUnavailable
 from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore, cooldown_notice
 from yoyackbot.count_collection import CountError
-from yoyackbot.domain import MessageRecord, SummaryRequest, SummaryResult
+from yoyackbot.domain import MessageRecord, SummaryMode, SummaryRequest, SummaryResult
 from yoyackbot.errors import FailureKind, message_for
 from yoyackbot.history import HistoryError
 from yoyackbot.input_files import ConversationTooLarge, InputFileError
@@ -28,6 +29,7 @@ from yoyackbot.ops import RequestMetrics
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError
 from yoyackbot.state import AdmissionKind, ChannelStates
+from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
 from yoyackbot.watch_gate import ChannelLease
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 
@@ -61,7 +63,7 @@ class SummaryWorkflow:
 
     async def _summarize_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
-        trigger_message_id: int | None,
+        trigger_message_id: int | None, mode: SummaryMode,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
     ) -> SummaryResult:
         if self.queue is not None:
@@ -77,22 +79,22 @@ class SummaryWorkflow:
                     raise JobInvalidated
                 return await self._run_model_guarded(
                     messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
-                    channel=channel, lease=lease, metrics=metrics,
+                    mode=mode, channel=channel, lease=lease, metrics=metrics,
                 )
         return await self._run_model_guarded(
             messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
-            channel=channel, lease=lease, metrics=metrics,
+            mode=mode, channel=channel, lease=lease, metrics=metrics,
         )
 
     async def _run_model_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
-        trigger_message_id: int | None,
+        trigger_message_id: int | None, mode: SummaryMode,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
     ) -> SummaryResult:
         model_started = time.monotonic()
         model = asyncio.create_task(self.engine.summarize(
             messages, channel_name=channel_name, range_label="선택한 대화",
-            trigger_message_id=trigger_message_id,
+            trigger_message_id=trigger_message_id, mode=mode,
             on_input_size=lambda size: setattr(metrics, "input_bytes", size),
         ))
         try:
@@ -121,7 +123,7 @@ class SummaryWorkflow:
         self, request: SummaryRequest, channel: discord.TextChannel,
         lease: ChannelLease, send_notice: Callable[[str], Awaitable[None]],
     ) -> None:
-        metrics = RequestMetrics(request.requested_range.kind.value)
+        metrics = RequestMetrics(request.requested_range.kind.value, mode=request.mode.value)
         task = asyncio.current_task()
         if task is not None:
             self._jobs.add(task)
@@ -201,7 +203,7 @@ class SummaryWorkflow:
             result = await self._summarize_guarded(
                 outcome.messages, channel_name=channel.name,
                 trigger_message_id=request.requested_range.trigger_message_id,
-                channel=channel, lease=lease, metrics=metrics,
+                mode=request.mode, channel=channel, lease=lease, metrics=metrics,
             )
             metrics.model_result = "success"
             if not await can_continue():
@@ -244,7 +246,10 @@ class SummaryWorkflow:
             metrics.model_result = "failure"
             metrics.error_kind = "model"
             metrics.failure_detail = exc.kind.value
-            await send_notice(message_for(FailureKind.MODEL))
+            await send_notice(
+                USAGE_EXHAUSTED_NOTICE if exc.kind is CodexFailure.USAGE_LIMIT
+                else message_for(FailureKind.MODEL)
+            )
         except PartialPublicationError:
             metrics.outcome = "post_error"
             metrics.post_result = "partial"

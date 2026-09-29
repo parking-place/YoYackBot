@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import signal
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Protocol
@@ -11,6 +11,7 @@ from typing import Protocol
 import discord
 from discord import app_commands
 
+from yoyackbot import __version__
 from yoyackbot.backfill import (
     NOT_READY_NOTICE,
     BackfillError,
@@ -29,7 +30,7 @@ from yoyackbot.channel_config import (
 )
 from yoyackbot.codex import CodexContractError
 from yoyackbot.config import Settings
-from yoyackbot.domain import MessageRecord, RangeRequest, SummaryRequest
+from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
 from yoyackbot.health import write_heartbeat
 from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
@@ -39,8 +40,17 @@ from yoyackbot.parser import (
     RouteKind,
     help_text,
     route_trigger,
+    split_mode,
 )
 from yoyackbot.range_request import resolve_range
+from yoyackbot.status_report import StatusReport, collect_status, status_message
+from yoyackbot.usage import (
+    USAGE_UNAVAILABLE_NOTICE,
+    UsageSnapshot,
+    UsageUnavailable,
+    read_account_usage,
+    usage_message,
+)
 from yoyackbot.watch_gate import UNAVAILABLE_NOTICE, ChannelLease, WatchGate
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 from yoyackbot.workflow import SummaryWorkflow, build_workflow
@@ -98,6 +108,7 @@ class YoYackClient(discord.Client):
         settings: Settings | None = None,
         clock: Callable[[], datetime] | None = None,
         summary_workflow: SummaryWorkflow | None = None,
+        usage_reader: Callable[[], Awaitable[UsageSnapshot]] | None = None,
     ) -> None:
         super().__init__(intents=required_intents(), member_cache_flags=discord.MemberCacheFlags.none())
         self.observe_channel_id = observe_channel_id
@@ -112,6 +123,8 @@ class YoYackClient(discord.Client):
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(UTC))
         self.summary_workflow = summary_workflow
+        self.usage_reader = usage_reader
+        self._usage_lock = asyncio.Lock()
         self.backfill_store = (
             SQLiteBackfillStore(settings.database_path)
             if settings is not None and isinstance(self.watch_store, SQLiteWatchStore)
@@ -474,6 +487,26 @@ class YoYackClient(discord.Client):
             )
             return
         assert message.guild is not None
+        if route.kind in (RouteKind.USAGE, RouteKind.STATUS):
+            async def send_usage(notice: str) -> None:
+                await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
+
+            async def handle_usage(_lease: ChannelLease) -> None:
+                if route.kind is RouteKind.USAGE:
+                    await send_usage(await self.usage_reply())
+                else:
+                    await send_usage(await self.status_reply(message.guild.id))
+
+            await self.watch_gate.request(
+                message.guild.id,
+                message.channel.id,
+                is_help=False,
+                help_reply=lambda: send_usage(help_text(self.settings)),
+                unwatched_reply=send_usage,
+                unavailable_reply=send_usage,
+                summarize=handle_usage,
+            )
+            return
         if route.kind is RouteKind.SUMMARY:
             accepted_at = self.clock()
 
@@ -498,8 +531,9 @@ class YoYackClient(discord.Client):
                         await send_notice(NOT_READY_NOTICE)
                         return
                 try:
+                    range_text, mode = split_mode(route.options)
                     request = resolve_range(
-                        route.options,
+                        range_text,
                         self.settings,
                         accepted_at,
                         trigger_message_id=getattr(message, "id", None),
@@ -507,7 +541,7 @@ class YoYackClient(discord.Client):
                 except (CommandSyntaxError, CommandLimitError) as exc:
                     await send_notice(str(exc))
                     return
-                await self.on_summary_request(message, request, lease)
+                await self.on_summary_request(message, request, lease, mode=mode)
 
             await self.watch_gate.request(
                 message.guild.id,
@@ -525,6 +559,41 @@ class YoYackClient(discord.Client):
             message,
             self.on_watched_message,
         )
+
+    async def _read_usage(self) -> UsageSnapshot:
+        if self.usage_reader is not None:
+            return await self.usage_reader()
+        if self.settings is None:
+            raise UsageUnavailable("usage runtime is not configured")
+        return await read_account_usage(
+            self.settings.codex_executable,
+            self.settings.codex_auth_directory / "auth.json",
+            self.settings.input_directory.absolute(),
+            client_version=__version__,
+        )
+
+    async def usage_reply(self) -> str:
+        """Read usage one at a time, without touching the summary queue or cooldown."""
+        async with self._usage_lock:
+            try:
+                snapshot = await self._read_usage()
+            except UsageUnavailable:
+                LOGGER.info("usage_request outcome=unavailable")
+                return USAGE_UNAVAILABLE_NOTICE
+        LOGGER.info("usage_request outcome=ok warning=%s", snapshot.warning)
+        return usage_message(snapshot)
+
+    async def status_reply(self, guild_id: int) -> str:
+        """Report this Guild only, read-only, without the summary queue, model, or cooldown."""
+        gateway_ready = self.ready_event.is_set()
+        if self.settings is None:
+            report = StatusReport(gateway_ready, None, None, None, None, None, False)
+        else:
+            report = await asyncio.to_thread(
+                collect_status, self.settings, guild_id, gateway_ready=gateway_ready,
+            )
+        LOGGER.info("status_request healthy=%s", report.healthy)
+        return status_message(report, self.clock())
 
     async def on_watched_message(self, message: discord.Message, lease: ChannelLease) -> None:
         """Persist eligible human messages only while the watch revision still matches."""
@@ -556,10 +625,11 @@ class YoYackClient(discord.Client):
             LOGGER.warning("message_cache_write_failed")
 
     async def on_summary_request(
-        self, message: discord.Message, request: RangeRequest, lease: ChannelLease
+        self, message: discord.Message, request: RangeRequest, lease: ChannelLease,
+        *, mode: SummaryMode = SummaryMode.NORMAL,
     ) -> None:
         """Run the model path when the persistent runtime is configured."""
-        LOGGER.info("summary_request_parsed kind=%s", request.kind.value)
+        LOGGER.info("summary_request_parsed kind=%s mode=%s", request.kind.value, mode.value)
         if (
             self.summary_workflow is None
             and self.settings is not None
@@ -587,7 +657,9 @@ class YoYackClient(discord.Client):
             await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
 
         await self.summary_workflow.run(
-            SummaryRequest(message.guild.id, message.channel.id, message.author.id, request),
+            SummaryRequest(
+                message.guild.id, message.channel.id, message.author.id, request, mode
+            ),
             message.channel, lease, send_notice,
         )
 

@@ -14,6 +14,7 @@ class RequestMetrics:
     """Only fixed categories and numeric measurements may reach the journal."""
 
     request_kind: str
+    mode: str = "normal"
     request_id: str = field(default_factory=lambda: secrets.token_hex(8))
     started: float = field(default_factory=time.monotonic, repr=False)
     selected_count: int = 0
@@ -43,6 +44,7 @@ class RequestMetrics:
             "event": "summary_request",
             "request_id": self.request_id,
             "kind": self.request_kind if self.request_kind in {"time", "count"} else "unknown",
+            "mode": self.mode if self.mode in {"normal", "detailed", "short"} else "unknown",
             "selected_count": max(0, self.selected_count),
             "cache_count": max(0, self.cache_count),
             "history_count": max(0, self.history_count),
@@ -64,7 +66,8 @@ class RequestMetrics:
                 "none", "history", "input", "model", "send", "queue", "permission", "unexpected"
             } else "unexpected",
             "failure_detail": self.failure_detail if self.failure_detail in {
-                "none", "input_file", "input_size", "auth", "model", "limit", "process", "timeout",
+                "none", "input_file", "input_size", "auth", "model", "limit", "usage_limit", "process",
+                "timeout",
                 "output_limit", "output_invalid", "input_limit", "queue_full",
                 "queue_timeout", "queue_closed", "history", "permission", "send",
                 "unexpected",

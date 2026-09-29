@@ -7,6 +7,14 @@ from enum import Enum
 from typing import Protocol
 
 
+class SummaryMode(Enum):
+    """Trusted prompt density; it never changes the collected range."""
+
+    NORMAL = "normal"
+    DETAILED = "detailed"
+    SHORT = "short"
+
+
 class RequestKind(Enum):
     TIME = "time"
     COUNT = "count"
@@ -73,6 +81,7 @@ class SummaryRequest:
     channel_id: int
     user_id: int
     requested_range: RangeRequest
+    mode: SummaryMode = SummaryMode.NORMAL
 
 
 @dataclass(frozen=True)

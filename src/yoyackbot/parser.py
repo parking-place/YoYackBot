@@ -5,8 +5,11 @@ from dataclasses import dataclass
 from enum import Enum
 
 from yoyackbot.config import Settings
+from yoyackbot.domain import SummaryMode
 
 TRIGGER = "!!요약좀"
+USAGE_WORD = "사용량"
+STATUS_WORD = "상태"
 HELP_WORD = re.compile(r"(?<!\S)도움(?:말)?(?=\s|$)")
 
 HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
@@ -23,6 +26,14 @@ HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
 
 숫자만 적으면 시간 단위로 알아듣겠소.
 {limit_notice}
+
+범위 뒤에 `자세히`나 `짧게`를 한 번 붙이면 같은 범위를 다른 밀도로 요약하오. 범위를 생략하면 최근 1시간이오.
+`!!요약좀 오늘 자세히` — 화자별 의견·결정·남은 점을 촘촘히 요약하오.
+`!!요약좀 5시간 짧게` — 본문 5줄 안팎으로 줄여 요약하오.
+
+`!!요약좀 사용량` — 요약봇 Codex 계정의 남은 한도를 알려주오.
+`!!요약좀 상태` — 이 서버의 주시 채널·캐시 건수·DB 크기(모든 서버가 함께 쓰는 파일)·마지막 요약을 알려주오.
+사용량·상태는 주시 채널에서만 답하며, 요약이 아니므로 대기 시간을 쓰지 않소.
 주시할 채널은 관리자가 `/채널 설정`에서 정하시오."""
 
 
@@ -45,6 +56,8 @@ class RouteKind(Enum):
     NONE = "none"
     HELP = "help"
     SUMMARY = "summary"
+    USAGE = "usage"
+    STATUS = "status"
 
 
 @dataclass(frozen=True)
@@ -99,7 +112,34 @@ def route_trigger(content: str) -> TriggerRoute:
     options = after.partition(TRIGGER)[0].strip()
     if HELP_WORD.search(after):
         return TriggerRoute(RouteKind.HELP, repeated=repeated)
+    if options == USAGE_WORD:
+        return TriggerRoute(RouteKind.USAGE, repeated=repeated)
+    if options == STATUS_WORD:
+        return TriggerRoute(RouteKind.STATUS, repeated=repeated)
     return TriggerRoute(RouteKind.SUMMARY, options=options, repeated=repeated)
+
+
+MODE_WORDS = {"자세히": SummaryMode.DETAILED, "짧게": SummaryMode.SHORT}
+
+
+def _without_polite_ending(text: str) -> str:
+    for ending in POLITE_ENDINGS:
+        if text == ending:
+            return ""
+        if text.endswith(" " + ending):
+            return text[: -len(ending)].strip()
+    return text
+
+
+def split_mode(options: str) -> tuple[str, SummaryMode]:
+    """Accept one density word only after the range; never reorder or merge modes."""
+    words = _without_polite_ending(options.strip()).split()
+    mode = SummaryMode.NORMAL
+    if words and words[-1] in MODE_WORDS:
+        mode = MODE_WORDS[words.pop()]
+    if any(word in MODE_WORDS for word in words):
+        raise CommandSyntaxError(USAGE_NOTICE)
+    return " ".join(words), mode
 
 
 def parse_option(options: str) -> ParsedOption:

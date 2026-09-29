@@ -1,15 +1,15 @@
 # 1.0.1 진행 상태
 
-기준일: 2026-09-29. **계획 작성 6단계 / 구현 완료 0단계.** [1.0.0a~d](../README.md)의 실제 완료가 선행한다. 이 계획의 GitHub 게시는 P1~P6 구현·검증의 완료가 아니다. [1.0.0까지 완료된 55단계](../STATUS.md)는 별도 집계로 보존한다.
+기준일: 2026-09-29. **계획 6단계 / 완료 6단계, `v1.0.1` 출시(코드 `ea426ff`, 개발 LXC 운영 서비스 배포).** [1.0.0a~d](../README.md)의 실제 완료가 선행한다. 이 계획의 GitHub 게시는 P1~P6 구현·검증의 완료가 아니다. [1.0.0까지 완료된 55단계](../STATUS.md)는 별도 집계로 보존한다.
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 제한·다음 작업 |
 |---|---|---|---|---|
-| [1.0.1-P1](01-app-server-contract.md) | app-server JSON 계약 | PLANNED | — | 봇 계정·CLI 응답 확인 전 |
-| [1.0.1-P2](02-usage-command.md) | 사용량·한도 초과 | PLANNED | — | P1 선행 |
-| [1.0.1-P3](03-detailed-summary.md) | 자세한 1시간 요약 | PLANNED | — | P2 선행 |
-| [1.0.1-P4](04-short-summary.md) | 짧은 1시간 요약 | PLANNED | — | P3 선행 |
-| [1.0.1-P5](05-status-command.md) | 실측 상태 응답 | PLANNED | — | P4 선행 |
-| [1.0.1-P6](06-help-release.md) | 도움말·통합·출시 | PLANNED | — | P1~P5 원격 증거 선행 |
+| [1.0.1-P1](01-app-server-contract.md) | app-server JSON 계약 | DONE | [C `a9cb8cb`](https://github.com/parking-place/YoYackBot/commit/a9cb8cbcfd3e8b02f5b852090792338ce05bc45e) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36555209064) / [E `7b8b08d`](https://github.com/parking-place/YoYackBot/commit/7b8b08d10b0f626599b33d4a426478a35aa078ad) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36555316652) / [증거](../evidence/1.0.1-P1.md); 원격 확인 | P1-A/B PASS(OpenJevLXC). 봇 계정은 주간 창만 반환 → 사용자 결정으로 있는 창만 표시 |
+| [1.0.1-P2](02-usage-command.md) | 사용량·한도 초과 | DONE | [C `d477dd5`](https://github.com/parking-place/YoYackBot/commit/d477dd510feb82467126b449b3c9bc8b623a1cc6) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36555779151) / [E `0033dc1`](https://github.com/parking-place/YoYackBot/commit/0033dc19a3363631c80e374c7cb057a724a72561) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36555849157) / [증거](../evidence/1.0.1-P2.md); 원격 확인 | P2-A PASS, P2-B 합성·실제 조회 PASS; 시험 채널은 P6 사용자 확인 |
+| [1.0.1-P3](03-detailed-summary.md) | 범위 지정 자세한 요약 | DONE | [C `aec9bcb`](https://github.com/parking-place/YoYackBot/commit/aec9bcb6acc5e89df0d5e17e86acc4c3630eaf26) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36556406031) / [E `5e5190f`](https://github.com/parking-place/YoYackBot/commit/5e5190f207cf116dcde5341b3fa3f13cc2eff148) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36556585309) / [증거](../evidence/1.0.1-P3.md); 원격 확인 | P3-A PASS, P3-B 실제 모델 3건 PASS |
+| [1.0.1-P4](04-short-summary.md) | 범위 지정 짧은 요약 | DONE | [C `21931de`](https://github.com/parking-place/YoYackBot/commit/21931de4496fa41924336788cca6bbcf52aaaa4b) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36556798781) / [E `ad07f2b`](https://github.com/parking-place/YoYackBot/commit/ad07f2bdba1031ba08cb1f1df6e03827a4bd41bc) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36556909714) / [증거](../evidence/1.0.1-P4.md); 원격 확인 | P4-A PASS, P4-B 실제 모델 3건 PASS |
+| [1.0.1-P5](05-status-command.md) | 실측 상태 응답 | DONE | [C `b40b14d`](https://github.com/parking-place/YoYackBot/commit/b40b14d87addfacf6d8b850836b8dab83c5b3c56) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36557244371) / [E `b0a775e`](https://github.com/parking-place/YoYackBot/commit/b0a775e048c5379f7718ea13813d4b94d96c8b81) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36557322260) / [증거](../evidence/1.0.1-P5.md); 원격 확인 | P5-A PASS, P5-B 합성·실제 DB PASS; 시험 채널은 P6 사용자 확인 |
+| [1.0.1-P6](06-help-release.md) | 도움말·통합·출시 | DONE | [C `ea426ff`](https://github.com/parking-place/YoYackBot/commit/ea426ff0389218a3050c0da72d44fb917243282c) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36557690893) / [E `10495eb`](https://github.com/parking-place/YoYackBot/commit/10495eb4836072db9028df29761af56fd2000f48) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36559736483) / [증거](../evidence/1.0.1-P6.md); 원격 확인 | P6-A/B PASS, 운영 배포·시험 Discord 사용자 확인, [Release v1.0.1](https://github.com/parking-place/YoYackBot/releases/tag/v1.0.1) |
 
 실행 시 각 단계 상태를 `IN_PROGRESS` → `VERIFIED`/`PUSH_PENDING` → `DONE`으로 갱신한다. DONE은 같은 단계의 검사 결과, C/E/D SHA와 원격 URL, 필요한 GitHub CI, 개발 LXC/Discord 검증 범위가 모두 확인된 뒤에만 쓴다. 문서에 적힌 샘플 수치·모델 이름은 운영 실측으로 간주하지 않는다.
 

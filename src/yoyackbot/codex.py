@@ -19,6 +19,7 @@ class CodexFailure(Enum):
     AUTH = "auth"
     MODEL = "model"
     LIMIT = "limit"
+    USAGE_LIMIT = "usage_limit"
     PROCESS = "process"
     TIMEOUT = "timeout"
     OUTPUT_LIMIT = "output_limit"
@@ -126,7 +127,14 @@ def classify_cli_failure(exit_code: int, stderr: str) -> CodexFailure | None:
     )):
         return CodexFailure.AUTH
     if any(marker in diagnostic for marker in (
-        "rate limit", "usage limit", "quota", "http 429",
+        "usage limit reached", "reached your usage limit", "hit your usage limit",
+        "usage_limit_reached", "usage_limit_exceeded", "credits_depleted", "out of credits",
+        "quota exceeded", "quota_exceeded", "insufficient_quota",
+    )):
+        return CodexFailure.USAGE_LIMIT
+    if any(marker in diagnostic for marker in (
+        "rate limit", "rate_limit", "too many requests", "http 429", "server overloaded",
+        "server_overloaded", "usage limit", "quota",
     )):
         return CodexFailure.LIMIT
     return CodexFailure.PROCESS
