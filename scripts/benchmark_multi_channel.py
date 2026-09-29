@@ -1,5 +1,6 @@
 """Synthetic, content-free concurrent summary baseline; run on a test LXC only."""
 
+import argparse
 import asyncio
 import json
 import logging
@@ -84,7 +85,9 @@ def percentile95(values: list[int]) -> int:
     return sorted(values)[max(0, (len(values) * 95 + 99) // 100 - 1)] if values else 0
 
 
-async def scenario(count: int, *, mixed_guilds: bool) -> dict:
+async def scenario(
+    count: int, *, mixed_guilds: bool, capacity: int, wait_ms: int, concurrency: int,
+) -> dict:
     now = datetime.now(UTC)
     capture = MetricCapture()
     logger = logging.getLogger("yoyackbot.metrics")
@@ -98,7 +101,9 @@ async def scenario(count: int, *, mixed_guilds: bool) -> dict:
             workflow = SummaryWorkflow(
                 collector, engine, publisher,
                 ChannelStates(SQLiteCooldownStore(Path(temporary) / "state.db")),
-                SummaryJobQueue(concurrency=1, capacity=4, wait_seconds=0.18),
+                SummaryJobQueue(
+                    concurrency=concurrency, capacity=capacity, wait_seconds=wait_ms / 1000,
+                ),
             )
             channels = [(
                 (1 if not mixed_guilds or index % 2 == 0 else 2), 10 + index
@@ -138,6 +143,8 @@ async def scenario(count: int, *, mixed_guilds: bool) -> dict:
             success = [row for row in rows if row["outcome"] == "success"]
             return {
                 "channels": count,
+                "capacity": capacity,
+                "concurrency": concurrency,
                 "guild_layout": "mixed" if mixed_guilds else "same",
                 "outcomes": dict(sorted(outcomes.items())),
                 "collection_p95_ms": percentile95([row["collection_ms"] for row in success]),
@@ -148,16 +155,25 @@ async def scenario(count: int, *, mixed_guilds: bool) -> dict:
                 "max_queue_ms": max((row["queue_ms"] for row in rows), default=0),
                 "published": len(publisher.published),
                 "separated": True,
+                "wait_ms": wait_ms,
             }
     finally:
         logger.removeHandler(capture)
 
 
 async def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--capacity", type=int, default=4)
+    parser.add_argument("--wait-ms", type=int, default=180)
+    parser.add_argument("--concurrency", type=int, default=1)
+    options = parser.parse_args()
     workflow_module.valid_channel = lambda _guild, _channel_id: True
     for mixed in (False, True):
         for count in (2, 4, 8):
-            print(json.dumps(await scenario(count, mixed_guilds=mixed), sort_keys=True))
+            print(json.dumps(await scenario(
+                count, mixed_guilds=mixed, capacity=options.capacity,
+                wait_ms=options.wait_ms, concurrency=options.concurrency,
+            ), sort_keys=True))
 
 
 if __name__ == "__main__":

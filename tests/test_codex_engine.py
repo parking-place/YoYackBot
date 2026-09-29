@@ -79,6 +79,37 @@ def test_engine_failure_does_not_block_next_request(tmp_path: Path) -> None:
     assert all(not path.exists() for path in paths)
 
 
+def test_shared_model_account_serializes_simultaneous_calls(tmp_path: Path) -> None:
+    class Runner:
+        contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
+
+        def __init__(self) -> None:
+            self.active = 0
+            self.peak = 0
+
+        async def execute(self, workspace: InputWorkspace, _prompt: str) -> str:
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            try:
+                await asyncio.sleep(0.01)
+                return "합성 대화를 정리하였소."
+            finally:
+                self.active -= 1
+                workspace.close()
+
+    async def scenario() -> None:
+        runner = Runner()
+        engine = CodexSummaryEngine(settings(tmp_path), runner)  # type: ignore[arg-type]
+        results = await asyncio.gather(
+            engine.summarize([message(1, "첫 합성 대화")]),
+            engine.summarize([message(2, "둘째 합성 대화")]),
+        )
+        assert len(results) == 2
+        assert runner.peak == 1
+
+    asyncio.run(scenario())
+
+
 def test_engine_rejects_unusable_model_output(tmp_path: Path) -> None:
     class InvalidRunner:
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
