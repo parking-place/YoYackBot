@@ -1,6 +1,6 @@
 # 1.0.0b-1 P5 — 실패 정리와 재개
 
-상태: **IN_PROGRESS**. 검사: `B5A/B5B`. P4 원격 완료 후 개발 LXC에서 수행한다.
+상태: **DONE**. 검사: `B5A/B5B`. [검증 증거](../evidence/1.0.0b-1-P5.md)의 C/E/CI와 [상태](STATUS.md)의 D 종료를 확인했다. 실제 Discord 장애 시험은 P6에 남았다.
 
 ## 작업
 
