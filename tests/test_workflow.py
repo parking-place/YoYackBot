@@ -146,7 +146,8 @@ def test_model_limit_in_one_channel_does_not_block_another(
             return SummaryResult("합성 대화를 정리하였소.", "synthetic", 1)
 
     class Publisher:
-        published: list[int] = []
+        def __init__(self) -> None:
+            self.published: list[int] = []
 
         async def publish(self, request, _result, messages):
             assert all(row.channel_id == request.channel_id for row in messages)
