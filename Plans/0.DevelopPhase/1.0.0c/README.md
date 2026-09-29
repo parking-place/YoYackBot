@@ -10,7 +10,7 @@
 | 2 | [공정한 대기열](02-fair-queue.md) | C3/C4 | DONE |
 | 3 | [수집·DB 병목](03-collection-db.md) | C5/C6 | DONE |
 | 4 | [모델 처리량·역압](04-model.md) | C7/C8 | DONE |
-| 5 | [다중 채널 통합·출시](05-release.md) | C9/C10 | IN_PROGRESS |
+| 5 | [다중 채널 통합·출시](05-release.md) | C9/C10 | PUSH_PENDING |
 
 각 단계의 완료는 **해당 단계 구현·개발 LXC 검증·증거 기록·독립 C/E/D 커밋의 GitHub push·원격 반영/필요 CI 확인**까지다. [Git 완료 규칙](../GIT_WORKFLOW.md)을 따른다. [검증 목록](TEST_MATRIX.md)은 모두 NOT_RUN, [상태](STATUS.md)는 모두 PLANNED이다. 실제 Discord 게시와 합성 검사는 분리 기록하고 8/24시간 연속 시험은 요구하지 않는다.
 
