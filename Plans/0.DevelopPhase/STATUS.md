@@ -66,7 +66,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.8.0-P3 | [설정 백업·캐시 재생성·복구](0.8.0/03-restore.md) | DONE | `4fd9bdb37018c79e2a40d62de3dd12884a0ab249` | [evidence E](https://github.com/parking-place/YoYackBot/commit/964d6eabd9e5323fe7a6687f5acdf1334b2727eb) | 개발 LXC 정확 SHA 4fd9bdb, Ruff·218 pytest·계획 검증·GitHub CI, 전용 계정 실제 설정 백업/격리 복원 검증; 세부 결과는 증거 파일 |
 | 0.8.0-P4 | [비밀·파일·프롬프트 입력 보안 점검](0.8.0/04-security-review.md) | DONE | `bf00432bbf342547a94bdcaf6be6d99fd230f07e` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d6317e38391babd8aeccefa1861c76867b14258d) | 개발 LXC 정확 SHA bf00432(실행 코드 1438d81), Ruff·221 pytest·전체 Git 이력 스캔·CI·실제 인증 모델 공격성 합성 입력 검증; 세부 결과는 증거 파일 |
 | 0.8.0-P5 | [자원 한도·장시간 실행·운영 게이트](0.8.0/05-resource-soak.md) | DONE | `790c047715f7e1a3c93d8f2f007bc2b3094e01bd` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d0bbe3ea1b40bfc7661578c994521e667bd90eaf) | 개발 LXC 고정 SHA 790c047, 실제 봇 서비스와 격리 합성 부하; GitHub CI 검증; 세부 결과는 증거 파일 |
-| 0.9.0-P1 | [요구사항 전체 회귀·누락 확인](0.9.0/01-full-regression.md) | PLANNED | — | — | 미착수 |
+| 0.9.0-P1 | [요구사항 전체 회귀·누락 확인](0.9.0/01-full-regression.md) | IN_PROGRESS | — | — | §53 전체 요구·검사 추적 중 |
 | 0.9.0-P2 | [개발 Discord 사용자 흐름·품질 베타](0.9.0/02-beta-usage.md) | PLANNED | — | — | 미착수 |
 | 0.9.0-P3 | [장애 복구·권한 회수·재시작 훈련](0.9.0/03-fault-drills.md) | PLANNED | — | — | 미착수 |
 | 0.9.0-P4 | [베타 부하·보존 경계 검증](0.9.0/04-beta-soak.md) | PLANNED | — | — | 24시간 지속 시간 생략; 나머지 검증 미착수 |
