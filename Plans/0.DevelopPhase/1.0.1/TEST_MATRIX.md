@@ -4,7 +4,7 @@
 
 | 검사 ID | 단계 | 환경 | 통과 기준 | 결과 |
 |---|---|---|---|---|
-| `T101-P1-A` | [P1](01-app-server-contract.md) | LXC 합성 | app-server JSON 버킷·창·남은 비율 경계와 누락/오류 처리의 결정성 | NOT_RUN |
+| `T101-P1-A` | [P1](01-app-server-contract.md) | LXC 합성 | app-server JSON 버킷·창·남은 비율 경계와 누락/오류 처리의 결정성 | PASS(비지정 로컬, LXC 재실행 NOT_RUN) — [증거](../evidence/1.0.1-P1.md) |
 | `T101-P1-B` | [P1](01-app-server-contract.md) | LXC 읽기 전용 | 실제 봇 계정 응답·고정 CLI 호환, 비밀 비노출·자식 정리·비게시 | NOT_RUN |
 | `T101-P2-A` | [P2](02-usage-command.md) | LXC 합성 | 사용량 문구 74/82·74/9·10%·0%, 실패·미주시 라우팅 | NOT_RUN |
 | `T101-P2-B` | [P2](02-usage-command.md) | LXC/시험 Discord | 진짜 한도 초과만 확정 안내, 일시 오류 분리, 실패 후 재시도, 실제 사용량 표시 | NOT_RUN |

@@ -1,6 +1,6 @@
 # 1.0.1-P1 — app-server JSON·계정 범위 계약
 
-- 상태: **PLANNED** · 검사: `T101-P1-A/B` · 환경: 개발 LXC, 격리 합성 JSON
+- 상태: **IN_PROGRESS** · 검사: `T101-P1-A/B` · 환경: 개발 LXC, 격리 합성 JSON
 
 ## 선행 조건과 작업
 
