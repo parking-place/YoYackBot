@@ -4,8 +4,8 @@
 
 | ID | 단계 | 합격 조건 | 결과 |
 |---|---|---|---|
-| D1 | [P1](01-contract.md) | 합성 화자·동명이인·개명·빈 이름에서 표시 이름의 선택과 구분이 결정적인지 확인한다. | NOT_RUN |
-| D2 | [P1](01-contract.md) | Unicode·줄바꿈·Markdown·`@everyone`·사용자 멘션·긴 이름을 안전하게 다루는 계약을 확인한다. | NOT_RUN |
+| D1 | [P1](01-contract.md) | 합성 화자·동명이인·개명·빈 이름에서 표시 이름의 선택과 구분이 결정적인지 확인한다. | PASS (LXC 합성 계약) — [증거](../evidence/1.0.0d-P1.md) |
+| D2 | [P1](01-contract.md) | Unicode·줄바꿈·Markdown·`@everyone`·사용자 멘션·긴 이름을 안전하게 다루는 계약을 확인한다. | PASS (LXC 합성 계약, 실제 알림 미실행) — [증거](../evidence/1.0.0d-P1.md) |
 | D3 | [P2](02-speaker-map.md) | 대화 순서와 닉네임 변경 뒤에도 같은 사람의 의견이 한 표시 이름으로 귀속되는지 확인한다. | NOT_RUN |
 | D4 | [P2](02-speaker-map.md) | 동명이인·삭제 메시지·빈 이름·다른 Guild 동시 요청에서 매핑 충돌이나 ID 노출이 없는지 확인한다. | NOT_RUN |
 | D5 | [P3](03-output.md) | 고정 모델 설정의 합성 대화 20건에서 화자명이 실제 표시 이름이고 P1/P2가 화자명으로 게시되지 않는지 확인한다. | NOT_RUN |
