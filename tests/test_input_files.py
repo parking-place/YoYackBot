@@ -1,6 +1,7 @@
 """Synthetic conversations test speaker boundaries and private request isolation."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -65,6 +66,20 @@ def test_missing_and_duplicate_names_are_stable_and_request_private() -> None:
     second_guild = [replace(message(5, 111111111, "민지", "다른 서버"), guild_id=2)]
     other = [json.loads(line) for line in document(second_guild).splitlines()]
     assert other[0]["speaker_names"] == {"P1": "민지"}
+
+
+def test_duplicate_names_deleted_row_and_concurrent_guilds_do_not_cross() -> None:
+    first = [message(1, 900000001, "나래", "첫 서버"), message(2, 900000002, "나래", "별도 화자")]
+    second = [replace(message(3, 900000001, "가람", "둘째 서버"), guild_id=2)]
+    deleted = message(4, 900000003, "나래", "삭제된 메시지")
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(document, selected) for selected in (first, second)]
+        first_rows, second_rows = ([json.loads(line) for line in future.result().splitlines()]
+                                   for future in futures)
+    assert first_rows[0]["speaker_names"] == {"P1": "나래 (1)", "P2": "나래 (2)"}
+    assert second_rows[0]["speaker_names"] == {"P1": "가람"}
+    assert deleted.content not in str(first_rows)
+    assert all("90000000" not in str(rows) for rows in (first_rows, second_rows))
 
 
 def test_unknown_mentions_are_generic_and_size_limit_is_enforced() -> None:
