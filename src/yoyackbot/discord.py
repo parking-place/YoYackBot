@@ -11,7 +11,13 @@ from typing import Protocol
 import discord
 from discord import app_commands
 
-from yoyackbot.backfill import BackfillError, InitialBackfill, SQLiteBackfillStore
+from yoyackbot.backfill import (
+    NOT_READY_NOTICE,
+    BackfillError,
+    BackfillNotifier,
+    InitialBackfill,
+    SQLiteBackfillStore,
+)
 from yoyackbot.channel_config import (
     MemoryWatchStore,
     WatchStore,
@@ -111,6 +117,13 @@ class YoYackClient(discord.Client):
         self.initial_backfill = (
             InitialBackfill(self.backfill_store, clock=self.clock)
             if self.backfill_store is not None else None
+        )
+        self.backfill_notifier = (
+            BackfillNotifier(
+                self.backfill_store,
+                bot_user_id=lambda: self.user.id if self.user is not None else None,
+                clock=self.clock,
+            ) if self.backfill_store is not None else None
         )
         self._backfill_task: asyncio.Task[None] | None = None
         self._cleanup_task: asyncio.Task[None] | None = None
@@ -261,6 +274,7 @@ class YoYackClient(discord.Client):
 
     async def _backfill_loop(self) -> None:
         assert self.backfill_store is not None and self.initial_backfill is not None
+        assert self.backfill_notifier is not None
         while True:
             await self.ready_event.wait()
             try:
@@ -284,9 +298,15 @@ class YoYackClient(discord.Client):
                     )
                     continue
                 try:
-                    await asyncio.wait_for(
-                        self.initial_backfill.step(channel, state), timeout=60
-                    )
+                    if state.first_watch and state.started_notice_id is None and not state.ready:
+                        await self.backfill_notifier.ensure(channel, state, ready=False)
+                    elif state.ready:
+                        if state.first_watch and state.ready_notice_id is None:
+                            await self.backfill_notifier.ensure(channel, state, ready=True)
+                    else:
+                        await asyncio.wait_for(
+                            self.initial_backfill.step(channel, state), timeout=60
+                        )
                 except (BackfillError, MessageStoreError, TimeoutError):
                     LOGGER.warning("initial_backfill_page_deferred")
                     await asyncio.to_thread(
@@ -396,6 +416,19 @@ class YoYackClient(discord.Client):
                 if self.settings is None:
                     await send_notice(UNAVAILABLE_NOTICE)
                     return
+                if self.backfill_store is not None:
+                    try:
+                        backfill = await asyncio.to_thread(
+                            self.backfill_store.get, message.guild.id, message.channel.id
+                        )
+                    except BackfillError:
+                        await send_notice(UNAVAILABLE_NOTICE)
+                        return
+                    if backfill is None or not backfill.ready or (
+                        backfill.first_watch and backfill.ready_notice_id is None
+                    ):
+                        await send_notice(NOT_READY_NOTICE)
+                        return
                 try:
                     request = resolve_range(
                         route.options,

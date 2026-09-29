@@ -22,8 +22,17 @@ class BackfillError(RuntimeError):
     """Safe backfill failure; never includes Discord message data."""
 
 
+START_NOTICE = "안녕하시오. 요약을 위해 데이터 수집중이오."
+READY_NOTICE = "이제부터 요약을 해줄 수 있을 것 같소."
+NOT_READY_NOTICE = "참을성을 기르시오 아직 준비가 되지 않았소."
+
+
 def _us(value: datetime) -> int:
     return _microseconds(value)
+
+
+def _at(value_us: int) -> datetime:
+    return datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=value_us)
 
 
 @dataclass(frozen=True)
@@ -41,6 +50,10 @@ class BackfillState:
     overlap_before_id: int | None
     verified_us: int | None
     retry_at_us: int
+    started_notice_id: int | None
+    ready_notice_id: int | None
+    started_notice_attempt_us: int | None
+    ready_notice_attempt_us: int | None
 
     @property
     def ready(self) -> bool:
@@ -65,6 +78,7 @@ class SQLiteBackfillStore:
         return BackfillState(
             row[0], row[1], row[2], bool(row[3]), row[4], row[5], row[6],
             row[7], row[8], row[9], row[10], row[11], row[12],
+            row[13], row[14], row[15], row[16],
         )
 
     @staticmethod
@@ -72,7 +86,8 @@ class SQLiteBackfillStore:
         return (
             "SELECT guild_id, channel_id, token, first_watch, started_us, cutoff_us, "
             "before_id, phase, finished_us, overlap_start_us, overlap_before_id, "
-            "verified_us, retry_at_us "
+            "verified_us, retry_at_us, started_notice_id, ready_notice_id, "
+            "started_notice_attempt_us, ready_notice_attempt_us "
             "FROM backfill_state "
         )
 
@@ -112,7 +127,8 @@ class SQLiteBackfillStore:
         try:
             with self.watches._connection() as connection:
                 rows = connection.execute(
-                    self._select() + "WHERE phase IN ('history', 'overlap') "
+                    self._select() + "WHERE (phase IN ('history', 'overlap') "
+                    "OR (phase='ready' AND first_watch=1 AND ready_notice_id IS NULL)) "
                     "AND retry_at_us<=? ORDER BY started_us, guild_id, channel_id LIMIT ?",
                     (_us(now), limit),
                 ).fetchall()
@@ -131,6 +147,41 @@ class SQLiteBackfillStore:
                 )
         except sqlite3.Error as exc:
             raise BackfillError("Unable to defer initial collection") from exc
+
+    def mark_notice_attempt(
+        self, state: BackfillState, *, ready: bool, at: datetime
+    ) -> bool:
+        column = "ready_notice_attempt_us" if ready else "started_notice_attempt_us"
+        id_column = "ready_notice_id" if ready else "started_notice_id"
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                cursor = connection.execute(
+                    f"UPDATE backfill_state SET {column}=? "
+                    f"WHERE guild_id=? AND channel_id=? AND token=? AND {id_column} IS NULL",
+                    (_us(at), state.guild_id, state.channel_id, state.token),
+                )
+                return cursor.rowcount == 1
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to prepare collection notice") from exc
+
+    def record_notice(
+        self, state: BackfillState, *, ready: bool, message_id: int
+    ) -> bool:
+        if message_id < 1:
+            raise ValueError("Discord message ID must be positive")
+        column = "ready_notice_id" if ready else "started_notice_id"
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                cursor = connection.execute(
+                    f"UPDATE backfill_state SET {column}=?, retry_at_us=0 "
+                    f"WHERE guild_id=? AND channel_id=? AND token=? AND {column} IS NULL",
+                    (message_id, state.guild_id, state.channel_id, state.token),
+                )
+                return cursor.rowcount == 1
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to record collection notice") from exc
 
     def schedule_ready_recheck(self, *, end: datetime, start: datetime | None = None) -> int:
         """Reconcile a disconnected interval independently of summary requests."""
@@ -306,4 +357,63 @@ class InitialBackfill:
             next_cursor=next_cursor, next_phase=next_phase,
             finished_at=self.clock() if next_phase == "overlap" else None,
             cached_at=self.clock(),
+        )
+
+
+class BackfillNotifier:
+    """Persist and reconcile channel announcements around uncertain Discord sends."""
+
+    def __init__(
+        self, store: SQLiteBackfillStore, *, bot_user_id: Callable[[], int | None],
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        self.store = store
+        self.bot_user_id = bot_user_id
+        self.clock = clock or (lambda: datetime.now(UTC))
+
+    async def ensure(
+        self, channel: discord.TextChannel, state: BackfillState, *, ready: bool
+    ) -> bool:
+        if not state.first_watch:
+            return True
+        current = await asyncio.to_thread(self.store.get, state.guild_id, state.channel_id)
+        if current is None or current.token != state.token:
+            return False
+        if (ready and not current.ready) or (not ready and current.ready):
+            return False
+        notice_id = current.ready_notice_id if ready else current.started_notice_id
+        if notice_id is not None:
+            return True
+        author_id = self.bot_user_id()
+        if author_id is None:
+            raise BackfillError("Bot account is not ready to announce collection")
+        content = READY_NOTICE if ready else START_NOTICE
+        attempt_us = (
+            current.ready_notice_attempt_us if ready else current.started_notice_attempt_us
+        )
+        if attempt_us is not None:
+            after = discord.Object(id=discord.utils.time_snowflake(_at(attempt_us)) - 1)
+            try:
+                async for message in channel.history(
+                    limit=100, after=after, oldest_first=True
+                ):
+                    if message.author.id == author_id and message.content == content:
+                        return await asyncio.to_thread(
+                            self.store.record_notice, current,
+                            ready=ready, message_id=message.id,
+                        )
+            except (discord.HTTPException, ClientError, OSError) as exc:
+                raise BackfillError("Unable to reconcile collection notice") from exc
+        if not await asyncio.to_thread(
+            self.store.mark_notice_attempt, current, ready=ready, at=self.clock()
+        ):
+            return False
+        try:
+            posted = await channel.send(
+                content, allowed_mentions=discord.AllowedMentions.none()
+            )
+        except (discord.HTTPException, ClientError, OSError) as exc:
+            raise BackfillError("Unable to post collection notice") from exc
+        return await asyncio.to_thread(
+            self.store.record_notice, current, ready=ready, message_id=posted.id
         )

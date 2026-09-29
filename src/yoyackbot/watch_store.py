@@ -131,6 +131,7 @@ class SQLiteWatchStore:
                         "overlap_before_id INTEGER, "
                         "verified_us INTEGER, retry_at_us INTEGER NOT NULL DEFAULT 0, "
                         "started_notice_id INTEGER, ready_notice_id INTEGER, "
+                        "started_notice_attempt_us INTEGER, ready_notice_attempt_us INTEGER, "
                         "PRIMARY KEY(guild_id, channel_id))"
                     )
                     columns = {
@@ -139,6 +140,14 @@ class SQLiteWatchStore:
                     if "overlap_start_us" not in columns:
                         connection.execute(
                             "ALTER TABLE backfill_state ADD COLUMN overlap_start_us INTEGER"
+                        )
+                    if "started_notice_attempt_us" not in columns:
+                        connection.execute(
+                            "ALTER TABLE backfill_state ADD COLUMN started_notice_attempt_us INTEGER"
+                        )
+                    if "ready_notice_attempt_us" not in columns:
+                        connection.execute(
+                            "ALTER TABLE backfill_state ADD COLUMN ready_notice_attempt_us INTEGER"
                         )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS deleted_messages ("

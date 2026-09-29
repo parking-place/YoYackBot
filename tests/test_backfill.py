@@ -199,6 +199,9 @@ def test_normal_summary_uses_ready_cache_only(tmp_path) -> None:
         assert overlap is not None and overlap.phase == "overlap"
         assert await worker.step(channel, overlap)
         assert backfills.get(1, 99).ready  # type: ignore[union-attr]
+        completed = backfills.get(1, 99)
+        assert completed is not None
+        assert backfills.record_notice(completed, ready=True, message_id=999)
         messages.upsert(
             MessageRecord(101, 1, 99, 7, "합성 화자", "캐시 대화", started),
             cached_at=started,

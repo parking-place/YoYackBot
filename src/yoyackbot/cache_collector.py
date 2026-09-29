@@ -53,7 +53,9 @@ class CacheOnlyCollector:
             if channel_id not in selected:
                 raise CollectionError(CollectionFailure.UNWATCHED)
             state = await asyncio.to_thread(self.backfills.get, guild_id, channel_id)
-            if state is None or not state.ready:
+            if state is None or not state.ready or (
+                state.first_watch and state.ready_notice_id is None
+            ):
                 raise BackfillNotReady("Initial collection is not complete")
             if can_continue is not None and not await can_continue():
                 raise CollectionError(CollectionFailure.WATCH_CHANGED)
@@ -92,6 +94,7 @@ class CacheOnlyCollector:
             if (
                 version != final_version or channel_id not in final_selected
                 or final_state is None or final_state.token != state.token or not final_state.ready
+                or (final_state.first_watch and final_state.ready_notice_id is None)
                 or (can_continue is not None and not await can_continue())
             ):
                 raise CollectionError(CollectionFailure.WATCH_CHANGED)

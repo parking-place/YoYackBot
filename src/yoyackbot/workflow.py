@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 
 import discord
 
-from yoyackbot.backfill import SQLiteBackfillStore
-from yoyackbot.cache_collector import CacheOnlyCollector
+from yoyackbot.backfill import NOT_READY_NOTICE, SQLiteBackfillStore
+from yoyackbot.cache_collector import BackfillNotReady, CacheOnlyCollector
 from yoyackbot.channel_config import valid_channel
 from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
@@ -215,6 +215,9 @@ class SummaryWorkflow:
             if metrics.model_result == "running":
                 metrics.model_result = "cancelled"
             await send_notice(INVALIDATED_NOTICE)
+        except BackfillNotReady:
+            metrics.outcome = "not_ready"
+            await send_notice(NOT_READY_NOTICE)
         except (CollectionError, CollectionUnavailable, HistoryError, CountError, LongRangeError,
                 MessageStoreError, WatchStoreError):
             metrics.outcome = "history_error"
