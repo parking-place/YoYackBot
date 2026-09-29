@@ -265,7 +265,7 @@ def test_usage_exhaustion_notice_is_exact_and_failure_allows_retry(
 
     async def scenario() -> None:
         cooldowns = SQLiteCooldownStore(tmp_path / "cooldown.db", duration_seconds=300)
-        states = ChannelStates(cooldowns)
+        states = ChannelStates(cooldowns, clock=lambda: NOW)
         workflow, publisher = summary_workflow([failure], states)
         notices: list[str] = []
 

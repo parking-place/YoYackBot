@@ -1,6 +1,6 @@
 # 1.0.2 — 요약 시작·진행 중 범위 안내
 
-- 상태: **IN_PROGRESS** (P1~P4 완료, P5 진행 중)
+- 상태: **IN_PROGRESS** (P1~P3 완료, P4 재개)
 - 단계 수: **5단계**
 - 선행 버전: 출시된 [1.0.0a~d](../README.md)와 [1.0.1](../1.0.1/README.md)(`v1.0.1`, 2026-09-29). 1.0.0a~d는 이 계획이 처음 작성된 뒤 추가됐으므로 2026-09-29에 현재 코드 기준으로 다시 검토했다.
 
@@ -34,8 +34,8 @@
 | 1 | [P1 — 표시 범위·준비 상태 경계 계약](01-range-contract.md) | `T102-P1-A/B` | DONE |
 | 2 | [P2 — 진행 중 요청 범위의 원자적 보관](02-active-scope.md) | `T102-P2-A/B` | DONE |
 | 3 | [P3 — 준비 완료 채널의 요약 시작 안내](03-collection-notice.md) | `T102-P3-A/B` | DONE |
-| 4 | [P4 — 진행 중 범위를 알려주는 중복 안내](04-busy-notice.md) | `T102-P4-A/B` | DONE |
-| 5 | [P5 — 도움말·통합 회귀·출시 게이트](05-integration-release.md) | `T102-P5-A/B` | IN_PROGRESS |
+| 4 | [P4 — 진행 중 범위를 알려주는 중복 안내](04-busy-notice.md) | `T102-P4-A/B` | IN_PROGRESS |
+| 5 | [P5 — 도움말·통합 회귀·출시 게이트](05-integration-release.md) | `T102-P5-A/B` | PLANNED |
 
 [1.0.2 검증 목록](TEST_MATRIX.md)은 현재 전부 `NOT_RUN`이며 [1.0.2 상태](STATUS.md)는 전부 `PLANNED`이다. 계획을 GitHub에 게시한 것만으로 제품 단계가 끝나지 않는다. 각 단계는 구현·LXC 검증·증거 기록·**독립 commit → GitHub push → 원격 반영 및 필요한 CI 확인**을 마쳐야 DONE이다. 기존 [Git 완료 규칙](../GIT_WORKFLOW.md)의 C/E/D 절차를 따른다.
 

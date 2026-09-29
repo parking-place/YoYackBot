@@ -1,6 +1,6 @@
 # 1.0.2-P5 — 도움말·통합 회귀·출시 게이트
 
-- 상태: **IN_PROGRESS** · 검사: `T102-P5-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **PLANNED** · 검사: `T102-P5-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 선행 조건·작업
 
