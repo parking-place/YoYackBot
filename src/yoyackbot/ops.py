@@ -64,7 +64,7 @@ class RequestMetrics:
                 "none", "history", "input", "model", "send", "queue", "permission", "unexpected"
             } else "unexpected",
             "failure_detail": self.failure_detail if self.failure_detail in {
-                "none", "input_file", "auth", "model", "limit", "process", "timeout",
+                "none", "input_file", "input_size", "auth", "model", "limit", "process", "timeout",
                 "output_limit", "output_invalid", "input_limit", "queue_full",
                 "queue_timeout", "queue_closed", "history", "permission", "send",
                 "unexpected",
