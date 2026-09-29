@@ -246,47 +246,51 @@ class SandboxedCodex:
             workspace.close()
 
     def _persist_refreshed_auth(self, candidate: Path, snapshot: bytes) -> None:
-        """Keep only a valid refresh based on the current auth, even across processes."""
-        lock_fd: int | None = None
-        try:
-            info = candidate.lstat()
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
-                return
-            updated = candidate.read_bytes()
-            if updated == snapshot:
-                return
-            parsed = json.loads(updated)
-            if not isinstance(parsed, dict) or not isinstance(parsed.get("tokens"), dict):
-                return
-            tokens = parsed["tokens"]
-            if not all(isinstance(tokens.get(key), str) and tokens[key] for key in (
-                "access_token", "refresh_token",
-            )):
-                return
-            lock_fd = os.open(
-                self.auth_file.parent / ".auth-refresh.lock",
-                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600,
-            )
-            lock_info = os.fstat(lock_fd)
-            if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != os.geteuid()
-                    or lock_info.st_mode & 0o077):
-                return
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
-            if self.auth_file.read_bytes() != snapshot:
-                return
-            fd, name = tempfile.mkstemp(prefix=".auth-update-", dir=self.auth_file.parent)
-            try:
-                with os.fdopen(fd, "wb") as stream:
-                    stream.write(updated)
-                    stream.flush()
-                    os.fsync(stream.fileno())
-                os.chmod(name, 0o600)
-                os.replace(name, self.auth_file)
-            finally:
-                if os.path.exists(name):
-                    os.unlink(name)
-        except (OSError, ValueError, UnicodeDecodeError):
+        persist_refreshed_auth(self.auth_file, candidate, snapshot)
+
+
+def persist_refreshed_auth(auth_file: Path, candidate: Path, snapshot: bytes) -> None:
+    """Keep only a valid refresh based on the current auth, even across processes."""
+    lock_fd: int | None = None
+    try:
+        info = candidate.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077:
             return
+        updated = candidate.read_bytes()
+        if updated == snapshot:
+            return
+        parsed = json.loads(updated)
+        if not isinstance(parsed, dict) or not isinstance(parsed.get("tokens"), dict):
+            return
+        tokens = parsed["tokens"]
+        if not all(isinstance(tokens.get(key), str) and tokens[key] for key in (
+            "access_token", "refresh_token",
+        )):
+            return
+        lock_fd = os.open(
+            auth_file.parent / ".auth-refresh.lock",
+            os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600,
+        )
+        lock_info = os.fstat(lock_fd)
+        if (not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != os.geteuid()
+                or lock_info.st_mode & 0o077):
+            return
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        if auth_file.read_bytes() != snapshot:
+            return
+        fd, name = tempfile.mkstemp(prefix=".auth-update-", dir=auth_file.parent)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(updated)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.chmod(name, 0o600)
+            os.replace(name, auth_file)
         finally:
-            if lock_fd is not None:
-                os.close(lock_fd)
+            if os.path.exists(name):
+                os.unlink(name)
+    except (OSError, ValueError, UnicodeDecodeError):
+        return
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)

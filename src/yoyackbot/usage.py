@@ -4,9 +4,15 @@ import asyncio
 import json
 import math
 import os
+import shutil
 import signal
+import stat
+import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
+
+from yoyackbot.codex_runner import persist_refreshed_auth
 
 READ_METHOD = "account/rateLimits/read"
 BUCKET_ID = "codex"
@@ -175,3 +181,60 @@ async def read_usage(
         raise UsageUnavailable("app-server pipe failed") from error
     finally:
         await _terminate(process)
+
+
+def _private_file(path: Path) -> bool:
+    try:
+        info = path.lstat()
+        directory = path.parent.lstat()
+    except OSError:
+        return False
+    return (
+        stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid() and not info.st_mode & 0o077
+        and stat.S_ISDIR(directory.st_mode) and directory.st_uid == os.geteuid()
+        and not directory.st_mode & 0o077
+    )
+
+
+async def read_account_usage(
+    executable: str,
+    auth_file: Path,
+    work_root: Path,
+    *,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    client_version: str = "0",
+) -> UsageSnapshot:
+    """Read the bot account's usage from a disposable CODEX_HOME holding an auth copy.
+
+    The app-server writes its own state files into CODEX_HOME, so it never receives the shared
+    auth directory. A token refresh made during the read is kept only through the same
+    compare-and-swap used by summaries.
+    """
+    if not Path(executable).is_absolute() or auth_file.name != "auth.json":
+        raise UsageUnavailable("usage runtime is not configured")
+    if not _private_file(auth_file):
+        raise UsageUnavailable("auth file is not private")
+    try:
+        home = Path(tempfile.mkdtemp(prefix="usage-", dir=work_root))
+    except OSError as error:
+        raise UsageUnavailable("private work directory is unavailable") from error
+    snapshot: bytes | None = None
+    try:
+        copied = home / "auth.json"
+        try:
+            snapshot = auth_file.read_bytes()
+            descriptor = os.open(copied, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(snapshot)
+        except OSError as error:
+            raise UsageUnavailable("auth copy failed") from error
+        env = {"PATH": "/usr/bin:/bin", "HOME": str(home), "CODEX_HOME": str(home),
+               "LANG": "C.UTF-8"}
+        return await read_usage(
+            [executable, "app-server"], env=env, cwd=str(home), timeout=timeout,
+            client_version=client_version,
+        )
+    finally:
+        if snapshot is not None:
+            persist_refreshed_auth(auth_file, home / "auth.json", snapshot)
+        shutil.rmtree(home, ignore_errors=True)

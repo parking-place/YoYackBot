@@ -12,6 +12,7 @@ from yoyackbot.usage import (
     UsageSnapshot,
     UsageUnavailable,
     parse_rate_limits,
+    read_account_usage,
     read_usage,
     remaining_percent,
 )
@@ -195,3 +196,72 @@ def test_output_limit_is_enforced(tmp_path: Path) -> None:
 def test_missing_executable_is_not_a_crash(tmp_path: Path) -> None:
     with pytest.raises(UsageUnavailable):
         asyncio.run(read_usage([str(tmp_path / "missing")], env={}))
+
+
+ACCOUNT_SERVER = textwrap.dedent(
+    """
+    import json, os, sys
+    assert sys.argv[1] == "app-server"
+    home = os.environ["CODEX_HOME"]
+    with open(os.path.join(home, "seen"), "w") as seen:
+        seen.write(home)
+    open(os.path.join(home, "state_5.sqlite"), "w").close()
+    if REFRESH:
+        with open(os.path.join(home, "auth.json"), "w") as auth:
+            json.dump({"tokens": {"access_token": "new-a", "refresh_token": "new-r"}}, auth)
+    def send(obj):
+        sys.stdout.write(json.dumps(obj) + "\\n"); sys.stdout.flush()
+    for line in sys.stdin:
+        message = json.loads(line)
+        if message.get("method") == "initialize":
+            send({"id": message["id"], "result": {}})
+        elif message.get("method") == "account/rateLimits/read":
+            send({"id": message["id"], "result": {"rateLimits": {"limitId": "codex",
+                "primary": {"usedPercent": 26, "windowDurationMins": 300},
+                "secondary": {"usedPercent": 18, "windowDurationMins": 10080}}}})
+    """
+)
+ORIGINAL_AUTH = b'{"tokens": {"access_token": "old-a", "refresh_token": "old-r"}}'
+
+
+def account_fixture(tmp_path: Path, *, refresh: bool) -> tuple[Path, Path, Path]:
+    executable = tmp_path / "fake-codex"
+    executable.write_text(
+        f"#!{sys.executable}\nREFRESH = {refresh}\n" + ACCOUNT_SERVER
+    )
+    executable.chmod(0o700)
+    auth_dir = tmp_path / "model-auth"
+    auth_dir.mkdir(mode=0o700)
+    auth = auth_dir / "auth.json"
+    auth.write_bytes(ORIGINAL_AUTH)
+    auth.chmod(0o600)
+    work = tmp_path / "work"
+    work.mkdir(mode=0o700)
+    return executable, auth, work
+
+
+def test_account_usage_uses_a_disposable_home(tmp_path: Path) -> None:
+    executable, auth, work = account_fixture(tmp_path, refresh=False)
+    snapshot = asyncio.run(read_account_usage(str(executable), auth, work))
+    assert snapshot == UsageSnapshot(74, 82)
+    assert auth.read_bytes() == ORIGINAL_AUTH
+    assert sorted(path.name for path in auth.parent.iterdir()) == ["auth.json"]
+    assert list(work.iterdir()) == []
+
+
+def test_account_usage_keeps_a_valid_refresh(tmp_path: Path) -> None:
+    executable, auth, work = account_fixture(tmp_path, refresh=True)
+    asyncio.run(read_account_usage(str(executable), auth, work))
+    assert b"new-r" in auth.read_bytes()
+    assert (auth.stat().st_mode & 0o777) == 0o600
+    assert list(work.iterdir()) == []
+
+
+def test_account_usage_rejects_shared_auth(tmp_path: Path) -> None:
+    executable, auth, work = account_fixture(tmp_path, refresh=False)
+    auth.chmod(0o644)
+    with pytest.raises(UsageUnavailable):
+        asyncio.run(read_account_usage(str(executable), auth, work))
+    with pytest.raises(UsageUnavailable):
+        asyncio.run(read_account_usage("fake-codex", auth, work))
+    assert list(work.iterdir()) == []
