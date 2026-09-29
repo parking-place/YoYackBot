@@ -14,6 +14,7 @@ from aiohttp import ClientError
 from yoyackbot.domain import MessageRecord
 from yoyackbot.history import DiscordHistorySource, HistoryPageSource
 from yoyackbot.message_store import SQLiteMessageStore, _microseconds
+from yoyackbot.parser import RouteKind, route_trigger
 from yoyackbot.watch_store import SQLiteWatchStore, _new_backfill
 
 
@@ -231,6 +232,7 @@ def _record(message: discord.Message, guild_id: int, channel_id: int) -> Message
     if (
         message.webhook_id is not None or message.author.bot
         or message.type not in {discord.MessageType.default, discord.MessageType.reply}
+        or route_trigger(message.content).kind is not RouteKind.NONE
     ):
         return None
     return MessageRecord(

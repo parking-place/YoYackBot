@@ -1,6 +1,7 @@
 """First-watch import crosses page, restart, and live-ingress boundaries."""
 
 import asyncio
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -59,7 +60,14 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
         ]
         live = fake_message(channel, started + timedelta(seconds=1), index=20_102)
         missed = fake_message(channel, started + timedelta(seconds=2), index=20_103)
-        source = FakePages([*old, live, missed])
+        older = fake_message(channel, started - timedelta(days=31), index=20_104)
+        command = fake_message(channel, started - timedelta(seconds=3), index=20_105)
+        command.content = "!!요약좀 5분"
+        bot = fake_message(channel, started - timedelta(seconds=4), index=20_106)
+        bot.author.bot = True
+        webhook = fake_message(channel, started - timedelta(seconds=5), index=20_107)
+        webhook.webhook_id = 9
+        source = FakePages([*old, live, missed, older, command, bot, webhook])
         messages = SQLiteMessageStore(path)
         watches_version = watches.version(1)
         assert messages.upsert_if_watched(
@@ -108,6 +116,19 @@ def test_unwatch_invalidates_inflight_page_and_rewatch_starts_new_generation(tmp
     watches.replace(1, frozenset({99}))
     new = backfills.get(1, 99)
     assert new is not None and new.token != old.token and not new.ready
+
+
+def test_preexisting_watch_is_migrated_without_first_watch_announcement(tmp_path) -> None:
+    path = tmp_path / "messages.db"
+    watches = SQLiteWatchStore(path)
+    watches.replace(1, frozenset({99}))
+    with sqlite3.connect(path) as connection:
+        connection.execute("DELETE FROM backfill_state")
+    backfills = SQLiteBackfillStore(path)
+    assert backfills.ensure_existing() == 1
+    migrated = backfills.get(1, 99)
+    assert migrated is not None and not migrated.first_watch
+    assert backfills.ensure_existing() == 0
 
 
 def test_normal_summary_uses_ready_cache_only(tmp_path) -> None:

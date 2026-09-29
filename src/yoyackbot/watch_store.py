@@ -133,6 +133,13 @@ class SQLiteWatchStore:
                         "started_notice_id INTEGER, ready_notice_id INTEGER, "
                         "PRIMARY KEY(guild_id, channel_id))"
                     )
+                    columns = {
+                        row[1] for row in connection.execute("PRAGMA table_info(backfill_state)")
+                    }
+                    if "overlap_start_us" not in columns:
+                        connection.execute(
+                            "ALTER TABLE backfill_state ADD COLUMN overlap_start_us INTEGER"
+                        )
         except (OSError, sqlite3.Error) as exc:
             raise WatchStoreError("Settings database unavailable") from exc
 
