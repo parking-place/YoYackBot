@@ -71,7 +71,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.9.0-P3 | [장애 복구·권한 회수·재시작 훈련](0.9.0/03-fault-drills.md) | DONE | `24e0d1a1039d9fb222c5a94a810eece7144a0f26` | [evidence E](https://github.com/parking-place/YoYackBot/commit/caeed531d604d65a9afc6ceeb5381c15f40dac2b) | 개발 LXC 정확 SHA 24e0d1a; 격리 pytest fault fixtures와 실제 전용 봇 서비스 SIGKILL/자동 복구; GitHub CI 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P4 | [베타 부하·보존 경계 검증](0.9.0/04-beta-soak.md) | DONE | `ee042c809ab4006ad66018eb872714e003e11306` | [evidence E](https://github.com/parking-place/YoYackBot/commit/c049fd3a78132813b9f0f0c6f1a518678d5e4f92) | 개발 LXC 정확 SHA ee042c8, 실제 서비스 관측+격리 합성 120초/120회, SQLite 보존 fixture, 실제 인증 모델 비게시 probe; GitHub CI 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P5 | [출시 후보 고정·차단 결함 종료](0.9.0/05-rc-freeze.md) | DONE | `3930c409136cf9630e2cadfddd228fcb86ce50be` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d54b9199c892ec453cc3d7cb8f449525739b376b) | 개발 LXC 정확 SHA 3930c40, 공개 원격 이력 및 GitHub CI 검토 검증; 세부 결과는 증거 파일 |
-| 1.0.0-P1 | [정식 출시 범위·증거 최종 검토](1.0.0/01-release-review.md) | IN_PROGRESS | — | — | 선행 50단계 원격 증거·제한 사항 검토 중 |
+| 1.0.0-P1 | [정식 출시 범위·증거 최종 검토](1.0.0/01-release-review.md) | PUSH_PENDING | `343aa7c19409f595686b22ac2dc758c008ea7446` | — | 검증 통과, 원격 확인 대기 |
 | 1.0.0-P2 | [버전·배포 산출물·설정 재현성](1.0.0/02-release-package.md) | PLANNED | — | — | 미착수 |
 | 1.0.0-P3 | [업데이트·migration·롤백 리허설](1.0.0/03-rollback-rehearsal.md) | PLANNED | — | — | 미착수 |
 | 1.0.0-P4 | [운영 배포·동일 SHA smoke·초기 관측](1.0.0/04-production-validation.md) | PLANNED | — | — | 미착수 |
