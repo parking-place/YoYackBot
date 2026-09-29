@@ -13,7 +13,7 @@ from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord
-from yoyackbot.input_files import InputFileError, InputWorkspace
+from yoyackbot.input_files import ConversationTooLarge, InputWorkspace
 
 
 def settings(tmp_path: Path) -> Settings:
@@ -102,7 +102,7 @@ def test_engine_reports_attempted_input_size_before_rejecting_large_input(tmp_pa
 
     config = replace(settings(tmp_path), max_input_bytes=100)
     engine = CodexSummaryEngine(config, UnusedRunner())  # type: ignore[arg-type]
-    with pytest.raises(InputFileError):
+    with pytest.raises(ConversationTooLarge):
         asyncio.run(engine.summarize(
             [message(1, "합성" * 100)], on_input_size=sizes.append,
         ))

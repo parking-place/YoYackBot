@@ -20,7 +20,7 @@ from yoyackbot.count_collection import CountError
 from yoyackbot.domain import MessageRecord, SummaryRequest, SummaryResult
 from yoyackbot.errors import FailureKind, message_for
 from yoyackbot.history import HistoryError
-from yoyackbot.input_files import InputFileError
+from yoyackbot.input_files import ConversationTooLarge, InputFileError
 from yoyackbot.job_queue import QueueClosed, QueueFull, QueueWaitExpired, SummaryJobQueue
 from yoyackbot.long_range import LongRangeError
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
@@ -38,6 +38,7 @@ INVALIDATED_NOTICE = "채널 주시나 권한이 바뀌어 요약을 멈추었�
 QUEUE_FULL_NOTICE = "요약 요청이 몰렸소. 잠시 후 다시 시도하시오."
 QUEUE_TIMEOUT_NOTICE = "요약 대기 시간이 지났소. 다시 시도하시오."
 QUEUE_CLOSED_NOTICE = "봇이 종료 중이오. 잠시 후 다시 시도하시오."
+INPUT_TOO_LARGE_NOTICE = "요약할 대화가 너무 많소. 기간이나 메시지 개수를 줄여 다시 명하시오."
 
 
 class JobInvalidated(RuntimeError):
@@ -224,6 +225,12 @@ class SummaryWorkflow:
             metrics.error_kind = "history"
             metrics.failure_detail = "history"
             await send_notice(message_for(FailureKind.HISTORY))
+        except ConversationTooLarge:
+            metrics.outcome = "input_error"
+            metrics.model_result = "not_started"
+            metrics.error_kind = "input"
+            metrics.failure_detail = "input_size"
+            await send_notice(INPUT_TOO_LARGE_NOTICE)
         except InputFileError:
             metrics.outcome = "input_error"
             metrics.model_result = "not_started"

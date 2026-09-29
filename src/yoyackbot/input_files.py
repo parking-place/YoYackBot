@@ -24,6 +24,10 @@ class InputFileError(RuntimeError):
     """Input material could not be prepared safely; details never include message text."""
 
 
+class ConversationTooLarge(InputFileError):
+    """The selected conversation exceeds the configured per-request model budget."""
+
+
 class GatewayAlreadyRunning(RuntimeError):
     """Another process already owns the private input directory."""
 
@@ -78,7 +82,7 @@ def serialize_conversation(
     if on_size is not None:
         on_size(len(data))
     if len(data) > max_bytes:
-        raise InputFileError("Conversation input exceeds configured size")
+        raise ConversationTooLarge("Conversation input exceeds configured size")
     return data
 
 

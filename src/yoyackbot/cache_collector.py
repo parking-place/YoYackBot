@@ -10,7 +10,7 @@ from yoyackbot.backfill import SQLiteBackfillStore
 from yoyackbot.collection import CollectionOutcome, CollectionUnavailable
 from yoyackbot.count_collection import CountError, CountFailure
 from yoyackbot.domain import RangeRequest, RequestKind
-from yoyackbot.input_files import InputFileError
+from yoyackbot.input_files import ConversationTooLarge
 from yoyackbot.long_range import LongRangeError, LongRangeFailure
 from yoyackbot.message_store import SQLiteMessageStore
 from yoyackbot.range_collection import CollectionError, CollectionFailure
@@ -88,7 +88,7 @@ class CacheOnlyCollector:
                 shortage = request.count - len(selected_rows)
                 searched_since = start if shortage else selected_rows[0].created_at
             if sum(len(row.content.encode("utf-8")) for row in selected_rows) > self.max_content_bytes:
-                raise InputFileError("Cached conversation exceeds configured input size")
+                raise ConversationTooLarge("Cached conversation exceeds configured input size")
             final_version, final_selected = await asyncio.to_thread(self.watches.snapshot, guild_id)
             final_state = await asyncio.to_thread(self.backfills.get, guild_id, channel_id)
             if (
