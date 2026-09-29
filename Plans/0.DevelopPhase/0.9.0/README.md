@@ -18,7 +18,7 @@
 | 1 | [0.9.0-P1 — 요구사항 전체 회귀·누락 확인](01-full-regression.md) | `T090-P1-A/B` | DONE |
 | 2 | [0.9.0-P2 — 개발 Discord 사용자 흐름·품질 베타](02-beta-usage.md) | `T090-P2-A/B` | DONE |
 | 3 | [0.9.0-P3 — 장애 복구·권한 회수·재시작 훈련](03-fault-drills.md) | `T090-P3-A/B` | DONE |
-| 4 | [0.9.0-P4 — 베타 부하·보존 경계 검증](04-beta-soak.md) | `T090-P4-A/B` | IN_PROGRESS |
+| 4 | [0.9.0-P4 — 베타 부하·보존 경계 검증](04-beta-soak.md) | `T090-P4-A/B` | DONE |
 | 5 | [0.9.0-P5 — 출시 후보 고정·차단 결함 종료](05-rc-freeze.md) | `T090-P5-A/B` | PLANNED |
 
 ## 버전 완료 조건
