@@ -163,7 +163,9 @@ def test_auth_refresh_persists_without_cli_state_residue(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     isolated = runner(tmp_path)
-    isolated.auth_file.write_text('{"access_token":"synthetic-before"}')
+    before = '{"tokens":{"access_token":"synthetic-before","refresh_token":"refresh-before"}}'
+    after = '{"tokens":{"access_token":"synthetic-after","refresh_token":"refresh-after"}}'
+    isolated.auth_file.write_text(before)
     seen: dict[str, Path] = {}
 
     async def fake_invoke(
@@ -173,7 +175,7 @@ def test_auth_refresh_persists_without_cli_state_residue(
         bound = next(Path(command[index + 1]) for index, token in enumerate(command[:-2])
                      if token == "--bind" and command[index + 2] == "/auth")
         seen["temporary_auth"] = bound
-        (bound / "auth.json").write_text('{"access_token":"synthetic-after"}')
+        (bound / "auth.json").write_text(after)
         (bound / "session-state").write_text("temporary-only")
         (workspace.output_directory / "final.txt").write_text("완료하였소.")
         return 0, b"", b""
@@ -182,6 +184,8 @@ def test_auth_refresh_persists_without_cli_state_residue(
     with InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace:
         directory = workspace.directory
         assert asyncio.run(isolated.execute(workspace, "synthetic prompt")) == "완료하였소."
-    assert isolated.auth_file.read_text() == '{"access_token":"synthetic-after"}'
+    assert isolated.auth_file.read_text() == after
     assert not directory.exists() and not seen["temporary_auth"].exists()
-    assert {path.name for path in isolated.auth_file.parent.iterdir()} == {"auth.json"}
+    assert {path.name for path in isolated.auth_file.parent.iterdir()} == {
+        "auth.json", ".auth-refresh.lock",
+    }
