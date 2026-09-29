@@ -37,6 +37,10 @@ class CacheOnlyCollector:
         self.max_count = max_count
         self.max_content_bytes = max_content_bytes
 
+    async def ready(self, guild_id: int, channel_id: int) -> bool:
+        """True only when the channel is past initial collection and any gap recheck."""
+        return summary_ready(await asyncio.to_thread(self.backfills.get, guild_id, channel_id))
+
     async def collect(
         self, channel: discord.TextChannel, *, guild_id: int, channel_id: int,
         request: RangeRequest,

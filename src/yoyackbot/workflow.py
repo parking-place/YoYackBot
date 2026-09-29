@@ -28,6 +28,7 @@ from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.ops import RequestMetrics
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError
+from yoyackbot.scope import start_notice
 from yoyackbot.state import AdmissionKind, ChannelStates
 from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
 from yoyackbot.watch_gate import ChannelLease
@@ -54,6 +55,7 @@ class SummaryWorkflow:
     publisher: DiscordSummaryPublisher
     states: ChannelStates = field(default_factory=ChannelStates)
     queue: SummaryJobQueue | None = None
+    readiness: Callable[[int, int], Awaitable[bool]] | None = None
     closing: bool = False
     _jobs: set[asyncio.Task] = field(default_factory=set, init=False, repr=False)
 
@@ -176,6 +178,22 @@ class SummaryWorkflow:
             return
         completed = False
         try:
+            if self.readiness is not None and not await self.readiness(guild_id, channel_id):
+                metrics.outcome = "not_ready"
+                await send_notice(NOT_READY_NOTICE)
+                return
+            if request.scope is not None:
+                try:
+                    await send_notice(start_notice(request.scope, request.mode))
+                except (discord.DiscordException, OSError):
+                    metrics.outcome = "notice_error"
+                    metrics.error_kind = "send"
+                    metrics.failure_detail = "send"
+                    LOGGER.warning("summary_start_notice_failed")
+                    return
+            if admission.job is not None:
+                admission.job.announced.set()
+
             async def can_continue() -> bool:
                 return await self._channel_ready(channel, lease)
 
@@ -306,4 +324,5 @@ def build_workflow(
             concurrency=settings.codex_concurrency, capacity=settings.queue_capacity,
             wait_seconds=settings.queue_wait_seconds,
         ),
+        readiness=collector.ready,
     )
