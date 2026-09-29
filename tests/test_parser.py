@@ -19,6 +19,7 @@ from yoyackbot.parser import (
     OptionKind,
     ParsedOption,
     RouteKind,
+    help_text,
     parse_option,
     route_trigger,
     validate_option,
@@ -52,11 +53,26 @@ def test_help_examples_cover_all_supported_forms() -> None:
         "`!!요약좀 100개`",
         "`!!요약좀 오늘`",
         "`!!요약좀 2일`",
+        "`!!요약좀 30일`",
         "`!!요약좀 1주`",
         "`/채널 설정`",
     ):
         assert example in HELP_TEXT
     assert len(HELP_TEXT) < 2000
+    assert "기간 요약은 최대 30일까지 가능하오." in HELP_TEXT
+
+
+def test_help_uses_effective_day_limit_when_operator_lowers_it() -> None:
+    settings = Settings.from_environment({
+        "DISCORD_BOT_TOKEN": "test-token", "YOYACK_MAX_DAYS": "7",
+    })
+    text = help_text(settings)
+    assert "`!!요약좀 7일`" in text
+    assert "`!!요약좀 30일`" not in text
+    assert "일 단위 요청은 최대 7일까지 가능하오." in text
+    assert validate_option(parse_option("7일"), settings).value == 7
+    with pytest.raises(CommandLimitError):
+        validate_option(parse_option("8일"), settings)
 
 
 @pytest.mark.parametrize(

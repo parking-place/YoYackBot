@@ -19,7 +19,7 @@ from yoyackbot.health import write_heartbeat
 from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.parser import (
-    HELP_TEXT,
+    help_text,
     CommandLimitError,
     CommandSyntaxError,
     RouteKind,
@@ -303,7 +303,9 @@ class YoYackClient(discord.Client):
             LOGGER.info("gateway_test_human_event has_content=%s", bool(message.content))
         route = route_trigger(message.content)
         if route.kind is RouteKind.HELP:
-            await message.channel.send(HELP_TEXT, allowed_mentions=discord.AllowedMentions.none())
+            await message.channel.send(
+                help_text(self.settings), allowed_mentions=discord.AllowedMentions.none()
+            )
             return
         assert message.guild is not None
         if route.kind is RouteKind.SUMMARY:
@@ -332,7 +334,7 @@ class YoYackClient(discord.Client):
                 message.guild.id,
                 message.channel.id,
                 is_help=False,
-                help_reply=lambda: send_notice(HELP_TEXT),
+                help_reply=lambda: send_notice(help_text(self.settings)),
                 unwatched_reply=send_notice,
                 unavailable_reply=send_notice,
                 summarize=handle_request,
