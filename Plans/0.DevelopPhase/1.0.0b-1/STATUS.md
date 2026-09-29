@@ -7,7 +7,7 @@
 | [P1](01-large-input.md) | 대량 입력·모델 오류 | DONE | [C `be9aba1`](https://github.com/parking-place/YoYackBot/commit/be9aba139fdce48815896a4181610b5c5cac28ee) / [E `65bb178`](https://github.com/parking-place/YoYackBot/commit/65bb178739f55b2056e9dcf9e4d67e74df233260) / [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36527387981) / D 원격 확인은 브랜치 이력 | 1.0.0a 출시 |
 | [P2](02-backfill.md) | 첫 주시 전체 수집·실시간 DB | DONE | [C `935299f`](https://github.com/parking-place/YoYackBot/commit/935299fa1ad767bd781e932acff345e2a0cf394f) / [E `15e694a`](https://github.com/parking-place/YoYackBot/commit/15e694a357653205b708fe67f302cd4ddc807764) / [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36529210759) / D 원격 확인은 브랜치 이력 | P1 DONE |
 | [P3](03-readiness.md) | 준비 안내·요약 차단 | DONE | [C `bff9c70`](https://github.com/parking-place/YoYackBot/commit/bff9c70953c51e5f7a8f6b612cec8f9bdb18e158) / [E `44896f6`](https://github.com/parking-place/YoYackBot/commit/44896f655c5671872c2c54b23d83013e034dfddf) / [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36530160424) / D 원격 확인은 브랜치 이력 | P2 DONE |
-| [P4](04-queue.md) | 모델 대기열 시간 정책 | IN_PROGRESS | — | P3 DONE |
+| [P4](04-queue.md) | 모델 대기열 시간 정책 | PUSH_PENDING | [C `7d51471`](https://github.com/parking-place/YoYackBot/commit/7d5147110a8d80520b55eade0c02e23fa0b7aa56) / [검증 증거](../evidence/1.0.0b-1-P4.md), E 원격 대기 | P3 DONE |
 | [P5](05-recovery.md) | 장애·중단·롤백 처리 | PLANNED | — | P4 DONE |
 | [P6](06-release.md) | 통합 검증·출시 | PLANNED | — | P5 DONE |
 
