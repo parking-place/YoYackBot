@@ -11,7 +11,7 @@
 - [1.0.0c 여러 채널 동시 요청 최적화 계획](Plans/0.DevelopPhase/1.0.0c/README.md)
 - [1.0.0d 실제 닉네임 표시 계획](Plans/0.DevelopPhase/1.0.0d/README.md)
 - [1.0.1 사용량·요약 밀도·상태 명령](Plans/0.DevelopPhase/1.0.1/README.md)
-- [1.0.2 수집 시작·중복 요청 안내 계획](Plans/0.DevelopPhase/1.0.2/README.md)
+- [1.0.2 요약 시작·진행 중 범위 안내 계획](Plans/0.DevelopPhase/1.0.2/README.md)
 - [단계별 진행 상태](Plans/0.DevelopPhase/STATUS.md)
 - [각 단계의 GitHub 업로드 완료 규칙](Plans/0.DevelopPhase/GIT_WORKFLOW.md)
 - [개발 환경과 실행 방법](DEVELOPMENT.md)
@@ -25,7 +25,7 @@
 
 1.0.0a, 1.0.0b-1, 1.0.0c, 1.0.0d, 1.0.1은 출시됐다. 1.0.0d에서 실제 닉네임 표시와 최대 4개 병렬 모델 호출을, 1.0.1에서 `사용량`·`[범위] 자세히`·`[범위] 짧게`·`상태` 명령을 제공한다. 단계별 실제 진행은 각 버전의 상태 문서를 따른다.
 
-1.0.2의 수집 시작·진행 중 범위 안내도 별도 5단계 계획이며 아직 구현되지 않았다.
+1.0.2의 요약 시작·진행 중 범위 안내는 `v1.0.1` 기준으로 다시 검토한 5단계 계획이며 아직 구현되지 않았다.
 
 `.private`, 실제 인증값, Discord 대화 원문, SQLite DB와 임시 로그는 공개 저장소에 올리지 않는다.
 
