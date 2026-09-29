@@ -1,6 +1,6 @@
 # 1.0.1-P6 — 도움말·통합 회귀·출시
 
-- 상태: **IN_PROGRESS** · 검사: `T101-P6-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **DONE** · 검사: `T101-P6-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 선행 조건과 작업
 
