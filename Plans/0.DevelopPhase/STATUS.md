@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-28. 개발 완료 **47 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 8개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-28. 개발 완료 **48 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 7개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -68,7 +68,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.8.0-P5 | [자원 한도·장시간 실행·운영 게이트](0.8.0/05-resource-soak.md) | DONE | `790c047715f7e1a3c93d8f2f007bc2b3094e01bd` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d0bbe3ea1b40bfc7661578c994521e667bd90eaf) | 개발 LXC 고정 SHA 790c047, 실제 봇 서비스와 격리 합성 부하; GitHub CI 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P1 | [요구사항 전체 회귀·누락 확인](0.9.0/01-full-regression.md) | DONE | `797de3578c9583135d69b6ed014a3bbb5643d018` | [evidence E](https://github.com/parking-place/YoYackBot/commit/6ce31dd17d12f4d671b81bb1b57b059c701dcf26) | 개발 LXC 고정 SHA 797de35, GitHub CI; 로컬 원격 이력 대조는 문서 검증 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P2 | [개발 Discord 사용자 흐름·품질 베타](0.9.0/02-beta-usage.md) | DONE | `b0e8946975417cba0e251e18ee3739faf3696ef3` | [evidence E](https://github.com/parking-place/YoYackBot/commit/a4fd40263be24eee6b9f0e8cfb1df0caa85ea5dd) | 개발 LXC 정확 SHA b0e8946, 실제 Discord 시험 채널·일반 사용자 이벤트와 실제 GPT-6 Luna 합성 fixture; GitHub CI 검증; 세부 결과는 증거 파일 |
-| 0.9.0-P3 | [장애 복구·권한 회수·재시작 훈련](0.9.0/03-fault-drills.md) | PUSH_PENDING | `24e0d1a1039d9fb222c5a94a810eece7144a0f26` | — | 검증 통과, 원격 확인 대기 |
+| 0.9.0-P3 | [장애 복구·권한 회수·재시작 훈련](0.9.0/03-fault-drills.md) | DONE | `24e0d1a1039d9fb222c5a94a810eece7144a0f26` | [evidence E](https://github.com/parking-place/YoYackBot/commit/caeed531d604d65a9afc6ceeb5381c15f40dac2b) | 개발 LXC 정확 SHA 24e0d1a; 격리 pytest fault fixtures와 실제 전용 봇 서비스 SIGKILL/자동 복구; GitHub CI 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P4 | [베타 부하·보존 경계 검증](0.9.0/04-beta-soak.md) | PLANNED | — | — | 24시간 지속 시간 생략; 나머지 검증 미착수 |
 | 0.9.0-P5 | [출시 후보 고정·차단 결함 종료](0.9.0/05-rc-freeze.md) | PLANNED | — | — | 미착수 |
 | 1.0.0-P1 | [정식 출시 범위·증거 최종 검토](1.0.0/01-release-review.md) | PLANNED | — | — | 미착수 |
