@@ -12,8 +12,8 @@
 | `T101-P3-B` | [P3](03-detailed-summary.md) | LXC 실제 모델 | 화자·결정·미해결점 사실성 및 하오체의 사람 검토, 쿨타임 회귀 | PASS(실제 모델 3건) — [증거](../evidence/1.0.1-P3.md) |
 | `T101-P4-A` | [P4](04-short-summary.md) | LXC 합성 | 같은 범위 옵션의 기본 요약과 동일한 수집, 잘못된 순서·`자세히`와 결합 거부 | PASS — [증거](../evidence/1.0.1-P4.md) |
 | `T101-P4-B` | [P4](04-short-summary.md) | LXC 실제 모델 | 본문 4~6줄 목표·중요 사실 보존·화자 귀속의 사람 검토 | PASS(실제 모델 3건) — [증거](../evidence/1.0.1-P4.md) |
-| `T101-P5-A` | [P5](05-status-command.md) | LXC 격리 DB | 현재 Guild 수치·실제 설정·마지막 성공 시각·재시작 정확성 | NOT_RUN |
-| `T101-P5-B` | [P5](05-status-command.md) | LXC/시험 Discord | 장애 시 허위 정상 없음, 읽기 전용, 비밀·타 Guild 비노출 | NOT_RUN |
+| `T101-P5-A` | [P5](05-status-command.md) | LXC 격리 DB | 현재 Guild 수치·실제 설정·마지막 성공 시각·재시작 정확성 | PASS — [증거](../evidence/1.0.1-P5.md) |
+| `T101-P5-B` | [P5](05-status-command.md) | LXC/시험 Discord | 장애 시 허위 정상 없음, 읽기 전용, 비밀·타 Guild 비노출 | 합성·실제 DB PASS, 시험 채널 NOT_RUN(P6 사용자 확인) — [증거](../evidence/1.0.1-P5.md) |
 | `T101-P6-A` | [P6](06-help-release.md) | LXC/CI | 도움말·명령 회귀·버전·문서·SHA 일치 | NOT_RUN |
 | `T101-P6-B` | [P6](06-help-release.md) | LXC/시험 Discord/운영 | 같은 SHA의 짧은 기능 점검·배포/롤백 증거·이전 5단계 원격 증거 | NOT_RUN |
 
