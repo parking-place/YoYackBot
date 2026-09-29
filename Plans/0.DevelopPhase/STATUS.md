@@ -75,7 +75,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 1.0.0-P2 | [버전·배포 산출물·설정 재현성](1.0.0/02-release-package.md) | DONE | `f15a135e0a4c53dc3773e60202384e170100c343` | [evidence E](https://github.com/parking-place/YoYackBot/commit/58d757133ec9405b26ea56a3986bfecd7232b587) | 개발 LXC의 격리된 새 가상환경·새 DB, GitHub CI 검증; 세부 결과는 증거 파일 |
 | 1.0.0-P3 | [업데이트·migration·롤백 리허설](1.0.0/03-rollback-rehearsal.md) | DONE | `38b5a671011f39ac56a4e52be3f03a68812f5a83` | [evidence E](https://github.com/parking-place/YoYackBot/commit/0c5dcd27c4f1b36e6fbc3aa199a22a614fea775f) | 개발 LXC 격리 DB·0.9 후보 소스 SHA 3930c40·1.0.0 설치 wheel·GitHub CI 검증; 세부 결과는 증거 파일 |
 | 1.0.0-P4 | [운영 배포·동일 SHA smoke·초기 관측](1.0.0/04-production-validation.md) | DONE | `aed79b1d5ae7a869154479fbbd7c2daa2424727a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/285a15e48bfd33c354f6083af262cfe53d9e7df5) | 새 배포 실게시 SKIPPED_BY_USER, 즉시 운영 점검 PASS; 상세 결과는 증거 파일 |
-| 1.0.0-P5 | [GitHub 정식 릴리스·최종 인수](1.0.0/05-release-publish.md) | PLANNED | — | — | 미착수 |
+| 1.0.0-P5 | [GitHub 정식 릴리스·최종 인수](1.0.0/05-release-publish.md) | IN_PROGRESS | — | — | 태그·Release·최종 인수 진행 중 |
 
 ## 버전/배포 기록
 
