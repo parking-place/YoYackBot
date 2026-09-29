@@ -29,7 +29,7 @@ from yoyackbot.input_files import InputWorkspace
 from yoyackbot.parser import USAGE_NOTICE, CommandSyntaxError, split_mode
 from yoyackbot.range_request import resolve_range
 from yoyackbot.state import ChannelStates
-from yoyackbot.summary_prompt import DETAILED_NOTE, SUMMARY_PROMPT, prompt_for
+from yoyackbot.summary_prompt import DETAILED_NOTE, SHORT_NOTE, SUMMARY_PROMPT, prompt_for
 from yoyackbot.workflow import BUSY_NOTICE, SummaryWorkflow
 
 SETTINGS = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
@@ -47,9 +47,13 @@ ACCEPTED = datetime(2026, 9, 29, 12, tzinfo=UTC)
         ("2시간 자세히 부탁하오", "2시간", SummaryMode.DETAILED),
         ("자세히 부탁하오", "", SummaryMode.DETAILED),
         ("30분", "30분", SummaryMode.NORMAL),
+        ("짧게", "", SummaryMode.SHORT),
+        ("5시간 짧게", "5시간", SummaryMode.SHORT),
+        ("100개 짧게 해주세요", "100개", SummaryMode.SHORT),
+        ("1주 짧게", "1주", SummaryMode.SHORT),
     ],
 )
-def test_detailed_is_a_suffix_after_the_range(
+def test_mode_is_a_suffix_after_the_range(
     options: str, range_text: str, mode: SummaryMode,
 ) -> None:
     assert split_mode(options) == (range_text, mode)
@@ -57,24 +61,29 @@ def test_detailed_is_a_suffix_after_the_range(
 
 @pytest.mark.parametrize(
     "options",
-    ["자세히 2시간", "자세히 자세히", "2시간 자세히 자세히", "자세히 짧게", "오늘 자세히 오늘"],
+    [
+        "자세히 2시간", "자세히 자세히", "2시간 자세히 자세히", "자세히 짧게", "오늘 자세히 오늘",
+        "짧게 30분", "짧게 짧게", "짧게 자세히", "30분 짧게 자세히", "짧게 오늘",
+    ],
 )
 def test_misplaced_or_repeated_modes_are_rejected_without_guessing(options: str) -> None:
     with pytest.raises(CommandSyntaxError, match="사용법"):
         split_mode(options)
 
 
+@pytest.mark.parametrize("word", ["자세히", "짧게"])
 @pytest.mark.parametrize("range_text", ["", "3", "30분", "2시간", "100개", "오늘", "3일", "1주"])
-def test_mode_never_changes_the_frozen_range(range_text: str) -> None:
+def test_mode_never_changes_the_frozen_range(range_text: str, word: str) -> None:
     plain = resolve_range(range_text, SETTINGS, ACCEPTED, trigger_message_id=500)
-    text, mode = split_mode(f"{range_text} 자세히".strip())
-    detailed = resolve_range(text, SETTINGS, ACCEPTED, trigger_message_id=500)
-    assert mode is SummaryMode.DETAILED
-    assert detailed == plain
+    text, mode = split_mode(f"{range_text} {word}".strip())
+    moded = resolve_range(text, SETTINGS, ACCEPTED, trigger_message_id=500)
+    assert mode is not SummaryMode.NORMAL
+    assert moded == plain
 
 
-def test_lone_mode_is_the_default_hour() -> None:
-    text, _mode = split_mode("자세히")
+@pytest.mark.parametrize("word", ["자세히", "짧게"])
+def test_lone_mode_is_the_default_hour(word: str) -> None:
+    text, _mode = split_mode(word)
     request = resolve_range(text, SETTINGS, ACCEPTED)
     assert request.start == ACCEPTED - timedelta(hours=1)
 
@@ -100,18 +109,24 @@ def test_gateway_passes_mode_with_the_same_request() -> None:
 
         client = SpyClient(watch_store=store, settings=SETTINGS, clock=lambda: ACCEPTED)
         try:
-            for content in ("!!요약좀 오늘", "!!요약좀 오늘 자세히", "!!요약좀 자세히"):
+            for content in (
+                "!!요약좀 오늘", "!!요약좀 오늘 자세히", "!!요약좀 자세히",
+                "!!요약좀 오늘 짧게", "!!요약좀 짧게",
+            ):
                 await client.on_message(gateway_message(content, channel))
-            await client.on_message(gateway_message("!!요약좀 자세히 2시간", channel))
+            for content in ("!!요약좀 자세히 2시간", "!!요약좀 짧게 30분", "!!요약좀 자세히 짧게"):
+                await client.on_message(gateway_message(content, channel))
         finally:
             await client.close()
         assert [mode for _request, mode in seen] == [
             SummaryMode.NORMAL, SummaryMode.DETAILED, SummaryMode.DETAILED,
+            SummaryMode.SHORT, SummaryMode.SHORT,
         ]
-        assert seen[0][0] == seen[1][0]
+        assert seen[0][0] == seen[1][0] == seen[3][0]
+        assert seen[2][0] == seen[4][0]
         assert seen[2][0].start == ACCEPTED - timedelta(hours=1)
-        channel.send.assert_awaited_once()
-        assert channel.send.await_args.args == (USAGE_NOTICE,)
+        assert channel.send.await_count == 3
+        assert all(call.args == (USAGE_NOTICE,) for call in channel.send.await_args_list)
 
     asyncio.run(scenario())
 
@@ -128,11 +143,13 @@ def engine_settings(tmp_path: Path) -> Settings:
 def test_prompt_notes_are_trusted_constants() -> None:
     assert prompt_for(SummaryMode.NORMAL) == SUMMARY_PROMPT
     assert prompt_for(SummaryMode.DETAILED) == SUMMARY_PROMPT + DETAILED_NOTE
+    assert prompt_for(SummaryMode.SHORT) == SUMMARY_PROMPT + SHORT_NOTE
+    assert "4~6줄" in SHORT_NOTE and "4~6줄" not in DETAILED_NOTE
     retry = prompt_for(SummaryMode.DETAILED, speaker_retry=True)
     assert retry.startswith(SUMMARY_PROMPT + DETAILED_NOTE) and "P1/P2" in retry
 
 
-@pytest.mark.parametrize("mode", [SummaryMode.NORMAL, SummaryMode.DETAILED])
+@pytest.mark.parametrize("mode", list(SummaryMode))
 def test_engine_uses_the_same_input_and_only_changes_the_prompt(
     tmp_path: Path, mode: SummaryMode,
 ) -> None:
@@ -207,11 +224,13 @@ def test_modes_share_collection_busy_and_cooldown(
         while not modes:
             await asyncio.sleep(0)
         await workflow.run(mode_request(SummaryMode.NORMAL), channel, lease, notice)
-        assert notices == [BUSY_NOTICE]
+        await workflow.run(mode_request(SummaryMode.SHORT), channel, lease, notice)
+        assert notices == [BUSY_NOTICE, BUSY_NOTICE]
+        notices.clear()
         release.set()
         await first
-        await workflow.run(mode_request(SummaryMode.NORMAL), channel, lease, notice)
-        assert notices[1] == "아직은 때가 아니오. 05분 00초 뒤에 오시오."
+        await workflow.run(mode_request(SummaryMode.SHORT), channel, lease, notice)
+        assert notices == ["아직은 때가 아니오. 05분 00초 뒤에 오시오."]
         assert modes == [SummaryMode.DETAILED]
         assert collected == [mode_request(SummaryMode.NORMAL).requested_range]
 

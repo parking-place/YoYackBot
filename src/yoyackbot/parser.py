@@ -107,7 +107,7 @@ def route_trigger(content: str) -> TriggerRoute:
     return TriggerRoute(RouteKind.SUMMARY, options=options, repeated=repeated)
 
 
-MODE_WORDS = {"자세히": SummaryMode.DETAILED}
+MODE_WORDS = {"자세히": SummaryMode.DETAILED, "짧게": SummaryMode.SHORT}
 
 
 def _without_polite_ending(text: str) -> str:

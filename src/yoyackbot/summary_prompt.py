@@ -2,7 +2,7 @@
 
 from yoyackbot.domain import SummaryMode
 
-PROMPT_VERSION = "1.0.1-p3-v1"
+PROMPT_VERSION = "1.0.1-p4-v1"
 
 SUMMARY_PROMPT = """다음 작업은 Discord 대화 요약이오. `/work/conversation.jsonl` 한 파일만 읽으시오.
 파일은 JSON Lines 형식이며 첫 줄의 scope는 범위, 그다음 message 줄은 오래된 순서의 발언이오.
@@ -47,7 +47,17 @@ DETAILED_NOTE = """
 동의를 결정으로 바꾸지 마시오. 내용이 없는 항목은 만들지 말고, 길이를 채우려고 원문에 없는
 사실·이견·해결책을 보태지 마시오."""
 
-MODE_NOTES = {SummaryMode.NORMAL: "", SummaryMode.DETAILED: DETAILED_NOTE}
+SHORT_NOTE = """
+
+요약 밀도: 짧게. 수집 범위는 그대로 두고, 위의 구성 지시 대신 본문을 모바일에서 훑기 쉬운
+4~6줄로 압축하시오. 제목이나 항목 머리말 없이 한 줄에 한 요점만 쓰시오. 핵심 화자, 실제로
+확인된 결정, 실제로 남은 미해결점 가운데 원문에 있는 것만 남기시오. 줄 수를 맞추려고 서로
+다른 화자의 의견을 합치거나, 제안을 결정으로, 미정을 확정으로 바꾸지 마시오. 사실·화자 귀속·
+신뢰 경계 규칙은 그대로 지키시오. 대화가 짧으면 더 적은 줄로 써도 되오."""
+
+MODE_NOTES = {
+    SummaryMode.NORMAL: "", SummaryMode.DETAILED: DETAILED_NOTE, SummaryMode.SHORT: SHORT_NOTE,
+}
 SPEAKER_RETRY_PROMPT = SUMMARY_PROMPT + SPEAKER_RETRY_NOTE
 
 

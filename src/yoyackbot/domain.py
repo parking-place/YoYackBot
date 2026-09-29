@@ -12,6 +12,7 @@ class SummaryMode(Enum):
 
     NORMAL = "normal"
     DETAILED = "detailed"
+    SHORT = "short"
 
 
 class RequestKind(Enum):
