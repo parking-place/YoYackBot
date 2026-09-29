@@ -1,6 +1,6 @@
 # 1.0.0b-1 P2 — 첫 주시 전체 수집과 실시간 DB 전환
 
-상태: **PUSH_PENDING**. 검사: `B2A/B2B`. [검증 증거](../evidence/1.0.0b-1-P2.md)의 E/D 원격 확인 전이다.
+상태: **DONE**. 검사: `B2A/B2B`. [검증 증거](../evidence/1.0.0b-1-P2.md)의 원격 C/E/CI와 [상태](STATUS.md)의 D 종료를 확인했다. 실제 Discord 채널 검증은 P6에 남았다.
 
 ## 작업
 
