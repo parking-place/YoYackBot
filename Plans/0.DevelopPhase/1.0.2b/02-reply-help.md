@@ -1,6 +1,6 @@
 # 1.0.2b-P2 — 응답 문구·분할·도움말
 
-- 상태: **PLANNED** · 검사: `T102b-P2-A/B` · 환경: 개발 LXC, 합성 Discord 전송
+- 상태: **IN_PROGRESS** · 검사: `T102b-P2-A/B` · 환경: 개발 LXC, 합성 Discord 전송
 
 ## 선행 조건·작업
 
