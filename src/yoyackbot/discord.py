@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import signal
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Protocol
@@ -11,6 +11,7 @@ from typing import Protocol
 import discord
 from discord import app_commands
 
+from yoyackbot import __version__
 from yoyackbot.backfill import (
     NOT_READY_NOTICE,
     BackfillError,
@@ -41,6 +42,13 @@ from yoyackbot.parser import (
     route_trigger,
 )
 from yoyackbot.range_request import resolve_range
+from yoyackbot.usage import (
+    USAGE_UNAVAILABLE_NOTICE,
+    UsageSnapshot,
+    UsageUnavailable,
+    read_account_usage,
+    usage_message,
+)
 from yoyackbot.watch_gate import UNAVAILABLE_NOTICE, ChannelLease, WatchGate
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 from yoyackbot.workflow import SummaryWorkflow, build_workflow
@@ -98,6 +106,7 @@ class YoYackClient(discord.Client):
         settings: Settings | None = None,
         clock: Callable[[], datetime] | None = None,
         summary_workflow: SummaryWorkflow | None = None,
+        usage_reader: Callable[[], Awaitable[UsageSnapshot]] | None = None,
     ) -> None:
         super().__init__(intents=required_intents(), member_cache_flags=discord.MemberCacheFlags.none())
         self.observe_channel_id = observe_channel_id
@@ -112,6 +121,8 @@ class YoYackClient(discord.Client):
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(UTC))
         self.summary_workflow = summary_workflow
+        self.usage_reader = usage_reader
+        self._usage_lock = asyncio.Lock()
         self.backfill_store = (
             SQLiteBackfillStore(settings.database_path)
             if settings is not None and isinstance(self.watch_store, SQLiteWatchStore)
@@ -474,6 +485,23 @@ class YoYackClient(discord.Client):
             )
             return
         assert message.guild is not None
+        if route.kind is RouteKind.USAGE:
+            async def send_usage(notice: str) -> None:
+                await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
+
+            async def handle_usage(_lease: ChannelLease) -> None:
+                await send_usage(await self.usage_reply())
+
+            await self.watch_gate.request(
+                message.guild.id,
+                message.channel.id,
+                is_help=False,
+                help_reply=lambda: send_usage(help_text(self.settings)),
+                unwatched_reply=send_usage,
+                unavailable_reply=send_usage,
+                summarize=handle_usage,
+            )
+            return
         if route.kind is RouteKind.SUMMARY:
             accepted_at = self.clock()
 
@@ -525,6 +553,29 @@ class YoYackClient(discord.Client):
             message,
             self.on_watched_message,
         )
+
+    async def _read_usage(self) -> UsageSnapshot:
+        if self.usage_reader is not None:
+            return await self.usage_reader()
+        if self.settings is None:
+            raise UsageUnavailable("usage runtime is not configured")
+        return await read_account_usage(
+            self.settings.codex_executable,
+            self.settings.codex_auth_directory / "auth.json",
+            self.settings.input_directory.absolute(),
+            client_version=__version__,
+        )
+
+    async def usage_reply(self) -> str:
+        """Read usage one at a time, without touching the summary queue or cooldown."""
+        async with self._usage_lock:
+            try:
+                snapshot = await self._read_usage()
+            except UsageUnavailable:
+                LOGGER.info("usage_request outcome=unavailable")
+                return USAGE_UNAVAILABLE_NOTICE
+        LOGGER.info("usage_request outcome=ok warning=%s", snapshot.warning)
+        return usage_message(snapshot)
 
     async def on_watched_message(self, message: discord.Message, lease: ChannelLease) -> None:
         """Persist eligible human messages only while the watch revision still matches."""

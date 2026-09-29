@@ -11,6 +11,7 @@ import discord
 from yoyackbot.backfill import NOT_READY_NOTICE, SQLiteBackfillStore
 from yoyackbot.cache_collector import BackfillNotReady, CacheOnlyCollector
 from yoyackbot.channel_config import valid_channel
+from yoyackbot.codex import CodexFailure
 from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.collection import EMPTY_NOTICE, CollectionUnavailable
@@ -28,6 +29,7 @@ from yoyackbot.ops import RequestMetrics
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError
 from yoyackbot.state import AdmissionKind, ChannelStates
+from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
 from yoyackbot.watch_gate import ChannelLease
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 
@@ -244,7 +246,10 @@ class SummaryWorkflow:
             metrics.model_result = "failure"
             metrics.error_kind = "model"
             metrics.failure_detail = exc.kind.value
-            await send_notice(message_for(FailureKind.MODEL))
+            await send_notice(
+                USAGE_EXHAUSTED_NOTICE if exc.kind is CodexFailure.USAGE_LIMIT
+                else message_for(FailureKind.MODEL)
+            )
         except PartialPublicationError:
             metrics.outcome = "post_error"
             metrics.post_result = "partial"

@@ -7,6 +7,7 @@ from enum import Enum
 from yoyackbot.config import Settings
 
 TRIGGER = "!!요약좀"
+USAGE_WORD = "사용량"
 HELP_WORD = re.compile(r"(?<!\S)도움(?:말)?(?=\s|$)")
 
 HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
@@ -45,6 +46,7 @@ class RouteKind(Enum):
     NONE = "none"
     HELP = "help"
     SUMMARY = "summary"
+    USAGE = "usage"
 
 
 @dataclass(frozen=True)
@@ -99,6 +101,8 @@ def route_trigger(content: str) -> TriggerRoute:
     options = after.partition(TRIGGER)[0].strip()
     if HELP_WORD.search(after):
         return TriggerRoute(RouteKind.HELP, repeated=repeated)
+    if options == USAGE_WORD:
+        return TriggerRoute(RouteKind.USAGE, repeated=repeated)
     return TriggerRoute(RouteKind.SUMMARY, options=options, repeated=repeated)
 
 
