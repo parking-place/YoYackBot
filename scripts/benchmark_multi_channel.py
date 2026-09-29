@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-import statistics
 import tempfile
 from collections import Counter
 from datetime import UTC, datetime, timedelta
