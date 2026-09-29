@@ -1,6 +1,6 @@
 # 1.0.1 — 사용량·요약 밀도·운영 상태 명령
 
-- 상태: **PLANNED** (계획 문서만 작성; 기능 구현·배포 전)
+- 상태: **IN_PROGRESS** (P1 완료, P2 진행 중)
 - 단계 수: **6단계**
 - 선행: [1.0.0a~d 패치 계획](../README.md)의 실제 완료·원격 증거. 현재 출시된 `v1.0.0`의 명령·주시 채널·5분 성공 쿨타임을 후속 버전까지 유지한다.
 
@@ -20,8 +20,8 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — app-server JSON·계정 범위 계약](01-app-server-contract.md) | `T101-P1-A/B` | PLANNED |
-| 2 | [P2 — 사용량 명령·한도 초과 안내](02-usage-command.md) | `T101-P2-A/B` | PLANNED |
+| 1 | [P1 — app-server JSON·계정 범위 계약](01-app-server-contract.md) | `T101-P1-A/B` | DONE |
+| 2 | [P2 — 사용량 명령·한도 초과 안내](02-usage-command.md) | `T101-P2-A/B` | IN_PROGRESS |
 | 3 | [P3 — 범위 지정 자세한 요약](03-detailed-summary.md) | `T101-P3-A/B` | PLANNED |
 | 4 | [P4 — 범위 지정 짧은 요약](04-short-summary.md) | `T101-P4-A/B` | PLANNED |
 | 5 | [P5 — 상태 명령·실측 지표](05-status-command.md) | `T101-P5-A/B` | PLANNED |
