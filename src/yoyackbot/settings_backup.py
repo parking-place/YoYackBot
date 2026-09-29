@@ -79,8 +79,12 @@ def _validated_rows(data: object, key: str, columns: int) -> list[tuple[int, ...
     return rows
 
 
-def restore_settings(backup: Path, target: Path, *, live_database: Path) -> None:
+def restore_settings(
+    backup: Path, target: Path, *, live_database: Path, retention_days: int = 30,
+) -> None:
     """Create an isolated schema-5 database with an empty message cache."""
+    if not 1 <= retention_days <= 30:
+        raise BackupError("Restore retention policy is invalid")
     if target.resolve() == live_database.resolve() or target.exists() or target.is_symlink():
         raise BackupError("Restore target must be a new isolated database")
     try:
@@ -112,7 +116,9 @@ def restore_settings(backup: Path, target: Path, *, live_database: Path) -> None
                     "last_success_us, expires_at_us) VALUES (?, ?, ?, ?)", cooldowns,
                 )
                 connection.commit()
-            SQLiteMessageStore(target).prune_before(datetime.now(UTC) - timedelta(days=7))
+            SQLiteMessageStore(target).prune_before(
+                datetime.now(UTC) - timedelta(days=retention_days)
+            )
         except BaseException:
             target.unlink(missing_ok=True)
             raise

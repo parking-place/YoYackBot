@@ -87,3 +87,25 @@ def test_restore_refuses_live_or_existing_target_and_invalid_backup(tmp_path) ->
     with pytest.raises(BackupError):
         restore_settings(broken, tmp_path / "new.db", live_database=live)
     assert not (tmp_path / "new.db").exists()
+
+
+def test_restore_uses_configured_retention_cutoff(tmp_path, monkeypatch) -> None:
+    live = tmp_path / "live.db"
+    SQLiteWatchStore(live)
+    backup = backup_settings(live, tmp_path / "backups")
+    cutoffs = []
+    original = SQLiteMessageStore.prune_before
+
+    def record_cutoff(self, cutoff):
+        cutoffs.append(cutoff)
+        return original(self, cutoff)
+
+    monkeypatch.setattr(SQLiteMessageStore, "prune_before", record_cutoff)
+    restored = tmp_path / "restored.db"
+    before = datetime.now(UTC)
+    restore_settings(backup, restored, live_database=live, retention_days=30)
+    after = datetime.now(UTC)
+    assert len(cutoffs) == 1
+    assert before - timedelta(days=30) <= cutoffs[0] <= after - timedelta(days=30)
+    with sqlite3.connect(restored) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 0
