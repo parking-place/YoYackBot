@@ -7,6 +7,7 @@
 - [기능 명세 v1.5](Plans/shinchangseop_discord_summary_bot_spec_v1.5.md)
 - [0.0.0 → 1.0.0 개발 계획](Plans/0.DevelopPhase/README.md)
 - [1.0.1 후속 명령 계획](Plans/0.DevelopPhase/1.0.1/README.md)
+- [1.0.2 수집 시작·중복 요청 안내 계획](Plans/0.DevelopPhase/1.0.2/README.md)
 - [단계별 진행 상태](Plans/0.DevelopPhase/STATUS.md)
 - [각 단계의 GitHub 업로드 완료 규칙](Plans/0.DevelopPhase/GIT_WORKFLOW.md)
 - [개발 환경과 실행 방법](DEVELOPMENT.md)
@@ -18,6 +19,8 @@
 11개 버전, 버전별 5단계, 총 55단계로 개발한다. 각 단계는 작업과 검증을 마치고 **Git commit → GitHub push → 원격 반영 확인**까지 끝나야 완료된다.
 
 1.0.1 후속 명령은 별도 6단계 계획이며 아직 구현되지 않았다.
+
+1.0.2의 수집 시작·진행 중 범위 안내도 별도 5단계 계획이며 아직 구현되지 않았다.
 
 `.private`, 실제 인증값, Discord 대화 원문, SQLite DB와 임시 로그는 공개 저장소에 올리지 않는다.
 
