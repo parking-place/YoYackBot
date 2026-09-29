@@ -54,7 +54,11 @@ class Collector:
 
 
 class Engine:
+    def __init__(self) -> None:
+        self.started = asyncio.Event()
+
     async def summarize(self, messages: tuple[MessageRecord, ...], **_kwargs: object) -> SummaryResult:
+        self.started.set()
         await asyncio.sleep(0.11 if len(messages) > 100 else 0.015)
         return SummaryResult("합성 요약", "synthetic", len(messages))
 
@@ -90,10 +94,11 @@ async def scenario(count: int, *, mixed_guilds: bool) -> dict:
         with tempfile.TemporaryDirectory() as temporary:
             publisher = Publisher()
             collector = Collector()
+            engine = Engine()
             workflow = SummaryWorkflow(
-                collector, Engine(), publisher,
+                collector, engine, publisher,
                 ChannelStates(SQLiteCooldownStore(Path(temporary) / "state.db")),
-                SummaryJobQueue(concurrency=1, capacity=4, wait_seconds=0.08),
+                SummaryJobQueue(concurrency=1, capacity=4, wait_seconds=0.18),
             )
             channels = [(
                 (1 if not mixed_guilds or index % 2 == 0 else 2), 10 + index
@@ -116,6 +121,7 @@ async def scenario(count: int, *, mixed_guilds: bool) -> dict:
 
             jobs = [job(*channels[0], 120)]
             await collector.started.wait()
+            await engine.started.wait()
             jobs.extend(job(guild_id, channel_id, 120 if index % 2 == 0 else 8)
                         for index, (guild_id, channel_id) in enumerate(channels[1:], start=1))
             duplicate = job(*channels[0], 8)
