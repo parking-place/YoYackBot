@@ -10,7 +10,7 @@
 | 2 | [안정적 화자 매핑](02-speaker-map.md) | D3/D4 | DONE |
 | 3 | [프롬프트·결과 검증](03-output.md) | D5/D6 | DONE |
 | 4 | [품질·안전 평가](04-quality.md) | D7/D8 | DONE (실제 알림 검사 면제) |
-| 5 | [Discord 통합·4개 모델 호출·출시](05-release.md) | D9/D10 | IN_PROGRESS |
+| 5 | [Discord 통합·4개 모델 호출·출시](05-release.md) | D9/D10 | PUSH_PENDING (실제 게시 면제) |
 
 각 단계의 완료는 **해당 단계 구현·개발 LXC 검증·증거 기록·독립 C/E/D 커밋의 GitHub push·원격 반영/필요 CI 확인**까지다. [Git 완료 규칙](../GIT_WORKFLOW.md)을 따른다. [검증 목록](TEST_MATRIX.md)과 [상태](STATUS.md)에 단계별 결과를 기록한다. 실제 Discord 게시와 합성 검사는 분리 기록하고 8/24시간 연속 시험은 요구하지 않는다.
 
