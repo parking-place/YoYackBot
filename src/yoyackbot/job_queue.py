@@ -33,7 +33,7 @@ class QueueLease:
 
 
 class SummaryJobQueue:
-    def __init__(self, *, concurrency: int = 1, capacity: int = 4, wait_seconds: float = 60) -> None:
+    def __init__(self, *, concurrency: int = 1, capacity: int = 4, wait_seconds: float = 180) -> None:
         if concurrency < 1 or capacity < 0 or wait_seconds <= 0:
             raise ValueError("Invalid model queue limits")
         self.concurrency = concurrency

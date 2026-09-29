@@ -11,6 +11,7 @@ import pytest
 from yoyackbot.backfill import BackfillError, InitialBackfill, SQLiteBackfillStore
 from yoyackbot.cache_collector import BackfillNotReady, CacheOnlyCollector
 from yoyackbot.domain import MessageRecord, RangeRequest, RequestKind
+from yoyackbot.job_queue import SummaryJobQueue
 from yoyackbot.message_store import SQLiteMessageStore
 from yoyackbot.watch_store import SQLiteWatchStore
 
@@ -70,10 +71,7 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
         bot.author.bot = True
         webhook = fake_message(channel, started - timedelta(seconds=5), index=20_107)
         webhook.webhook_id = 9
-        source = FakePages([
-            *old, live, missed, at_start, at_finish, at_cutoff,
-            older, command, bot, webhook,
-        ])
+        source = FakePages([*old, at_cutoff, older, command, bot, webhook])
         messages = SQLiteMessageStore(path)
         watches_version = watches.version(1)
         assert messages.upsert_if_watched(
@@ -87,11 +85,18 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
             expected_version=watches_version, cached_at=started,
         )
         worker = InitialBackfill(backfills, source, clock=lambda: started + timedelta(seconds=10))
+        arrivals_added = False
         for turn in range(220):
             current = backfills.get(1, 99)
             assert current is not None
             if current.ready:
                 break
+            if current.phase == "overlap" and not arrivals_added:
+                source.messages = sorted(
+                    [*source.messages, live, missed, at_start, at_finish],
+                    key=lambda item: item.id, reverse=True,
+                )
+                arrivals_added = True
             if turn == 110:
                 backfills = SQLiteBackfillStore(path)
                 worker = InitialBackfill(
@@ -102,6 +107,7 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
             raise AssertionError("Backfill did not finish")
         ready = backfills.get(1, 99)
         assert ready is not None and ready.ready and ready.verified_us is not None
+        assert arrivals_added
         assert source.calls >= 202
         stored = messages.recent(
             1, 99, started - timedelta(days=30), started + timedelta(seconds=11)
@@ -111,6 +117,36 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
         assert {live.id, missed.id, at_start.id, at_finish.id, at_cutoff.id} <= {
             item.message_id for item in stored
         }
+
+    asyncio.run(scenario())
+
+
+def test_first_watch_import_progresses_while_model_queue_is_full(tmp_path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "messages.db"
+        watches = SQLiteWatchStore(path)
+        watches.replace(1, frozenset({99}))
+        backfills = SQLiteBackfillStore(path)
+        state = backfills.get(1, 99)
+        assert state is not None and state.phase == "history"
+        queue = SummaryJobQueue(concurrency=1, capacity=1, wait_seconds=2)
+        running = await queue.acquire()
+        waiting = asyncio.create_task(queue.acquire())
+        async def wait_for_waiter() -> None:
+            while (await queue.snapshot())[1] != 1:
+                await asyncio.sleep(0)
+
+        await asyncio.wait_for(wait_for_waiter(), 1)
+
+        worker = InitialBackfill(backfills, FakePages([]))
+        assert await asyncio.wait_for(worker.step(fake_channel(), state), 1)
+        assert backfills.get(1, 99).phase == "overlap"  # type: ignore[union-attr]
+        assert await queue.snapshot() == (1, 1, False)
+
+        await running.__aexit__(None, None, None)
+        next_lease = await asyncio.wait_for(waiting, 1)
+        await next_lease.__aexit__(None, None, None)
+        assert await queue.snapshot() == (0, 0, False)
 
     asyncio.run(scenario())
 
