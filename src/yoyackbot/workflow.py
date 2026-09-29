@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 
@@ -58,29 +59,36 @@ class SummaryWorkflow:
     async def _summarize_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
         trigger_message_id: int | None,
-        channel: discord.TextChannel, lease: ChannelLease,
+        channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
     ) -> SummaryResult:
         if self.queue is not None:
-            async with await self.queue.acquire():
+            waiting_since = time.monotonic()
+            try:
+                slot = await self.queue.acquire()
+            finally:
+                metrics.queue_ms = max(0, round((time.monotonic() - waiting_since) * 1000))
+            async with slot:
                 if not await self._channel_ready(channel, lease):
                     raise JobInvalidated
                 return await self._run_model_guarded(
                     messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
-                    channel=channel, lease=lease,
+                    channel=channel, lease=lease, metrics=metrics,
                 )
         return await self._run_model_guarded(
             messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
-            channel=channel, lease=lease,
+            channel=channel, lease=lease, metrics=metrics,
         )
 
     async def _run_model_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
         trigger_message_id: int | None,
-        channel: discord.TextChannel, lease: ChannelLease,
+        channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
     ) -> SummaryResult:
+        model_started = time.monotonic()
         model = asyncio.create_task(self.engine.summarize(
             messages, channel_name=channel_name, range_label="선택한 대화",
             trigger_message_id=trigger_message_id,
+            on_input_size=lambda size: setattr(metrics, "input_bytes", size),
         ))
         try:
             while True:
@@ -90,6 +98,7 @@ class SummaryWorkflow:
                 if not await self._channel_ready(channel, lease):
                     raise JobInvalidated
         finally:
+            metrics.model_ms = max(0, round((time.monotonic() - model_started) * 1000))
             if not model.done():
                 model.cancel()
                 await asyncio.gather(model, return_exceptions=True)
@@ -114,6 +123,8 @@ class SummaryWorkflow:
         try:
             if self.closing:
                 metrics.outcome = "queue_closed"
+                metrics.error_kind = "queue"
+                metrics.failure_detail = "queue_closed"
                 await send_notice(QUEUE_CLOSED_NOTICE)
                 return
             await self._run(request, channel, lease, send_notice, metrics)
@@ -142,6 +153,7 @@ class SummaryWorkflow:
         ):
             metrics.outcome = "channel_unavailable"
             metrics.error_kind = "permission"
+            metrics.failure_detail = "permission"
             await send_notice(FAILED_NOTICE)
             return
         admission = await self.states.admit(guild_id, channel_id)
@@ -158,11 +170,17 @@ class SummaryWorkflow:
             async def can_continue() -> bool:
                 return await self._channel_ready(channel, lease)
 
-            outcome = await self.collector.collect(
-                channel, guild_id=guild_id, channel_id=channel_id,
-                request=request.requested_range,
-                can_continue=can_continue,
-            )
+            collecting_since = time.monotonic()
+            try:
+                outcome = await self.collector.collect(
+                    channel, guild_id=guild_id, channel_id=channel_id,
+                    request=request.requested_range,
+                    can_continue=can_continue,
+                )
+            finally:
+                metrics.collection_ms = max(
+                    0, round((time.monotonic() - collecting_since) * 1000)
+                )
             metrics.selected_count = len(outcome.messages)
             metrics.cache_count = outcome.cache_count
             metrics.history_count = outcome.history_count
@@ -178,7 +196,7 @@ class SummaryWorkflow:
             result = await self._summarize_guarded(
                 outcome.messages, channel_name=channel.name,
                 trigger_message_id=request.requested_range.trigger_message_id,
-                channel=channel, lease=lease,
+                channel=channel, lease=lease, metrics=metrics,
             )
             metrics.model_result = "success"
             if not await can_continue():
@@ -191,6 +209,7 @@ class SummaryWorkflow:
         except JobInvalidated:
             metrics.outcome = "invalidated"
             metrics.error_kind = "permission"
+            metrics.failure_detail = "permission"
             if metrics.model_result == "running":
                 metrics.model_result = "cancelled"
             await send_notice(INVALIDATED_NOTICE)
@@ -198,35 +217,48 @@ class SummaryWorkflow:
                 MessageStoreError, WatchStoreError):
             metrics.outcome = "history_error"
             metrics.error_kind = "history"
+            metrics.failure_detail = "history"
             await send_notice(message_for(FailureKind.HISTORY))
-        except (CodexRunError, InputFileError):
+        except InputFileError:
+            metrics.outcome = "input_error"
+            metrics.model_result = "not_started"
+            metrics.error_kind = "input"
+            metrics.failure_detail = "input_file"
+            await send_notice(message_for(FailureKind.MODEL))
+        except CodexRunError as exc:
             metrics.outcome = "model_error"
             metrics.model_result = "failure"
             metrics.error_kind = "model"
+            metrics.failure_detail = exc.kind.value
             await send_notice(message_for(FailureKind.MODEL))
         except PartialPublicationError:
             metrics.outcome = "post_error"
             metrics.post_result = "partial"
             metrics.error_kind = "send"
+            metrics.failure_detail = "send"
             await send_notice(message_for(FailureKind.SEND))
         except QueueFull:
             metrics.outcome = "queue_full"
             metrics.error_kind = "queue"
+            metrics.failure_detail = "queue_full"
             metrics.model_result = "not_started"
             await send_notice(QUEUE_FULL_NOTICE)
         except QueueWaitExpired:
             metrics.outcome = "queue_timeout"
             metrics.error_kind = "queue"
+            metrics.failure_detail = "queue_timeout"
             metrics.model_result = "not_started"
             await send_notice(QUEUE_TIMEOUT_NOTICE)
         except QueueClosed:
             metrics.outcome = "queue_closed"
             metrics.error_kind = "queue"
+            metrics.failure_detail = "queue_closed"
             metrics.model_result = "not_started"
             await send_notice(QUEUE_CLOSED_NOTICE)
         except Exception:  # noqa: BLE001
             metrics.outcome = "unexpected"
             metrics.error_kind = "unexpected"
+            metrics.failure_detail = "unexpected"
             LOGGER.warning("summary_job_failed")
             await send_notice(FAILED_NOTICE)
         finally:

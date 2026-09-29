@@ -211,6 +211,9 @@ def test_failure_releases_channel_and_allows_retry_without_success_cooldown(
         {"collection": "unexpected", "model": "model_error", "publication": "post_error"}[failure],
         "success",
     ]
+    if failure == "model":
+        assert records[0]["failure_detail"] == "process"
+        assert records[0]["model_ms"] >= 0
     assert all("합성 대화" not in item.message for item in caplog.records)
 
 

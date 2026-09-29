@@ -4,7 +4,7 @@
 
 | 단계 | 목표 | 상태 | C/E/D 원격 증거 | 선행 |
 |---|---|---|---|---|
-| [P1](01-diagnose.md) | 실패 분류·재현 | PLANNED | — | 1.0.0a 완료 |
+| [P1](01-diagnose.md) | 실패 분류·재현 | IN_PROGRESS | — | 1.0.0a 완료 |
 | [P2](02-input.md) | 대량 입력·모델 한도 | PLANNED | — | P1 DONE |
 | [P3](03-queue.md) | 모델 대기열 시간 정책 | PLANNED | — | P2 DONE |
 | [P4](04-recovery.md) | 실패 정리·재시도 | PLANNED | — | P3 DONE |

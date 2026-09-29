@@ -21,15 +21,20 @@ class RequestMetrics:
     history_count: int = 0
     history_pages: int = 0
     cache_fallback: bool = False
+    input_bytes: int = 0
+    collection_ms: int = 0
+    queue_ms: int = 0
+    model_ms: int = 0
     model_result: str = "not_started"
     post_result: str = "not_started"
     outcome: str = "unknown"
     error_kind: str = "none"
+    failure_detail: str = "none"
 
     def emit(self) -> None:
         allowed_outcomes = {
             "success", "empty", "busy", "cooldown", "invalidated", "history_error",
-            "model_error", "post_error", "queue_full", "queue_timeout", "queue_closed",
+            "model_error", "input_error", "post_error", "queue_full", "queue_timeout", "queue_closed",
             "channel_unavailable", "unexpected", "cancelled",
         }
         if self.outcome not in allowed_outcomes:
@@ -43,6 +48,10 @@ class RequestMetrics:
             "history_count": max(0, self.history_count),
             "history_pages": max(0, self.history_pages),
             "cache_fallback": self.cache_fallback,
+            "input_bytes": max(0, self.input_bytes),
+            "collection_ms": max(0, self.collection_ms),
+            "queue_ms": max(0, self.queue_ms),
+            "model_ms": max(0, self.model_ms),
             "duration_ms": max(0, round((time.monotonic() - self.started) * 1000)),
             "model_result": self.model_result if self.model_result in {
                 "not_started", "success", "failure", "cancelled"
@@ -52,7 +61,13 @@ class RequestMetrics:
             } else "failure",
             "outcome": self.outcome,
             "error_kind": self.error_kind if self.error_kind in {
-                "none", "history", "model", "send", "queue", "permission", "unexpected"
+                "none", "history", "input", "model", "send", "queue", "permission", "unexpected"
+            } else "unexpected",
+            "failure_detail": self.failure_detail if self.failure_detail in {
+                "none", "input_file", "auth", "model", "limit", "process", "timeout",
+                "output_limit", "output_invalid", "input_limit", "queue_full",
+                "queue_timeout", "queue_closed", "history", "permission", "send",
+                "unexpected",
             } else "unexpected",
         }
         LOGGER.info("%s", json.dumps(payload, separators=(",", ":"), sort_keys=True))

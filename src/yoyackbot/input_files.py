@@ -8,7 +8,7 @@ import shutil
 import stat
 import tempfile
 import time
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC
@@ -51,6 +51,7 @@ def serialize_conversation(
     range_label: str,
     trigger_message_id: int | None,
     max_bytes: int,
+    on_size: Callable[[int], None] | None = None,
 ) -> bytes:
     """Use JSON lines so quoted names and multiline bodies cannot forge record boundaries."""
     if max_bytes < 1:
@@ -74,6 +75,8 @@ def serialize_conversation(
             "attachment_present": item.has_attachment,
         }, ensure_ascii=False))
     data = ("\n".join(lines) + "\n").encode("utf-8")
+    if on_size is not None:
+        on_size(len(data))
     if len(data) > max_bytes:
         raise InputFileError("Conversation input exceeds configured size")
     return data

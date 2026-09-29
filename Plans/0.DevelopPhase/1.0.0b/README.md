@@ -6,7 +6,7 @@
 
 | 순서 | 독립 단계 | 검사 | 상태 |
 |---|---|---|---|
-| 1 | [실패 분류·재현](01-diagnose.md) | B1/B2 | PLANNED |
+| 1 | [실패 분류·재현](01-diagnose.md) | B1/B2 | IN_PROGRESS |
 | 2 | [대량 입력·모델 한도](02-input.md) | B3/B4 | PLANNED |
 | 3 | [모델 대기열 시간 정책](03-queue.md) | B5/B6 | PLANNED |
 | 4 | [실패 정리·재시도](04-recovery.md) | B7/B8 | PLANNED |
