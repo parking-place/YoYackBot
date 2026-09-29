@@ -19,10 +19,10 @@ from yoyackbot.health import write_heartbeat
 from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.parser import (
-    help_text,
     CommandLimitError,
     CommandSyntaxError,
     RouteKind,
+    help_text,
     route_trigger,
 )
 from yoyackbot.range_request import resolve_range
