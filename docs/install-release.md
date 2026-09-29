@@ -15,7 +15,7 @@ sha256sum yoyackbot-1.0.0-source.tar.gz
 
 1. 소스 tar를 별도 빈 작업 경로에 풀고 Python 3.13 가상환경을 만든다. `pip install -r requirements.lock` 뒤 `pip wheel --no-deps .`로 wheel을 만들거나, 제공된 wheel을 `pip install --no-deps <wheel>`로 설치한다. 잠금 의존성 버전과 wheel 메타데이터 버전 1.0.0을 확인한다.
 2. [설정 예시](../.env.example)를 참고해 저장소 밖에 전용 계정 소유 0600 환경 파일을 마련한다. 토큰은 보호된 파일과 systemd `LoadCredential`, 모델 인증은 전용 계정의 보호된 경로를 사용한다. 인증값을 쉘 기록·진단 출력·배포 묶음에 넣지 않는다.
-3. `python -m yoyackbot version`에서 `1.0.0`을 확인한다. `check-ready`로 CLI 인증·DB 쓰기·입력 경로를 확인한 뒤, 운영 DB를 만지지 않는 격리 DB에서 설정 전용 복원을 시험한다.
+3. `python -m yoyackbot version`에서 `1.0.0`을 확인한다. 설정 복원은 기존 DB 경로가 환경에 지정된 상태에서 `restore-settings BACKUP NEW_DB`를 실행한다. 복원 명령은 환경의 DB 경로와 대상 경로가 같으면 거부한다. 그다음 격리된 `NEW_DB`와 별도 입력 경로를 지정해 `check-ready`로 CLI 인증·DB 쓰기·입력 경로를 확인한다. 운영 DB는 이 과정에서 쓰지 않는다.
 4. [서비스 파일](../deploy/yoyackbot-dev.service)과 [전용 journal 설정](../deploy/journald-yoyackbot-dev.conf)을 대상 경로·계정에 맞춰 검토한다. 이전 프로세스를 멈춘 뒤 서비스를 시작하고 `health.ready`, Gateway, 주시 설정과 성공 대기 기록을 확인한다.
 
 ## 업데이트와 복귀
