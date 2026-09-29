@@ -43,6 +43,7 @@ from yoyackbot.parser import (
     split_mode,
 )
 from yoyackbot.range_request import resolve_range
+from yoyackbot.status_report import StatusReport, collect_status, status_message
 from yoyackbot.usage import (
     USAGE_UNAVAILABLE_NOTICE,
     UsageSnapshot,
@@ -486,12 +487,15 @@ class YoYackClient(discord.Client):
             )
             return
         assert message.guild is not None
-        if route.kind is RouteKind.USAGE:
+        if route.kind in (RouteKind.USAGE, RouteKind.STATUS):
             async def send_usage(notice: str) -> None:
                 await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
 
             async def handle_usage(_lease: ChannelLease) -> None:
-                await send_usage(await self.usage_reply())
+                if route.kind is RouteKind.USAGE:
+                    await send_usage(await self.usage_reply())
+                else:
+                    await send_usage(await self.status_reply(message.guild.id))
 
             await self.watch_gate.request(
                 message.guild.id,
@@ -578,6 +582,18 @@ class YoYackClient(discord.Client):
                 return USAGE_UNAVAILABLE_NOTICE
         LOGGER.info("usage_request outcome=ok warning=%s", snapshot.warning)
         return usage_message(snapshot)
+
+    async def status_reply(self, guild_id: int) -> str:
+        """Report this Guild only, read-only, without the summary queue, model, or cooldown."""
+        gateway_ready = self.ready_event.is_set()
+        if self.settings is None:
+            report = StatusReport(gateway_ready, None, None, None, None, None, False)
+        else:
+            report = await asyncio.to_thread(
+                collect_status, self.settings, guild_id, gateway_ready=gateway_ready,
+            )
+        LOGGER.info("status_request healthy=%s", report.healthy)
+        return status_message(report, self.clock())
 
     async def on_watched_message(self, message: discord.Message, lease: ChannelLease) -> None:
         """Persist eligible human messages only while the watch revision still matches."""
