@@ -1,6 +1,6 @@
 # 1.0.0b-1 검증 목록
 
-P1·P2 검사는 개발 LXC에서 PASS이며 P3~P6 검사는 **NOT_RUN**이다. [옛 1.0.0b의 P1 PASS](../1.0.0b/TEST_MATRIX.md)는 참고 자료이며 새 검사 PASS로 자동 승계하지 않았다. P2의 실제 Discord 검증은 P6에 남았다.
+P1~P3 검사는 개발 LXC에서 PASS이며 P4~P6 검사는 **NOT_RUN**이다. [옛 1.0.0b의 P1 PASS](../1.0.0b/TEST_MATRIX.md)는 참고 자료이며 새 검사 PASS로 자동 승계하지 않았다. P2·P3의 실제 Discord 검증은 P6에 남았다.
 
 | ID | 단계 | 합격 조건 | 결과 |
 |---|---|---|---|

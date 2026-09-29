@@ -1,6 +1,6 @@
 # 1.0.0b-1 P3 — 초기 수집 안내와 요약 준비 상태
 
-상태: **PUSH_PENDING**. 검사: `B3A/B3B`. [검증 증거](../evidence/1.0.0b-1-P3.md)의 E/D 원격 확인 전이다.
+상태: **DONE**. 검사: `B3A/B3B`. [검증 증거](../evidence/1.0.0b-1-P3.md)와 [상태](STATUS.md)에 C/E/CI 및 D 종료를 기록한다. 실제 Discord 게시 검증은 P6에 남았다.
 
 ## 작업
 
