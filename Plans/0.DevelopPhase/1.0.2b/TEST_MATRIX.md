@@ -6,8 +6,8 @@
 |---|---|---|---|---|
 | `T102b-P1-A` | [P1](01-channel-list.md) | LXC 합성 | 정확한 `채널` 라우팅·도움 우선, 서버 격리, 사라진·비텍스트·권한 없는 채널 제외, 결정적 순서 | PASS — [증거](../evidence/1.0.2b-P1.md) |
 | `T102b-P1-B` | [P1](01-channel-list.md) | LXC 합성 | 주시 채널만 목록·미주시는 안내만, 설정 오류 안내, 요약 진행 중 즉시 응답, 워크플로·모델·쿨타임 0회, 로그 비노출 | PASS — [증거](../evidence/1.0.2b-P1.md) |
-| `T102b-P2-A` | [P2](02-reply-help.md) | LXC 합성 | 1·3·0개와 특수 문자 이름의 글자 단위 문구, 도움말 새 줄·2,000자 미만 | NOT_RUN |
-| `T102b-P2-B` | [P2](02-reply-help.md) | LXC 합성 | 한도 초과 줄 단위 분할·순서·머리/꼬리 위치, 멘션 비활성 | NOT_RUN |
+| `T102b-P2-A` | [P2](02-reply-help.md) | LXC 합성 | 1·3·0개와 특수 문자 이름의 글자 단위 문구, 도움말 새 줄·2,000자 미만 | PASS — [증거](../evidence/1.0.2b-P2.md) |
+| `T102b-P2-B` | [P2](02-reply-help.md) | LXC 합성 | 한도 초과 줄 단위 분할·순서·머리/꼬리 위치, 멘션 비활성 | PASS — [증거](../evidence/1.0.2b-P2.md) |
 | `T102b-P3-A` | [P3](03-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
 | `T102b-P3-B` | [P3](03-release.md) | LXC/시험 Discord | 배포·복귀, 시험 서버 사용자 확인+로그 대조, P1~P2 원격 증거, 병합 후 `main` CI | NOT_RUN |
 
