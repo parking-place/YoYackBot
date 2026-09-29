@@ -4,7 +4,7 @@
 
 | 단계 | 목표 | 상태 | C/E/D 원격 증거 | 선행 |
 |---|---|---|---|---|
-| [P1](01-contract.md) | 닉네임 출처·표시 계약 | PLANNED | — | 1.0.0c 완료 |
+| [P1](01-contract.md) | 닉네임 출처·표시 계약 | IN_PROGRESS | — | 1.0.0c 완료 |
 | [P2](02-speaker-map.md) | 안정적 화자 매핑 | PLANNED | — | P1 DONE |
 | [P3](03-output.md) | 프롬프트·결과 검증 | PLANNED | — | P2 DONE |
 | [P4](04-quality.md) | 품질·안전 평가 | PLANNED | — | P3 DONE |
