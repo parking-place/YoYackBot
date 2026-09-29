@@ -73,3 +73,9 @@ def test_systemd_credential_copy_precedes_manual_file(tmp_path) -> None:
         "DISCORD_BOT_TOKEN_FILE": "/missing/manual-token",
     })
     assert settings.discord_bot_token == "only-a-test-systemd-token"
+
+
+def test_model_queue_default_waits_longer_than_model_timeout() -> None:
+    settings = Settings.from_environment({"DISCORD_BOT_TOKEN": "only-a-test-token"})
+    assert settings.codex_timeout_seconds == 120
+    assert settings.queue_wait_seconds == 180

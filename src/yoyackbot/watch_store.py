@@ -3,12 +3,30 @@
 from __future__ import annotations
 
 import os
+import secrets
 import sqlite3
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
+import discord
+
 from yoyackbot.channel_config import ConcurrentUpdate
+
+_RETENTION_US = 30 * 24 * 60 * 60 * 1_000_000
+
+
+def _new_backfill(guild_id: int, channel_id: int, *, first_watch: bool) -> tuple:
+    started_us = time.time_ns() // 1_000
+    before_id = discord.utils.time_snowflake(
+        datetime.fromtimestamp(started_us / 1_000_000, UTC), high=True
+    ) + 1
+    return (
+        guild_id, channel_id, secrets.token_hex(16), int(first_watch),
+        started_us, started_us - _RETENTION_US, before_id,
+    )
 
 
 class WatchStoreError(RuntimeError):
@@ -101,6 +119,47 @@ class SQLiteWatchStore:
                             "CHECK(expires_at_us >= last_success_us))"
                         )
                         connection.execute("PRAGMA user_version=5")
+                # Optional to schema 5 so the released 1.0.0a reader can be restored.
+                with connection:
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS backfill_state ("
+                        "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
+                        "token TEXT NOT NULL, first_watch INTEGER NOT NULL, "
+                        "started_us INTEGER NOT NULL, cutoff_us INTEGER NOT NULL, "
+                        "before_id INTEGER NOT NULL, phase TEXT NOT NULL DEFAULT 'history', "
+                        "finished_us INTEGER, overlap_start_us INTEGER, "
+                        "overlap_before_id INTEGER, "
+                        "verified_us INTEGER, retry_at_us INTEGER NOT NULL DEFAULT 0, "
+                        "started_notice_id INTEGER, ready_notice_id INTEGER, "
+                        "started_notice_attempt_us INTEGER, ready_notice_attempt_us INTEGER, "
+                        "blocked_reason TEXT, "
+                        "PRIMARY KEY(guild_id, channel_id))"
+                    )
+                    columns = {
+                        row[1] for row in connection.execute("PRAGMA table_info(backfill_state)")
+                    }
+                    if "overlap_start_us" not in columns:
+                        connection.execute(
+                            "ALTER TABLE backfill_state ADD COLUMN overlap_start_us INTEGER"
+                        )
+                    if "started_notice_attempt_us" not in columns:
+                        connection.execute(
+                            "ALTER TABLE backfill_state ADD COLUMN started_notice_attempt_us INTEGER"
+                        )
+                    if "ready_notice_attempt_us" not in columns:
+                        connection.execute(
+                            "ALTER TABLE backfill_state ADD COLUMN ready_notice_attempt_us INTEGER"
+                        )
+                    if "blocked_reason" not in columns:
+                        connection.execute(
+                            "ALTER TABLE backfill_state ADD COLUMN blocked_reason TEXT"
+                        )
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS deleted_messages ("
+                        "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
+                        "message_id INTEGER NOT NULL, deleted_at_us INTEGER NOT NULL, "
+                        "PRIMARY KEY(guild_id, channel_id, message_id))"
+                    )
         except (OSError, sqlite3.Error) as exc:
             raise WatchStoreError("Settings database unavailable") from exc
 
@@ -173,6 +232,14 @@ class SQLiteWatchStore:
                 )
                 for removed_id in existing - channel_ids:
                     connection.execute(
+                        "DELETE FROM deleted_messages WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM backfill_state WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
                         "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
@@ -188,6 +255,13 @@ class SQLiteWatchStore:
                         "DELETE FROM coverage_recheck WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
+                connection.executemany(
+                    "INSERT INTO backfill_state "
+                    "(guild_id, channel_id, token, first_watch, started_us, cutoff_us, "
+                    "before_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (_new_backfill(guild_id, channel_id, first_watch=True)
+                     for channel_id in sorted(channel_ids - existing)),
+                )
                 connection.execute(
                     "UPDATE guild_watch_meta SET version=version+1 WHERE guild_id=?", (guild_id,)
                 )
@@ -204,6 +278,14 @@ class SQLiteWatchStore:
                     (guild_id, channel_id),
                 )
                 if cursor.rowcount:
+                    connection.execute(
+                        "DELETE FROM deleted_messages WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM backfill_state WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
                     connection.execute(
                         "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
                         (guild_id, channel_id),
@@ -235,6 +317,8 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM coverage WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM coverage_recheck WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM summary_cooldowns WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM deleted_messages WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM backfill_state WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

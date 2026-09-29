@@ -8,7 +8,7 @@
 
 ## 요청 로그
 
-`summary_request`는 한 요청의 마지막에 구조화 JSON 한 줄로 기록한다. 필드는 무작위 `request_id`, `kind`, `selected_count`, `cache_count`, `history_count`, `history_pages`, `cache_fallback`, `duration_ms`, `model_result`, `post_result`, `outcome`, `error_kind`다. `cache_count`와 `history_count`는 최종 선택된 메시지 중 이번 요청에서 History로 새로 가져온 것과 기존 캐시에서 읽은 것의 개수다. `history_pages`는 조회 페이지 수이고, `cache_fallback`은 DB 실패 시 직접 History를 조회한 여부다. 필드는 고정된 분류 또는 숫자만 허용하며 Guild/채널/사용자 ID, 원문, 요약문, 모델 출력, 토큰, 환경 전체, 예외 문자열은 기록하지 않는다. 정상·빈 결과·중복·대기 시간·History·모델·게시·대기열 오류를 구분한다.
+`summary_request`는 한 요청의 마지막에 구조화 JSON 한 줄로 기록한다. 필드는 무작위 `request_id`, `kind`, `selected_count`, `cache_count`, `history_count`, `history_pages`, `cache_fallback`, `duration_ms`, `model_result`, `post_result`, `outcome`, `error_kind`다. 1.0.0b-1부터 정상 요약은 DB만 읽으므로 `cache_count`는 최종 선택 건수이고 `history_count`·`history_pages`는 0, `cache_fallback`은 거짓이다. 첫 수집·연결 복구의 History 조회는 요약 요청과 별도로 진행한다. `not_ready`·`queue_timeout`·모델·게시 실패 등을 구분한다. 필드는 고정된 분류 또는 숫자만 허용하며 Guild/채널/사용자 ID, 원문, 요약문, 모델 출력, 토큰, 환경 전체, 예외 문자열은 기록하지 않는다.
 
 기존 개별 `message_cached`, `cache_cleanup`, `gateway_ready` 등은 이벤트명과 개수만 남긴다. Discord 라이브러리의 일반 로그는 오류 수준으로 낮추고, 애플리케이션 실패 로그에서 예외 스택과 메시지를 제거했다. 오류 분류는 요청 JSON과 상태 검사로 판단한다.
 

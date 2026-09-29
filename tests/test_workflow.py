@@ -22,11 +22,13 @@ from yoyackbot.domain import (
     SummaryResult,
 )
 from yoyackbot.errors import FailureKind, message_for
+from yoyackbot.input_files import ConversationTooLarge, InputFileError
 from yoyackbot.job_queue import SummaryJobQueue
 from yoyackbot.publisher import PartialPublicationError, PublicationFailure
 from yoyackbot.state import ChannelStates, ChannelStatus
 from yoyackbot.workflow import (
     BUSY_NOTICE,
+    INPUT_TOO_LARGE_NOTICE,
     INVALIDATED_NOTICE,
     QUEUE_CLOSED_NOTICE,
     QUEUE_FULL_NOTICE,
@@ -152,7 +154,7 @@ def test_empty_result_never_calls_model_or_publisher(monkeypatch: pytest.MonkeyP
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("failure", ["collection", "model", "publication"])
+@pytest.mark.parametrize("failure", ["collection", "input", "size", "model", "publication"])
 def test_failure_releases_channel_and_allows_retry_without_success_cooldown(
     tmp_path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, failure: str,
 ) -> None:
@@ -167,6 +169,12 @@ def test_failure_releases_channel_and_allows_retry_without_success_cooldown(
 
     class Engine:
         async def summarize(self, *_args, **_kwargs):
+            if fail[0] and failure == "input":
+                _kwargs["on_input_size"](1_200_000)
+                raise InputFileError("synthetic input overflow")
+            if fail[0] and failure == "size":
+                _kwargs["on_input_size"](4_000_000)
+                raise ConversationTooLarge("synthetic conversation too large")
             if fail[0] and failure == "model":
                 raise CodexRunError(CodexFailure.PROCESS)
             return SummaryResult("가람이 합성 대화를 했소.", "fake", 1)
@@ -193,6 +201,8 @@ def test_failure_releases_channel_and_allows_retry_without_success_cooldown(
         await workflow.run(request(), channel(), lease, notice)  # type: ignore[arg-type]
         expected = {
             "collection": "요약을 마치지 못했소. 잠시 후 다시 시도하시오.",
+            "input": message_for(FailureKind.MODEL),
+            "size": INPUT_TOO_LARGE_NOTICE,
             "model": message_for(FailureKind.MODEL),
             "publication": message_for(FailureKind.SEND),
         }[failure]
@@ -208,9 +218,20 @@ def test_failure_releases_channel_and_allows_retry_without_success_cooldown(
     records = [json.loads(item.message) for item in caplog.records
                if item.name == "yoyackbot.metrics"]
     assert [item["outcome"] for item in records] == [
-        {"collection": "unexpected", "model": "model_error", "publication": "post_error"}[failure],
+        {"collection": "unexpected", "input": "input_error", "size": "input_error",
+         "model": "model_error",
+         "publication": "post_error"}[failure],
         "success",
     ]
+    if failure == "model":
+        assert records[0]["failure_detail"] == "process"
+        assert records[0]["model_ms"] >= 0
+    if failure == "input":
+        assert records[0]["failure_detail"] == "input_file"
+        assert records[0]["input_bytes"] == 1_200_000
+    if failure == "size":
+        assert records[0]["failure_detail"] == "input_size"
+        assert records[0]["input_bytes"] == 4_000_000
     assert all("합성 대화" not in item.message for item in caplog.records)
 
 

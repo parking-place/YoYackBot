@@ -88,9 +88,15 @@ class SQLiteMessageStore:
             connection.close()
 
     @staticmethod
-    def _upsert(connection: sqlite3.Connection, record: MessageRecord, cached_at: datetime) -> None:
+    def _upsert(connection: sqlite3.Connection, record: MessageRecord, cached_at: datetime) -> bool:
         if min(record.message_id, record.guild_id, record.channel_id, record.author_id) < 1:
             raise ValueError("message identifiers must be positive")
+        deleted = connection.execute(
+            "SELECT 1 FROM deleted_messages WHERE guild_id=? AND channel_id=? AND message_id=?",
+            (record.guild_id, record.channel_id, record.message_id),
+        ).fetchone()
+        if deleted is not None:
+            return False
         values = (
             record.message_id,
             record.guild_id,
@@ -113,11 +119,21 @@ class SQLiteMessageStore:
             "edited_at_us=excluded.edited_at_us, cached_at_us=excluded.cached_at_us, "
             "has_attachment=excluded.has_attachment, is_reply=excluded.is_reply "
             "WHERE messages.guild_id=excluded.guild_id "
-            "AND messages.channel_id=excluded.channel_id",
+            "AND messages.channel_id=excluded.channel_id "
+            "AND (messages.edited_at_us IS NULL OR "
+            "(excluded.edited_at_us IS NOT NULL "
+            "AND excluded.edited_at_us>=messages.edited_at_us))",
             values,
         )
         if cursor.rowcount != 1:
-            raise MessageStoreError("Message ID belongs to another channel")
+            existing = connection.execute(
+                "SELECT guild_id, channel_id FROM messages WHERE message_id=?",
+                (record.message_id,),
+            ).fetchone()
+            if existing != (record.guild_id, record.channel_id):
+                raise MessageStoreError("Message ID belongs to another channel")
+            return False
+        return True
 
     def upsert(self, record: MessageRecord, *, cached_at: datetime) -> None:
         try:
@@ -145,8 +161,7 @@ class SQLiteMessageStore:
                 ).fetchone()
                 if watched is None:
                     return False
-                self._upsert(connection, record, cached_at)
-                return True
+                return self._upsert(connection, record, cached_at)
         except sqlite3.Error as exc:
             raise _store_error("Watched message write failed", exc) from exc
 
@@ -191,6 +206,20 @@ class SQLiteMessageStore:
         try:
             with self._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
+                watched = connection.execute(
+                    "SELECT 1 FROM watched_channels WHERE guild_id=? AND channel_id=?",
+                    (guild_id, channel_id),
+                ).fetchone()
+                if watched is not None:
+                    deleted_at_us = _microseconds(datetime.now(UTC))
+                    connection.executemany(
+                        "INSERT INTO deleted_messages "
+                        "(guild_id, channel_id, message_id, deleted_at_us) "
+                        "VALUES (?, ?, ?, ?) ON CONFLICT(guild_id, channel_id, message_id) "
+                        "DO UPDATE SET deleted_at_us=excluded.deleted_at_us",
+                        ((guild_id, channel_id, message_id, deleted_at_us)
+                         for message_id in ordered),
+                    )
                 for offset in range(0, len(ordered), 500):
                     batch = ordered[offset : offset + 500]
                     placeholders = ",".join("?" for _ in batch)
@@ -224,6 +253,9 @@ class SQLiteMessageStore:
                 connection.execute(
                     "UPDATE OR REPLACE coverage_recheck SET start_us=? WHERE start_us<?",
                     (cutoff_us, cutoff_us),
+                )
+                connection.execute(
+                    "DELETE FROM deleted_messages WHERE deleted_at_us<?", (cutoff_us,)
                 )
                 return deleted
         except sqlite3.Error as exc:

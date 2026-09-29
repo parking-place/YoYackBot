@@ -11,7 +11,19 @@ from typing import Protocol
 import discord
 from discord import app_commands
 
-from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_channel_commands
+from yoyackbot.backfill import (
+    NOT_READY_NOTICE,
+    BackfillError,
+    BackfillNotifier,
+    InitialBackfill,
+    SQLiteBackfillStore,
+)
+from yoyackbot.channel_config import (
+    MemoryWatchStore,
+    WatchStore,
+    install_channel_commands,
+    valid_channel,
+)
 from yoyackbot.codex import CodexContractError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryRequest
@@ -27,7 +39,7 @@ from yoyackbot.parser import (
 )
 from yoyackbot.range_request import resolve_range
 from yoyackbot.watch_gate import UNAVAILABLE_NOTICE, ChannelLease, WatchGate
-from yoyackbot.watch_store import SQLiteWatchStore
+from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 from yoyackbot.workflow import SummaryWorkflow, build_workflow
 
 LOGGER = logging.getLogger(__name__)
@@ -97,6 +109,23 @@ class YoYackClient(discord.Client):
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(UTC))
         self.summary_workflow = summary_workflow
+        self.backfill_store = (
+            SQLiteBackfillStore(settings.database_path)
+            if settings is not None and isinstance(self.watch_store, SQLiteWatchStore)
+            and message_store is not None else None
+        )
+        self.initial_backfill = (
+            InitialBackfill(self.backfill_store, clock=self.clock)
+            if self.backfill_store is not None else None
+        )
+        self.backfill_notifier = (
+            BackfillNotifier(
+                self.backfill_store,
+                bot_user_id=lambda: self.user.id if self.user is not None else None,
+                clock=self.clock,
+            ) if self.backfill_store is not None else None
+        )
+        self._backfill_task: asyncio.Task[None] | None = None
         self._cleanup_task: asyncio.Task[None] | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._disconnected_at: datetime | None = None
@@ -111,6 +140,14 @@ class YoYackClient(discord.Client):
             await self._prune_once()
             await self._mark_recheck("startup")
             self._cleanup_task = asyncio.create_task(self._prune_loop())
+        if self.backfill_store is not None:
+            seeded = await asyncio.to_thread(self.backfill_store.ensure_existing)
+            LOGGER.info("initial_backfill_seeded count=%d", seeded)
+            gaps = await asyncio.to_thread(
+                self.backfill_store.schedule_ready_recheck, end=self.clock()
+            )
+            LOGGER.info("initial_backfill_recheck_scheduled count=%d", gaps)
+            self._backfill_task = asyncio.create_task(self._backfill_loop())
         if self.dev_guild_id is not None:
             await self._sync_guild_commands(discord.Object(id=self.dev_guild_id))
         else:
@@ -127,12 +164,14 @@ class YoYackClient(discord.Client):
 
     async def on_ready(self) -> None:
         self.connection_count += 1
+        await self._resume_accessible_backfills()
+        if self._disconnected_at is not None:
+            await self._schedule_backfill_gap(self._disconnected_at)
+            await self._mark_recheck("gateway_gap")
+            self._disconnected_at = None
         self.ready_event.set()
         self._write_heartbeat()
         LOGGER.info("gateway_ready guild_count=%d", len(self.guilds))
-        if self._disconnected_at is not None:
-            await self._mark_recheck("gateway_gap")
-            self._disconnected_at = None
         if self.dev_guild_id is not None:
             for guild in self.guilds:
                 try:
@@ -149,11 +188,13 @@ class YoYackClient(discord.Client):
 
     async def on_resumed(self) -> None:
         LOGGER.info("gateway_resumed")
-        self.ready_event.set()
-        self._write_heartbeat()
+        await self._resume_accessible_backfills()
         if self._disconnected_at is not None:
+            await self._schedule_backfill_gap(self._disconnected_at)
             await self._mark_recheck("gateway_gap")
             self._disconnected_at = None
+        self.ready_event.set()
+        self._write_heartbeat()
 
     async def on_disconnect(self) -> None:
         LOGGER.info("gateway_disconnected")
@@ -163,6 +204,10 @@ class YoYackClient(discord.Client):
 
     async def close(self) -> None:
         self.ready_event.clear()
+        if self._backfill_task is not None:
+            self._backfill_task.cancel()
+            await asyncio.gather(self._backfill_task, return_exceptions=True)
+            self._backfill_task = None
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
             await asyncio.gather(self._heartbeat_task, return_exceptions=True)
@@ -211,11 +256,118 @@ class YoYackClient(discord.Client):
         except MessageStoreError:
             LOGGER.warning("cache_recheck_mark_failed")
 
+    async def _schedule_backfill_gap(self, disconnected_at: datetime) -> None:
+        if self.backfill_store is None:
+            return
+        try:
+            count = await asyncio.to_thread(
+                self.backfill_store.schedule_ready_recheck,
+                start=disconnected_at, end=self.clock(),
+            )
+            LOGGER.info("backfill_gap_scheduled count=%d", count)
+        except BackfillError:
+            LOGGER.warning("backfill_gap_schedule_failed")
+
+    async def _resume_accessible_backfills(self) -> None:
+        if self.backfill_store is None:
+            return
+        for guild in self.guilds:
+            try:
+                watched = await asyncio.to_thread(self.watch_store.get, guild.id)
+                for channel_id in watched:
+                    if valid_channel(guild, channel_id):
+                        await asyncio.to_thread(
+                            self.backfill_store.resume_blocked, guild.id, channel_id
+                        )
+            except (BackfillError, WatchStoreError):
+                LOGGER.warning("backfill_permission_resume_failed")
+
+    async def on_guild_channel_update(
+        self, _before: discord.abc.GuildChannel, after: discord.abc.GuildChannel
+    ) -> None:
+        if self.backfill_store is None or not isinstance(after, discord.TextChannel):
+            return
+        if valid_channel(after.guild, after.id):
+            try:
+                await asyncio.to_thread(
+                    self.backfill_store.resume_blocked, after.guild.id, after.id
+                )
+            except BackfillError:
+                LOGGER.warning("backfill_permission_resume_failed")
+
+    async def on_guild_role_update(self, _before: discord.Role, after: discord.Role) -> None:
+        if self.backfill_store is None:
+            return
+        try:
+            watched = await asyncio.to_thread(self.watch_store.get, after.guild.id)
+            for channel_id in watched:
+                if valid_channel(after.guild, channel_id):
+                    await asyncio.to_thread(
+                        self.backfill_store.resume_blocked, after.guild.id, channel_id
+                    )
+        except (BackfillError, WatchStoreError):
+            LOGGER.warning("backfill_permission_resume_failed")
+
     async def _prune_loop(self) -> None:
         assert self.settings is not None
         while True:
             await asyncio.sleep(self.settings.cache_cleanup_interval_seconds)
             await self._prune_once()
+
+    async def _backfill_loop(self) -> None:
+        assert self.backfill_store is not None and self.initial_backfill is not None
+        assert self.backfill_notifier is not None
+        while True:
+            await self.ready_event.wait()
+            try:
+                pending = await asyncio.to_thread(self.backfill_store.pending, self.clock())
+            except BackfillError:
+                LOGGER.warning("initial_backfill_state_unavailable")
+                await asyncio.sleep(5)
+                continue
+            for state in pending:
+                if not self.ready_event.is_set():
+                    break
+                channel = self.get_channel(state.channel_id)
+                if (
+                    not isinstance(channel, discord.TextChannel)
+                    or channel.guild.id != state.guild_id
+                    or not valid_channel(channel.guild, channel.id)
+                ):
+                    await asyncio.to_thread(
+                        self.backfill_store.defer, state,
+                        until=self.clock() + timedelta(minutes=1),
+                    )
+                    continue
+                try:
+                    if state.first_watch and state.started_notice_id is None and not state.ready:
+                        await self.backfill_notifier.ensure(channel, state, ready=False)
+                    elif state.ready:
+                        if state.first_watch and state.ready_notice_id is None:
+                            await self.backfill_notifier.ensure(channel, state, ready=True)
+                    else:
+                        await asyncio.wait_for(
+                            self.initial_backfill.step(channel, state), timeout=60
+                        )
+                except BackfillError as exc:
+                    if not exc.retryable:
+                        LOGGER.warning("initial_backfill_blocked kind=%s", exc.kind)
+                        await asyncio.to_thread(
+                            self.backfill_store.block, state, reason=exc.kind
+                        )
+                        continue
+                    LOGGER.warning("initial_backfill_page_deferred")
+                    await asyncio.to_thread(
+                        self.backfill_store.defer, state,
+                        until=self.clock() + timedelta(seconds=30),
+                    )
+                except (MessageStoreError, TimeoutError):
+                    LOGGER.warning("initial_backfill_page_deferred")
+                    await asyncio.to_thread(
+                        self.backfill_store.defer, state,
+                        until=self.clock() + timedelta(seconds=30),
+                    )
+            await asyncio.sleep(0.05 if pending else 3)
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
         try:
@@ -318,6 +470,19 @@ class YoYackClient(discord.Client):
                 if self.settings is None:
                     await send_notice(UNAVAILABLE_NOTICE)
                     return
+                if self.backfill_store is not None:
+                    try:
+                        backfill = await asyncio.to_thread(
+                            self.backfill_store.get, message.guild.id, message.channel.id
+                        )
+                    except BackfillError:
+                        await send_notice(UNAVAILABLE_NOTICE)
+                        return
+                    if backfill is None or not backfill.ready or (
+                        backfill.first_watch and backfill.ready_notice_id is None
+                    ):
+                        await send_notice(NOT_READY_NOTICE)
+                        return
                 try:
                     request = resolve_range(
                         route.options,

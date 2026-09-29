@@ -75,6 +75,51 @@ def test_timeout_cancellation_and_close_never_leave_waiters() -> None:
     asyncio.run(scenario())
 
 
+def test_long_model_job_expires_under_old_wait_but_passes_with_180_second_policy() -> None:
+    async def scenario(wait_seconds: float, *, expect_timeout: bool) -> None:
+        # Scale 120 model seconds to 0.6 seconds, preserving the old/new ratio.
+        queue = SummaryJobQueue(concurrency=1, capacity=1, wait_seconds=wait_seconds)
+        first = await queue.acquire()
+        follower = asyncio.create_task(queue.acquire())
+        await asyncio.wait_for(_until_queue_waiters(queue, 1), 2)
+        await asyncio.sleep(0.6)
+        await first.__aexit__(None, None, None)
+        if expect_timeout:
+            with pytest.raises(QueueWaitExpired):
+                await follower
+        else:
+            next_lease = await asyncio.wait_for(follower, 1)
+            await next_lease.__aexit__(None, None, None)
+        assert await queue.snapshot() == (0, 0, False)
+
+    asyncio.run(scenario(0.3, expect_timeout=True))  # previous 60 seconds
+    asyncio.run(scenario(0.9, expect_timeout=False))  # new 180 seconds
+
+
+def test_cancelling_running_job_releases_slot_and_promotes_next_waiter() -> None:
+    async def scenario() -> None:
+        queue = SummaryJobQueue(concurrency=1, capacity=1, wait_seconds=2)
+        started = asyncio.Event()
+
+        async def running() -> None:
+            async with await queue.acquire():
+                started.set()
+                await asyncio.Event().wait()
+
+        first = asyncio.create_task(running())
+        await asyncio.wait_for(started.wait(), 2)
+        second = asyncio.create_task(queue.acquire())
+        await asyncio.wait_for(_until_queue_waiters(queue, 1), 2)
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        lease = await asyncio.wait_for(second, 2)
+        await lease.__aexit__(None, None, None)
+        assert await queue.snapshot() == (0, 0, False)
+
+    asyncio.run(scenario())
+
+
 async def _until_queue_waiters(queue: SummaryJobQueue, wanted: int) -> None:
     while (await queue.snapshot())[1] != wanted:
         await asyncio.sleep(0.001)

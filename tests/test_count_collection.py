@@ -9,6 +9,7 @@ import discord
 from yoyackbot.count_collection import CountCollector
 from yoyackbot.domain import CoverageInterval, MessageRecord
 from yoyackbot.history import HistoryAdapter, HistoryResult
+from yoyackbot.input_files import serialize_conversation
 from yoyackbot.message_store import SQLiteMessageStore
 from yoyackbot.range_collection import TimeRangeCollector
 from yoyackbot.watch_store import SQLiteWatchStore
@@ -138,6 +139,32 @@ def test_lower_request_limit_does_not_use_older_cached_messages(tmp_path) -> Non
         assert [item.message_id for item in result.messages] == [12]
         assert result.shortage == 1
         assert all(start >= NOW - timedelta(days=7) for start, _, _ in history.calls)
+
+    asyncio.run(scenario())
+
+
+def test_large_count_sizes_reach_input_preparation_without_missing_rows(tmp_path) -> None:
+    async def scenario() -> None:
+        history = FakeHistory([])
+        collector, store = setup(tmp_path, history)
+        for minute in range(1, 1001):
+            store.upsert(record(minute, minute), cached_at=NOW)
+        store.mark_covered(
+            1, CoverageInterval(10, NOW - timedelta(minutes=1000), NOW), verified_at=NOW,
+        )
+        for count in (101, 150, 200, 300, 500, 858, 1000):
+            outcome = await collector.collect(
+                channel(), guild_id=1, channel_id=10, count=count, accepted_at=NOW,
+            )
+            assert len(outcome.messages) == count
+            assert len({item.message_id for item in outcome.messages}) == count
+            document = serialize_conversation(
+                outcome.messages, channel_name="synthetic", range_label="count",
+                trigger_message_id=None, max_bytes=1_000_000,
+            )
+            assert len(document) > count and len(document) < 1_000_000
+            assert outcome.pages == 0
+        assert history.calls == []
 
     asyncio.run(scenario())
 

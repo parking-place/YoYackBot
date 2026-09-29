@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord
-from yoyackbot.input_files import InputWorkspace
+from yoyackbot.input_files import ConversationTooLarge, InputWorkspace
 
 
 def settings(tmp_path: Path) -> Settings:
@@ -90,6 +91,22 @@ def test_engine_rejects_unusable_model_output(tmp_path: Path) -> None:
     with pytest.raises(CodexRunError) as raised:
         asyncio.run(engine.summarize([message(1, "합성 대화")]))
     assert raised.value.kind is CodexFailure.OUTPUT_INVALID
+
+
+def test_engine_reports_attempted_input_size_before_rejecting_large_input(tmp_path: Path) -> None:
+    sizes: list[int] = []
+
+    class UnusedRunner:
+        async def execute(self, *_args, **_kwargs):
+            raise AssertionError("Oversized input must not start the model")
+
+    config = replace(settings(tmp_path), max_input_bytes=100)
+    engine = CodexSummaryEngine(config, UnusedRunner())  # type: ignore[arg-type]
+    with pytest.raises(ConversationTooLarge):
+        asyncio.run(engine.summarize(
+            [message(1, "합성" * 100)], on_input_size=sizes.append,
+        ))
+    assert len(sizes) == 1 and sizes[0] > 100
 
 
 def test_engine_fails_closed_when_pinned_cli_or_auth_missing(

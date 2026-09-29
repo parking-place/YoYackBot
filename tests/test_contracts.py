@@ -69,8 +69,7 @@ def test_runtime_collectors_receive_the_same_thirty_day_policy(tmp_path, monkeyp
     )
     collector = workflow.collector
     assert collector.max_days == 30
-    assert (collector.time.retention_days, collector.time.max_days) == (30, 30)
-    assert (collector.count.retention_days, collector.count.max_days) == (30, 30)
+    assert collector.retention_days == 30
 
     shorter = Settings.from_environment({
         "DISCORD_BOT_TOKEN": "test-only", "YOYACK_DB_PATH": str(path),
@@ -80,7 +79,7 @@ def test_runtime_collectors_receive_the_same_thirty_day_policy(tmp_path, monkeyp
         shorter, None, SQLiteWatchStore(path), SQLiteMessageStore(path)
     )
     assert limited.collector.max_days == 7
-    assert (limited.collector.time.retention_days, limited.collector.time.max_days) == (30, 7)
+    assert limited.collector.retention_days == 30
 
 
 def test_time_and_count_contracts_cannot_be_confused() -> None:
