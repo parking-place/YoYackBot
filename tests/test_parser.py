@@ -19,6 +19,7 @@ from yoyackbot.parser import (
     OptionKind,
     ParsedOption,
     RouteKind,
+    help_text,
     parse_option,
     route_trigger,
     validate_option,
@@ -52,11 +53,51 @@ def test_help_examples_cover_all_supported_forms() -> None:
         "`!!요약좀 100개`",
         "`!!요약좀 오늘`",
         "`!!요약좀 2일`",
+        "`!!요약좀 30일`",
         "`!!요약좀 1주`",
         "`/채널 설정`",
     ):
         assert example in HELP_TEXT
     assert len(HELP_TEXT) < 2000
+    assert "기간 요약은 최대 30일까지 가능하오." in HELP_TEXT
+
+
+def test_help_uses_effective_day_limit_when_operator_lowers_it() -> None:
+    settings = Settings.from_environment({
+        "DISCORD_BOT_TOKEN": "test-token", "YOYACK_MAX_DAYS": "7",
+    })
+    text = help_text(settings)
+    assert "`!!요약좀 7일`" in text
+    assert "`!!요약좀 30일`" not in text
+    assert "일 단위 요청은 최대 7일까지 가능하오." in text
+    assert validate_option(parse_option("7일"), settings).value == 7
+    with pytest.raises(CommandLimitError):
+        validate_option(parse_option("8일"), settings)
+
+
+def test_discord_help_route_sends_effective_limit_without_mention(tmp_path) -> None:
+    async def scenario() -> None:
+        settings = Settings.from_environment({
+            "DISCORD_BOT_TOKEN": "test-token", "YOYACK_MAX_DAYS": "7",
+            "YOYACK_INPUT_DIRECTORY": str(tmp_path / "inputs"),
+        })
+        sent = AsyncMock()
+        channel = SimpleNamespace(type=discord.ChannelType.text, id=99, send=sent)
+        message = SimpleNamespace(
+            guild=SimpleNamespace(id=1), channel=channel,
+            author=SimpleNamespace(bot=False), webhook_id=None,
+            type=discord.MessageType.default, content="!!요약좀 도움",
+        )
+        client = YoYackClient(settings=settings, watch_store=MemoryWatchStore())
+        try:
+            await client.on_message(message)
+            assert sent.await_args.args[0] == help_text(settings)
+            mentions = sent.await_args.kwargs["allowed_mentions"]
+            assert not mentions.everyone and not mentions.users and not mentions.roles
+        finally:
+            await client.close()
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize(
@@ -99,7 +140,7 @@ def test_conflicting_or_unknown_options_are_rejected(option: str) -> None:
 
 @pytest.mark.parametrize(
     ("unit", "maximum"),
-    [("분", 1440), ("시간", 168), ("일", 7), ("주", 4), ("개", 1000)],
+    [("분", 1440), ("시간", 168), ("일", 30), ("주", 4), ("개", 1000)],
 )
 def test_each_numeric_limit_has_closed_upper_boundary(unit: str, maximum: int) -> None:
     settings = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
@@ -120,7 +161,7 @@ def test_limits_are_configurable_and_do_not_truncate_four_weeks_to_cache_retenti
         validate_option(parse_option("3주"), settings)
 
     defaults = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
-    assert defaults.cache_retention_days == 7
+    assert defaults.cache_retention_days == 30
     assert validate_option(parse_option("4주"), defaults).value == 4
     with pytest.raises(CommandLimitError):
         validate_option(parse_option("5주"), defaults)

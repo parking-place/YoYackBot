@@ -9,7 +9,7 @@ from yoyackbot.config import Settings
 TRIGGER = "!!요약좀"
 HELP_WORD = re.compile(r"(?<!\S)도움(?:말)?(?=\s|$)")
 
-HELP_TEXT = """📜 요약 사용법을 알려드리겠소.
+HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
 
 `!!요약좀` — 최근 1시간의 대화를 요약하오.
 `!!요약좀 3` — 최근 3시간의 대화를 요약하오.
@@ -17,11 +17,28 @@ HELP_TEXT = """📜 요약 사용법을 알려드리겠소.
 `!!요약좀 2시간` — 최근 2시간의 대화를 요약하오.
 `!!요약좀 100개` — 최근 일반 사용자 메시지 100개를 요약하오.
 `!!요약좀 오늘` — 오늘 00시부터 지금까지의 대화를 요약하오.
-`!!요약좀 2일` — 최근 2일간의 대화를 요약하오.
+`!!요약좀 {example_days}일` — 최근 {example_days}일간의 대화를 요약하오.
+`!!요약좀 {max_days}일` — 최근 {max_days}일간의 대화를 요약하오.
 `!!요약좀 1주` — 최근 1주간의 대화를 요약하오.
 
 숫자만 적으면 시간 단위로 알아듣겠소.
+{limit_notice}
 주시할 채널은 관리자가 `/채널 설정`에서 정하시오."""
+
+
+def help_text(settings: Settings | None = None) -> str:
+    """Explain the effective day limit without advertising a rejected example."""
+    days = 30 if settings is None else settings.max_days
+    notice = (
+        "기간 요약은 최대 30일까지 가능하오." if days == 30
+        else f"일 단위 요청은 최대 {days}일까지 가능하오."
+    )
+    return HELP_TEMPLATE.format(
+        example_days=min(days, 2), max_days=days, limit_notice=notice
+    )
+
+
+HELP_TEXT = help_text()
 
 
 class RouteKind(Enum):

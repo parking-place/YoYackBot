@@ -117,7 +117,7 @@ def test_gateway_startup_and_reconnect_require_history_recheck(tmp_path) -> None
         client.tree = SimpleNamespace(sync=AsyncMock(return_value=[]))
         try:
             await client.setup_hook()
-            initial = CoverageInterval(10, NOW - timedelta(days=7), NOW)
+            initial = CoverageInterval(10, NOW - timedelta(days=30), NOW)
             assert store.recheck(1, 10) == [initial]
             assert store.commit_history_complete(
                 1, initial, [], exhausted=True, expected_version=version, verified_at=NOW
@@ -127,7 +127,7 @@ def test_gateway_startup_and_reconnect_require_history_recheck(tmp_path) -> None
             current[0] = NOW + timedelta(minutes=1)
             await client.on_resumed()
             assert store.recheck(1, 10) == [
-                CoverageInterval(10, current[0] - timedelta(days=7), current[0])
+                CoverageInterval(10, current[0] - timedelta(days=30), current[0])
             ]
         finally:
             await client.close()

@@ -54,7 +54,7 @@ class CollectionCoordinator:
         count: CountCollector,
         history: HistoryAdapter,
         *,
-        max_days: int = 28,
+        max_days: int = 30,
         max_count: int = 1000,
         max_content_bytes: int = 1_000_000,
         max_pages: int = 100,

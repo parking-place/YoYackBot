@@ -202,8 +202,11 @@ def test_startup_and_periodic_cleanup_use_created_at_retention(tmp_path) -> None
         path = tmp_path / "messages.db"
         store = SQLiteMessageStore(path)
         now = datetime(2026, 9, 28, 12, tzinfo=UTC)
-        created = now - timedelta(days=6)
+        created = now - timedelta(days=29)
         store.upsert(MessageRecord(101, 1, 99, 3, "synthetic", "old", created), cached_at=now)
+        expired = now - timedelta(days=31)
+        store.upsert(MessageRecord(102, 1, 99, 3, "synthetic", "expired", expired),
+                     cached_at=now)
         current = [now]
         settings = Settings.from_environment(
             {
@@ -220,7 +223,9 @@ def test_startup_and_periodic_cleanup_use_created_at_retention(tmp_path) -> None
         client.tree = SimpleNamespace(sync=AsyncMock(return_value=[]))
         try:
             await client.setup_hook()
-            assert len(store.recent(1, 99, created, now + timedelta(seconds=1))) == 1
+            assert [item.message_id for item in store.recent(
+                1, 99, expired, now + timedelta(seconds=1)
+            )] == [101]
             current[0] = now + timedelta(days=2)
             await asyncio.sleep(1.2)
             assert store.recent(1, 99, created, now + timedelta(seconds=1)) == []

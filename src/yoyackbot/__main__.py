@@ -61,7 +61,8 @@ def main() -> int:
             return 2
         try:
             restore_settings(
-                Path(args.paths[0]), Path(args.paths[1]), live_database=settings.database_path
+                Path(args.paths[0]), Path(args.paths[1]), live_database=settings.database_path,
+                retention_days=settings.cache_retention_days,
             )
         except BackupError:
             print("Settings restore failed")

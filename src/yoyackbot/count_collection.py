@@ -41,13 +41,13 @@ class CountCollector:
         recent: TimeRangeCollector,
         history: HistoryAdapter,
         *,
-        retention_days: int = 7,
-        max_days: int = 28,
+        retention_days: int = 30,
+        max_days: int = 30,
         max_count: int = 1000,
         max_content_bytes: int = 1_000_000,
         max_pages: int = 100,
     ) -> None:
-        if not 1 <= retention_days <= 7 or max_days < retention_days:
+        if not 1 <= retention_days <= 30 or not 1 <= max_days <= 30:
             raise ValueError("Invalid collection window")
         if min(max_count, max_content_bytes, max_pages) < 1:
             raise ValueError("Collection budgets must be positive")
@@ -83,8 +83,9 @@ class CountCollector:
             raise CollectionError(CollectionFailure.UNWATCHED)
         cutoff = accepted_at - timedelta(days=self.retention_days)
         floor = accepted_at - timedelta(days=self.max_days)
+        recent_start = max(cutoff, floor)
         await asyncio.to_thread(self.recent.store.prune_before, cutoff)
-        cached = await self._latest(guild_id, channel_id, cutoff, accepted_at, count,
+        cached = await self._latest(guild_id, channel_id, recent_start, accepted_at, count,
                                     trigger_message_id)
         pages = 0
         history_ids: set[int] = set()
@@ -107,7 +108,7 @@ class CountCollector:
             pages += verified.pages
             history_ids.update(verified.history_ids)
             self._check_pages(pages)
-            cached = await self._latest(guild_id, channel_id, cutoff, accepted_at, count,
+            cached = await self._latest(guild_id, channel_id, recent_start, accepted_at, count,
                                         trigger_message_id)
             if len(cached) >= count:
                 new_start = cached[-1].created_at
@@ -122,20 +123,20 @@ class CountCollector:
 
         verified = await self.recent.collect(
             channel, guild_id=guild_id, channel_id=channel_id,
-            start=cutoff, end=accepted_at, trigger_message_id=trigger_message_id,
+            start=recent_start, end=accepted_at, trigger_message_id=trigger_message_id,
             can_continue=can_continue,
         )
         pages += verified.pages
         history_ids.update(verified.history_ids)
         self._check_pages(pages)
-        cached = await self._latest(guild_id, channel_id, cutoff, accepted_at, count,
+        cached = await self._latest(guild_id, channel_id, recent_start, accepted_at, count,
                                     trigger_message_id)
         if len(cached) >= count:
-            return await self._finish(cached, count, pages, cutoff, guild_id, channel_id,
+            return await self._finish(cached, count, pages, recent_start, guild_id, channel_id,
                                       version, history_ids)
 
         older: list[MessageRecord] = []
-        cursor = cutoff
+        cursor = recent_start
         while cursor > floor and len(cached) + len(older) < count:
             if pages >= self.max_pages:
                 raise CountError(CountFailure.PAGE_LIMIT)
