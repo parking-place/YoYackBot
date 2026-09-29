@@ -4,7 +4,7 @@
 
 | 단계 | 목표 | 상태 | C/E/D 원격 증거 | 선행 |
 |---|---|---|---|---|
-| [P1](01-large-input.md) | 대량 입력·모델 오류 | IN_PROGRESS | 후보 구현 중 | 1.0.0a 출시 |
+| [P1](01-large-input.md) | 대량 입력·모델 오류 | PUSH_PENDING | [C `be9aba1`](https://github.com/parking-place/YoYackBot/commit/be9aba139fdce48815896a4181610b5c5cac28ee), [검증 증거](../evidence/1.0.0b-1-P1.md); E/D 원격 확인 전 | 1.0.0a 출시 |
 | [P2](02-backfill.md) | 30일 초기 수집·실시간 DB | PLANNED | — | P1 DONE |
 | [P3](03-readiness.md) | 준비 안내·요약 차단 | PLANNED | — | P2 DONE |
 | [P4](04-queue.md) | 모델 대기열 시간 정책 | PLANNED | — | P3 DONE |

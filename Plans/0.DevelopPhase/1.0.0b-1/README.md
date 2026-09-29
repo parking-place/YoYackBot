@@ -10,7 +10,7 @@
 
 | 단계 | 목표 | 검사 | 상태 |
 |---|---|---|---|
-| [P1](01-large-input.md) | 대량 입력·모델 오류 검증과 수정 | B1A/B1B | IN_PROGRESS |
+| [P1](01-large-input.md) | 대량 입력·모델 오류 검증과 수정 | B1A/B1B | PUSH_PENDING |
 | [P2](02-backfill.md) | 첫 주시 전체 수집→실시간 DB 저장으로 전환 | B2A/B2B | PLANNED |
 | [P3](03-readiness.md) | 시작·완료·준비 중 안내와 요약 차단 | B3A/B3B | PLANNED |
 | [P4](04-queue.md) | 모델 대기열과 초기 수집의 시간 정책 | B4A/B4B | PLANNED |
