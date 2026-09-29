@@ -18,4 +18,4 @@
 
 운영 점검은 1분마다 `health`를 호출하고 연속 2회 `ready=false`면 알린다. 5분 동안 `model_error` 또는 `history_error`가 3건 이상, `queue_full` 또는 `queue_timeout`이 1건 이상, `duration_ms`가 120000을 넘는 요청이 1건 이상이면 조사한다. 50 MiB 한도에 근접하거나 journal 억제 메시지가 나오면 알림을 올린다. 인위적으로 원문을 포함해 진단하지 않는다.
 
-`systemd`의 서비스 재시작 횟수와 journal 크기, 시간 경계, 실제 경고 전달 체계는 후속 장시간 운영 단계에서 검증한다. 현재 기준은 운영 점검 기준이며 자동 외부 알림 전송은 아직 없다.
+`systemd`의 서비스 재시작 횟수와 journal 크기는 [부분 관측](../Plans/0.DevelopPhase/0.8.0/SOAK_RUN.md)에서 확인했다. 8시간·24시간 연속 운영과 실제 경고 전달 체계는 [사용자 결정](../Plans/0.DevelopPhase/DURATION_WAIVER.md)에 따라 이번 릴리스의 완료 증거에 포함하지 않는다. 현재 기준은 운영 점검 기준이며 자동 외부 알림 전송은 아직 없다.

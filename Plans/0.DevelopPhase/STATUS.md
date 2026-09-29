@@ -95,6 +95,8 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 
 0.7.0의 다섯 단계는 [PR #8](https://github.com/parking-place/YoYackBot/pull/8)로 `main`에 통합했다(검증 브랜치 D `79e341f63345c66f7ceb23bb2cf0ee154ed24e24`, merge `2f9a6755fe0ba53e7d5bc3b61093d3ccea8193e4`). 개발 Discord 두 주시 채널의 실제 사용자 명령에서 모델 요약 게시·중복 안내·300초 대기·도움말을 확인했고, 재시작 후 설정과 대기 기록이 보존됐다. 실제 장애 주입과 장시간 운영 검증은 후속 단계에 남겨 두었다.
 
+0.8.0의 다섯 단계는 [PR #9](https://github.com/parking-place/YoYackBot/pull/9)로 `main`에 통합했다(검증 브랜치 D `ab95047b15cd76b6bb611924d130ed2b402cb6c7`, merge `54855985efd41731e01c4140b9421dca8e3b06a4`). 전용 서비스·상태/로그·설정 복원·비밀정보 검사를 검증했다. 8시간 시험은 [사용자 결정](DURATION_WAIVER.md)에 따라 7시간 38분/459표본에서 중단했고 `SKIPPED_BY_USER`로 기록했다. 0.9.0·1.0.0의 24시간 지속 시간 요건도 생략하지만 각 단계의 기능·보안·복구 검사는 계속 필요하다.
+
 ## 실행 증거
 
 실행을 시작한 뒤에만 `evidence/<version>-P<n>.md`를 작성한다. raw Discord 대화, 실제 서버 주소, 앱/사용자 식별값, 인증정보와 DB는 증거 파일에 넣지 않는다.
