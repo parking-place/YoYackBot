@@ -8,7 +8,13 @@ from types import SimpleNamespace
 import discord
 import pytest
 
-from yoyackbot.backfill import BackfillError, InitialBackfill, SQLiteBackfillStore
+from yoyackbot.backfill import (
+    BackfillError,
+    BackfillPageScheduler,
+    InitialBackfill,
+    SQLiteBackfillStore,
+    round_robin_backfills,
+)
 from yoyackbot.cache_collector import BackfillNotReady, CacheOnlyCollector
 from yoyackbot.domain import MessageRecord, RangeRequest, RequestKind
 from yoyackbot.job_queue import SummaryJobQueue
@@ -43,6 +49,71 @@ class FakePages:
     ) -> list[SimpleNamespace]:
         self.calls += 1
         return [item for item in self.messages if item.id < before][:limit]
+
+
+def test_bounded_backfill_pages_share_global_capacity_across_guilds(tmp_path) -> None:
+    watches = SQLiteWatchStore(tmp_path / "messages.db")
+    watches.replace(1, frozenset({99, 100, 101}))
+    watches.replace(2, frozenset({200, 201}))
+    store = SQLiteBackfillStore(tmp_path / "messages.db")
+    states = [store.get(guild_id, channel_id) for guild_id, channel_id in (
+        (1, 99), (1, 100), (1, 101), (2, 200), (2, 201),
+    )]
+    assert all(state is not None for state in states)
+    ordered = round_robin_backfills(states)  # type: ignore[arg-type]
+    assert [(state.guild_id, state.channel_id) for state in ordered] == [
+        (1, 99), (2, 200), (1, 100), (2, 201), (1, 101),
+    ]
+
+    async def scenario() -> None:
+        scheduler = BackfillPageScheduler(global_limit=3, per_guild_limit=2)
+        release = asyncio.Event()
+        active = {1: 0, 2: 0}
+        peak = {1: 0, 2: 0}
+        entered = asyncio.Event()
+
+        async def work(guild_id: int) -> bool:
+            active[guild_id] += 1
+            peak[guild_id] = max(peak[guild_id], active[guild_id])
+            if sum(active.values()) == 3:
+                entered.set()
+            try:
+                await release.wait()
+            finally:
+                active[guild_id] -= 1
+            return True
+
+        tasks = [asyncio.create_task(scheduler.run(
+            state.guild_id, lambda guild_id=state.guild_id: work(guild_id)
+        )) for state in ordered]
+        await asyncio.wait_for(entered.wait(), 2)
+        assert sum(active.values()) == 3
+        assert all(value <= 2 for value in active.values())
+        release.set()
+        assert await asyncio.gather(*tasks) == [True] * 5
+        assert sum(active.values()) == 0
+        assert peak[1] == 2 and peak[2] >= 1
+
+    asyncio.run(scenario())
+
+
+def test_permission_change_during_page_fetch_preserves_cursor(tmp_path) -> None:
+    path = tmp_path / "messages.db"
+    SQLiteWatchStore(path).replace(1, frozenset({99}))
+    store = SQLiteBackfillStore(path)
+    state = store.get(1, 99)
+    assert state is not None
+
+    async def scenario() -> None:
+        worker = InitialBackfill(store, FakePages([]))
+        with pytest.raises(BackfillError) as error:
+            await worker.step(fake_channel(), state, can_continue=lambda: False)
+        assert not error.value.retryable and error.value.kind == "permission"
+        current = store.get(1, 99)
+        assert current is not None and current.cursor == state.cursor
+        assert current.phase == "history"
+
+    asyncio.run(scenario())
 
 
 def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_path) -> None:
@@ -363,3 +434,46 @@ def test_disk_full_rolls_back_history_page_and_keeps_cursor_for_retry(
     assert [item.message_id for item in SQLiteMessageStore(path).recent(
         1, 99, now - timedelta(seconds=1), now + timedelta(seconds=1)
     )] == [123]
+
+
+def test_busy_page_in_one_channel_does_not_rollback_other_channel(
+    tmp_path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "messages.db"
+    SQLiteWatchStore(path).replace(1, frozenset({99, 100}))
+    store = SQLiteBackfillStore(path)
+    first, second = store.get(1, 99), store.get(1, 100)
+    assert first is not None and second is not None
+    now = datetime.now(UTC)
+    original = SQLiteMessageStore._upsert
+
+    def busy_first(connection, record, cached_at):
+        if record.channel_id == 99:
+            raise sqlite3.OperationalError("database is locked")
+        return original(connection, record, cached_at)
+
+    monkeypatch.setattr(SQLiteMessageStore, "_upsert", staticmethod(busy_first))
+    record_first = MessageRecord(199, 1, 99, 7, "합성 화자", "합성 본문", now)
+    record_second = MessageRecord(200, 1, 100, 7, "합성 화자", "합성 본문", now)
+    with pytest.raises(BackfillError):
+        store.save_page(
+            first, (record_first,), next_cursor=first.cursor - 1,
+            next_phase="history", finished_at=None, cached_at=now,
+        )
+    assert store.save_page(
+        second, (record_second,), next_cursor=second.cursor - 1,
+        next_phase="history", finished_at=None, cached_at=now,
+    )
+    assert store.get(1, 99).cursor == first.cursor  # type: ignore[union-attr]
+    assert store.get(1, 100).cursor == second.cursor - 1  # type: ignore[union-attr]
+    monkeypatch.setattr(SQLiteMessageStore, "_upsert", staticmethod(original))
+    assert store.save_page(
+        first, (record_first,), next_cursor=first.cursor - 1,
+        next_phase="history", finished_at=None, cached_at=now,
+    )
+    assert {row.channel_id for row in SQLiteMessageStore(path).recent(
+        1, 99, now - timedelta(seconds=1), now + timedelta(seconds=1)
+    )} == {99}
+    assert {row.channel_id for row in SQLiteMessageStore(path).recent(
+        1, 100, now - timedelta(seconds=1), now + timedelta(seconds=1)
+    )} == {100}

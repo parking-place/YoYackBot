@@ -1,8 +1,11 @@
 """Resumable first-watch History import, followed by live Gateway storage."""
 
+from __future__ import annotations
+
 import asyncio
 import sqlite3
-from collections.abc import Callable, Sequence
+from collections import defaultdict, deque
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
@@ -30,6 +33,40 @@ class BackfillError(RuntimeError):
 START_NOTICE = "안녕하시오. 요약을 위해 데이터 수집중이오."
 READY_NOTICE = "이제부터 요약을 해줄 수 있을 것 같소."
 NOT_READY_NOTICE = "참을성을 기르시오 아직 준비가 되지 않았소."
+
+
+class BackfillPageScheduler:
+    """Bound History page concurrency without occupying global slots per Guild."""
+
+    def __init__(self, *, global_limit: int = 3, per_guild_limit: int = 2) -> None:
+        if global_limit < 1 or per_guild_limit < 1:
+            raise ValueError("Backfill concurrency must be positive")
+        self.global_limit = asyncio.Semaphore(global_limit)
+        self.per_guild_limit = per_guild_limit
+        self.guild_limits: dict[int, asyncio.Semaphore] = {}
+
+    async def run(self, guild_id: int, work: Callable[[], Awaitable[bool]]) -> bool:
+        if guild_id < 1:
+            raise ValueError("guild_id must be positive")
+        guild_limit = self.guild_limits.setdefault(
+            guild_id, asyncio.Semaphore(self.per_guild_limit)
+        )
+        async with guild_limit, self.global_limit:
+            return await work()
+
+
+def round_robin_backfills(states: Sequence[BackfillState]) -> tuple[BackfillState, ...]:
+    """Give each Guild an initial scheduling turn while preserving its channel order."""
+    groups: dict[int, deque[BackfillState]] = defaultdict(deque)
+    for state in states:
+        groups[state.guild_id].append(state)
+    ordered = []
+    while groups:
+        for guild_id in tuple(groups):
+            ordered.append(groups[guild_id].popleft())
+            if not groups[guild_id]:
+                del groups[guild_id]
+    return tuple(ordered)
 
 
 def _us(value: datetime) -> int:
@@ -355,7 +392,10 @@ class InitialBackfill:
         self.clock = clock or (lambda: datetime.now(UTC))
         self.page_size = page_size
 
-    async def step(self, channel: discord.TextChannel, state: BackfillState) -> bool:
+    async def step(
+        self, channel: discord.TextChannel, state: BackfillState,
+        *, can_continue: Callable[[], bool] | None = None,
+    ) -> bool:
         """Import one bounded page so other watched channels can make progress."""
         if state.phase not in {"history", "overlap"}:
             return False
@@ -378,6 +418,8 @@ class InitialBackfill:
             raise BackfillError("History page unavailable") from exc
         except (ClientError, OSError) as exc:
             raise BackfillError("History page unavailable") from exc
+        if can_continue is not None and not can_continue():
+            raise BackfillError("History access changed", retryable=False, kind="permission")
         if len(page) > self.page_size or any(
             message.id >= state.cursor
             or getattr(message.channel, "id", None) != state.channel_id
