@@ -21,6 +21,7 @@ from yoyackbot.backfill import (
     InitialBackfill,
     SQLiteBackfillStore,
     round_robin_backfills,
+    summary_ready,
 )
 from yoyackbot.channel_config import (
     MemoryWatchStore,
@@ -525,9 +526,7 @@ class YoYackClient(discord.Client):
                     except BackfillError:
                         await send_notice(UNAVAILABLE_NOTICE)
                         return
-                    if backfill is None or not backfill.ready or (
-                        backfill.first_watch and backfill.ready_notice_id is None
-                    ):
+                    if not summary_ready(backfill):
                         await send_notice(NOT_READY_NOTICE)
                         return
                 try:
