@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-29. 개발 완료 **54 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 1개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-29. 개발 완료 **55 / 55**. 완료한 단계는 원격 증거를 확인했다. 55개 단계의 증거·종료 커밋은 원격 확인 대상이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -75,7 +75,7 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 1.0.0-P2 | [버전·배포 산출물·설정 재현성](1.0.0/02-release-package.md) | DONE | `f15a135e0a4c53dc3773e60202384e170100c343` | [evidence E](https://github.com/parking-place/YoYackBot/commit/58d757133ec9405b26ea56a3986bfecd7232b587) | 개발 LXC의 격리된 새 가상환경·새 DB, GitHub CI 검증; 세부 결과는 증거 파일 |
 | 1.0.0-P3 | [업데이트·migration·롤백 리허설](1.0.0/03-rollback-rehearsal.md) | DONE | `38b5a671011f39ac56a4e52be3f03a68812f5a83` | [evidence E](https://github.com/parking-place/YoYackBot/commit/0c5dcd27c4f1b36e6fbc3aa199a22a614fea775f) | 개발 LXC 격리 DB·0.9 후보 소스 SHA 3930c40·1.0.0 설치 wheel·GitHub CI 검증; 세부 결과는 증거 파일 |
 | 1.0.0-P4 | [운영 배포·동일 SHA smoke·초기 관측](1.0.0/04-production-validation.md) | DONE | `aed79b1d5ae7a869154479fbbd7c2daa2424727a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/285a15e48bfd33c354f6083af262cfe53d9e7df5) | 새 배포 실게시 SKIPPED_BY_USER, 즉시 운영 점검 PASS; 상세 결과는 증거 파일 |
-| 1.0.0-P5 | [GitHub 정식 릴리스·최종 인수](1.0.0/05-release-publish.md) | PUSH_PENDING | `78582b7a8c2e98e8650bc2c69b380f4aa1c3b5a3` | — | 태그·Release 게시, 최종 E/D 원격 확인 대기; 실게시 SKIPPED_BY_USER |
+| 1.0.0-P5 | [GitHub 정식 릴리스·최종 인수](1.0.0/05-release-publish.md) | DONE | `78582b7a8c2e98e8650bc2c69b380f4aa1c3b5a3` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3ac1d50595c904ed5c0fbfba60d12cc22e8355ec) | 태그·Release·운영 인수 확인, 새 배포 실게시 SKIPPED_BY_USER; 상세 결과는 증거 파일 |
 
 ## 버전/배포 기록
 
