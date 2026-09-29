@@ -110,16 +110,15 @@ async def scenario(count: int, *, mixed_guilds: bool) -> dict:
             await asyncio.sleep(0.01)
             duplicate = job(*channels[0], 8)
             await asyncio.gather(*jobs, duplicate)
-            if channels[0] in publisher.published:
-                await job(*channels[0], 8)
+            if publisher.published:
+                await job(*publisher.published[0], 8)
             rows = capture.rows
             outcomes = Counter(row["outcome"] for row in rows)
             assert outcomes["busy"] == 1, outcomes
             assert len(publisher.published) == outcomes["success"]
             assert len(set(publisher.published)) == len(publisher.published)
             assert all(row["history_pages"] == 0 for row in rows)
-            if channels[0] in publisher.published:
-                assert outcomes["cooldown"] == 1, outcomes
+            assert outcomes["cooldown"] == 1, outcomes
             success = [row for row in rows if row["outcome"] == "success"]
             return {
                 "channels": count,
