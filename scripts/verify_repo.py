@@ -30,7 +30,7 @@ def main() -> None:
     version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     package = (REPO / "src/yoyackbot/__init__.py").read_text(encoding="utf-8")
-    assert version == project["project"]["version"] == "1.0.0.3"
+    assert version == project["project"]["version"] == "1.0.0.4"
     assert f'__version__ = "{version}"' in package
 
     matrix = (PLAN / "TEST_MATRIX.md").read_text()

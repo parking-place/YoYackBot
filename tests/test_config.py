@@ -78,13 +78,13 @@ def test_systemd_credential_copy_precedes_manual_file(tmp_path) -> None:
 def test_model_queue_has_bounded_eight_channel_policy() -> None:
     settings = Settings.from_environment({"DISCORD_BOT_TOKEN": "only-a-test-token"})
     assert settings.codex_timeout_seconds == 120
-    assert settings.codex_concurrency == 1
+    assert settings.codex_concurrency == 4
     assert settings.queue_capacity == 8
     assert settings.queue_wait_seconds == 600
 
 
-def test_shared_model_account_rejects_misleading_parallel_setting() -> None:
+def test_model_concurrency_cannot_exceed_user_approved_cap() -> None:
     with pytest.raises(ConfigurationError, match="YOYACK_CODEX_CONCURRENCY"):
         Settings.from_environment({
-            "DISCORD_BOT_TOKEN": "only-a-test-token", "YOYACK_CODEX_CONCURRENCY": "2",
+            "DISCORD_BOT_TOKEN": "only-a-test-token", "YOYACK_CODEX_CONCURRENCY": "5",
         })

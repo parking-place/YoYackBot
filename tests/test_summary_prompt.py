@@ -38,13 +38,13 @@ def test_twenty_synthetic_cases_have_reviewable_truth_and_speaker_boundaries() -
         by_person: dict[str, set[str]] = {}
         for raw, serialized in zip(case["messages"], rows[1:], strict=True):
             by_person.setdefault(raw[0], set()).add(serialized["speaker"])
-            assert serialized["display_name"] == raw[1]
+            assert serialized["display_name"] == rows[0]["speaker_names"][serialized["speaker"]]
         assert all(len(speakers) == 1 for speakers in by_person.values())
         assert len({next(iter(speakers)) for speakers in by_person.values()}) == len(by_person)
 
 
 def test_trusted_prompt_has_explicit_version_and_excludes_fixture_text() -> None:
-    assert PROMPT_VERSION == "0.6.0-p5-v2"
+    assert PROMPT_VERSION == "1.0.0d-p3-v1"
     assert "/work/conversation.jsonl" in SUMMARY_PROMPT
     assert "YOYACK_INPUT_UNAVAILABLE" in SUMMARY_PROMPT
     assert "간접 인용" in SUMMARY_PROMPT and "명시적으로" in SUMMARY_PROMPT

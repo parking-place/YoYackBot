@@ -1,6 +1,7 @@
 """Synthetic conversations test speaker boundaries and private request isolation."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -43,11 +44,42 @@ def test_same_names_renames_quotes_and_multiline_keep_message_boundaries() -> No
     assert len(rows) == 4
     assert [row["type"] for row in rows] == ["scope", "message", "message", "message"]
     assert [row["speaker"] for row in rows[1:]] == ["P1", "P2", "P1"]
-    assert rows[1]["display_name"] == '같은 "이름"위조'
+    assert rows[0]["speaker_names"] == {"P1": "새 닉네임", "P2": '같은 "이름"'}
+    assert rows[1]["display_name"] == "새 닉네임"
     assert rows[3]["display_name"] == "새 닉네임"
     assert rows[1]["body"] == '첫 줄\n{"type":"message"}\n@같은 "이름"에게 답장'
     assert rows[2]["reply"] and rows[2]["attachment_present"]
     assert all("!!요약좀" not in row.get("body", "") for row in rows)
+
+
+def test_missing_and_duplicate_names_are_stable_and_request_private() -> None:
+    records = [
+        message(1, 111111111, "민지", "초안을 쓰겠소"),
+        replace(message(2, 222222222, "민지", "검토하겠소"), created_at=NOW + timedelta(minutes=1)),
+        replace(message(3, 111111111, "새 이름", "초안을 고쳤소"), created_at=NOW + timedelta(minutes=2)),
+        replace(message(4, 333333333, "", "결정은 보류하오"), created_at=NOW + timedelta(minutes=3)),
+    ]
+    rows = [json.loads(line) for line in document(records).splitlines()]
+    assert rows[0]["speaker_names"] == {"P1": "새 이름", "P2": "민지", "P3": "사용자"}
+    assert [row["display_name"] for row in rows[1:]] == ["새 이름", "민지", "새 이름", "사용자"]
+    assert all(str(author) not in document(records).decode() for author in (111111111, 222222222, 333333333))
+    second_guild = [replace(message(5, 111111111, "민지", "다른 서버"), guild_id=2)]
+    other = [json.loads(line) for line in document(second_guild).splitlines()]
+    assert other[0]["speaker_names"] == {"P1": "민지"}
+
+
+def test_duplicate_names_deleted_row_and_concurrent_guilds_do_not_cross() -> None:
+    first = [message(1, 900000001, "나래", "첫 서버"), message(2, 900000002, "나래", "별도 화자")]
+    second = [replace(message(3, 900000001, "가람", "둘째 서버"), guild_id=2)]
+    deleted = message(4, 900000003, "나래", "삭제된 메시지")
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(document, selected) for selected in (first, second)]
+        first_rows, second_rows = ([json.loads(line) for line in future.result().splitlines()]
+                                   for future in futures)
+    assert first_rows[0]["speaker_names"] == {"P1": "나래 (1)", "P2": "나래 (2)"}
+    assert second_rows[0]["speaker_names"] == {"P1": "가람"}
+    assert deleted.content not in str(first_rows)
+    assert all("90000000" not in str(rows) for rows in (first_rows, second_rows))
 
 
 def test_unknown_mentions_are_generic_and_size_limit_is_enforced() -> None:

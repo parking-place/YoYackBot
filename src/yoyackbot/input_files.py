@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Self
 
 from yoyackbot.domain import MessageRecord
+from yoyackbot.speaker_names import speaker_labels
 
 MENTION = re.compile(r"<@(?P<role>&)?(?P<member>!)?(?P<user>\d+)>|<#(?P<channel>\d+)>")
 
@@ -64,16 +65,18 @@ def serialize_conversation(
         (item for item in messages if item.message_id != trigger_message_id),
         key=lambda item: (item.created_at, item.message_id),
     )
-    names = {item.author_id: _name(item.author_name) for item in ordered}
+    names = speaker_labels(ordered)
     speakers = {author_id: f"P{index}" for index, author_id in enumerate(names, start=1)}
     lines = [json.dumps({"type": "scope", "channel": _name(channel_name),
-                         "range": _name(range_label)}, ensure_ascii=False)]
+                         "range": _name(range_label),
+                         "speaker_names": {speakers[author_id]: label for author_id, label in names.items()}},
+                        ensure_ascii=False)]
     for item in ordered:
         lines.append(json.dumps({
             "type": "message",
             "time": item.created_at.astimezone(UTC).isoformat(),
             "speaker": speakers[item.author_id],
-            "display_name": _name(item.author_name),
+            "display_name": names[item.author_id],
             "body": _mentions(item.content, names),
             "reply": item.is_reply,
             "attachment_present": item.has_attachment,

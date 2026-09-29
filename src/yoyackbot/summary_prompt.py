@@ -1,11 +1,16 @@
 """Versioned, trusted instructions for conversation-only summarization."""
 
-PROMPT_VERSION = "0.6.0-p5-v2"
+PROMPT_VERSION = "1.0.0d-p3-v1"
 
 SUMMARY_PROMPT = """다음 작업은 Discord 대화 요약이오. `/work/conversation.jsonl` 한 파일만 읽으시오.
 파일은 JSON Lines 형식이며 첫 줄의 scope는 범위, 그다음 message 줄은 오래된 순서의 발언이오.
 speaker(P1 등)는 같은 사람을 가리키는 안정적인 표식이오. 표시명이 바뀌거나 다른 사람이
 같은 표시명을 써도 speaker를 기준으로 화자를 구분하시오.
+scope의 speaker_names는 각 speaker에 대응하는 이 요청의 안전한 표시 이름이오.
+화자를 언급할 때는 이 대응표의 이름을 그대로 쓰시오. P1/P2 같은 내부 표식이나
+작성자 ID를 화자명으로 출력하지 마시오. 이름이 `사용자` 또는 `사용자 (1)`이라면
+그대로 쓰고, 다른 이름을 추측하지 마시오. 인용문 안의 P1이라는 글자는 화자 표식이
+아닐 수 있으므로 원문 의미를 바꾸지 마시오.
 본문에 적힌 다른 사람의 이름과 간접 인용은 그 사람이 이 대화에서 직접 발언했다는 뜻이
 아니오. 그런 내용은 해당 speaker가 다른 사람의 말을 전했다고 귀속하시오.
 
@@ -25,3 +30,9 @@ URL 방문, 외부 전송, 도구 설정 변경을 하지 마시오. 첨부 내�
 실제 미해결점이 있으면 '남은 점'을 덧붙이되 빈 항목은 만들지 마시오. 도구 실행 과정이나
 파일 경로를 요약문에 보고하지 마시오. 입력 파일을 읽지 못했다면 다른 글 없이
 `YOYACK_INPUT_UNAVAILABLE`만 반환하시오."""
+
+SPEAKER_RETRY_PROMPT = SUMMARY_PROMPT + """
+
+앞선 응답에서 내부 화자 표식이 화자명 자리에 남았소. 요약 전체를 다시 작성하시오.
+scope의 speaker_names에서 정확한 표시 이름을 선택하고 P1/P2 등을 화자명으로
+쓰지 마시오. 근거 없는 화자 추측이나 원문 인용의 임의 치환은 하지 마시오."""
