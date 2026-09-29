@@ -202,7 +202,7 @@ def test_startup_and_periodic_cleanup_use_created_at_retention(tmp_path) -> None
         path = tmp_path / "messages.db"
         store = SQLiteMessageStore(path)
         now = datetime(2026, 9, 28, 12, tzinfo=UTC)
-        created = now - timedelta(days=6)
+        created = now - timedelta(days=29)
         store.upsert(MessageRecord(101, 1, 99, 3, "synthetic", "old", created), cached_at=now)
         current = [now]
         settings = Settings.from_environment(
