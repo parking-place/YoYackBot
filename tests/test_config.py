@@ -80,7 +80,7 @@ def test_model_queue_has_bounded_eight_channel_policy() -> None:
     assert settings.codex_timeout_seconds == 120
     assert settings.codex_concurrency == 1
     assert settings.queue_capacity == 8
-    assert settings.queue_wait_seconds == 420
+    assert settings.queue_wait_seconds == 600
 
 
 def test_shared_model_account_rejects_misleading_parallel_setting() -> None:

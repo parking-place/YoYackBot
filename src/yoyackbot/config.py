@@ -158,7 +158,7 @@ class Settings:
             discord_message_limit=message_limit,
             codex_concurrency=model_concurrency,
             queue_capacity=_integer(values, "YOYACK_QUEUE_CAPACITY", 8, minimum=0),
-            queue_wait_seconds=_integer(values, "YOYACK_QUEUE_WAIT_SECONDS", 420),
+            queue_wait_seconds=_integer(values, "YOYACK_QUEUE_WAIT_SECONDS", 600),
             max_input_bytes=_integer(values, "YOYACK_MAX_INPUT_BYTES", 1_000_000),
             max_output_bytes=_integer(values, "YOYACK_MAX_OUTPUT_BYTES", 50_000),
             max_history_pages=_integer(values, "YOYACK_MAX_HISTORY_PAGES", 100),
