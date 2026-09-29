@@ -39,7 +39,7 @@ from yoyackbot.parser import (
 )
 from yoyackbot.range_request import resolve_range
 from yoyackbot.watch_gate import UNAVAILABLE_NOTICE, ChannelLease, WatchGate
-from yoyackbot.watch_store import SQLiteWatchStore
+from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 from yoyackbot.workflow import SummaryWorkflow, build_workflow
 
 LOGGER = logging.getLogger(__name__)
@@ -164,6 +164,7 @@ class YoYackClient(discord.Client):
 
     async def on_ready(self) -> None:
         self.connection_count += 1
+        await self._resume_accessible_backfills()
         if self._disconnected_at is not None:
             await self._schedule_backfill_gap(self._disconnected_at)
             await self._mark_recheck("gateway_gap")
@@ -187,6 +188,7 @@ class YoYackClient(discord.Client):
 
     async def on_resumed(self) -> None:
         LOGGER.info("gateway_resumed")
+        await self._resume_accessible_backfills()
         if self._disconnected_at is not None:
             await self._schedule_backfill_gap(self._disconnected_at)
             await self._mark_recheck("gateway_gap")
@@ -266,6 +268,46 @@ class YoYackClient(discord.Client):
         except BackfillError:
             LOGGER.warning("backfill_gap_schedule_failed")
 
+    async def _resume_accessible_backfills(self) -> None:
+        if self.backfill_store is None:
+            return
+        for guild in self.guilds:
+            try:
+                watched = await asyncio.to_thread(self.watch_store.get, guild.id)
+                for channel_id in watched:
+                    if valid_channel(guild, channel_id):
+                        await asyncio.to_thread(
+                            self.backfill_store.resume_blocked, guild.id, channel_id
+                        )
+            except (BackfillError, WatchStoreError):
+                LOGGER.warning("backfill_permission_resume_failed")
+
+    async def on_guild_channel_update(
+        self, _before: discord.abc.GuildChannel, after: discord.abc.GuildChannel
+    ) -> None:
+        if self.backfill_store is None or not isinstance(after, discord.TextChannel):
+            return
+        if valid_channel(after.guild, after.id):
+            try:
+                await asyncio.to_thread(
+                    self.backfill_store.resume_blocked, after.guild.id, after.id
+                )
+            except BackfillError:
+                LOGGER.warning("backfill_permission_resume_failed")
+
+    async def on_guild_role_update(self, _before: discord.Role, after: discord.Role) -> None:
+        if self.backfill_store is None:
+            return
+        try:
+            watched = await asyncio.to_thread(self.watch_store.get, after.guild.id)
+            for channel_id in watched:
+                if valid_channel(after.guild, channel_id):
+                    await asyncio.to_thread(
+                        self.backfill_store.resume_blocked, after.guild.id, channel_id
+                    )
+        except (BackfillError, WatchStoreError):
+            LOGGER.warning("backfill_permission_resume_failed")
+
     async def _prune_loop(self) -> None:
         assert self.settings is not None
         while True:
@@ -307,7 +349,19 @@ class YoYackClient(discord.Client):
                         await asyncio.wait_for(
                             self.initial_backfill.step(channel, state), timeout=60
                         )
-                except (BackfillError, MessageStoreError, TimeoutError):
+                except BackfillError as exc:
+                    if not exc.retryable:
+                        LOGGER.warning("initial_backfill_blocked kind=%s", exc.kind)
+                        await asyncio.to_thread(
+                            self.backfill_store.block, state, reason=exc.kind
+                        )
+                        continue
+                    LOGGER.warning("initial_backfill_page_deferred")
+                    await asyncio.to_thread(
+                        self.backfill_store.defer, state,
+                        until=self.clock() + timedelta(seconds=30),
+                    )
+                except (MessageStoreError, TimeoutError):
                     LOGGER.warning("initial_backfill_page_deferred")
                     await asyncio.to_thread(
                         self.backfill_store.defer, state,

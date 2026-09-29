@@ -21,6 +21,11 @@ from yoyackbot.watch_store import SQLiteWatchStore, _new_backfill
 class BackfillError(RuntimeError):
     """Safe backfill failure; never includes Discord message data."""
 
+    def __init__(self, message: str, *, retryable: bool = True, kind: str = "transient") -> None:
+        super().__init__(message)
+        self.retryable = retryable
+        self.kind = kind
+
 
 START_NOTICE = "안녕하시오. 요약을 위해 데이터 수집중이오."
 READY_NOTICE = "이제부터 요약을 해줄 수 있을 것 같소."
@@ -54,6 +59,7 @@ class BackfillState:
     ready_notice_id: int | None
     started_notice_attempt_us: int | None
     ready_notice_attempt_us: int | None
+    blocked_reason: str | None
 
     @property
     def ready(self) -> bool:
@@ -78,7 +84,7 @@ class SQLiteBackfillStore:
         return BackfillState(
             row[0], row[1], row[2], bool(row[3]), row[4], row[5], row[6],
             row[7], row[8], row[9], row[10], row[11], row[12],
-            row[13], row[14], row[15], row[16],
+            row[13], row[14], row[15], row[16], row[17],
         )
 
     @staticmethod
@@ -87,7 +93,7 @@ class SQLiteBackfillStore:
             "SELECT guild_id, channel_id, token, first_watch, started_us, cutoff_us, "
             "before_id, phase, finished_us, overlap_start_us, overlap_before_id, "
             "verified_us, retry_at_us, started_notice_id, ready_notice_id, "
-            "started_notice_attempt_us, ready_notice_attempt_us "
+            "started_notice_attempt_us, ready_notice_attempt_us, blocked_reason "
             "FROM backfill_state "
         )
 
@@ -129,7 +135,8 @@ class SQLiteBackfillStore:
                 rows = connection.execute(
                     self._select() + "WHERE (phase IN ('history', 'overlap') "
                     "OR (phase='ready' AND first_watch=1 AND ready_notice_id IS NULL)) "
-                    "AND retry_at_us<=? ORDER BY started_us, guild_id, channel_id LIMIT ?",
+                    "AND blocked_reason IS NULL AND retry_at_us<=? "
+                    "ORDER BY started_us, guild_id, channel_id LIMIT ?",
                     (_us(now), limit),
                 ).fetchall()
                 return tuple(self._state(row) for row in rows)
@@ -147,6 +154,40 @@ class SQLiteBackfillStore:
                 )
         except sqlite3.Error as exc:
             raise BackfillError("Unable to defer initial collection") from exc
+
+    def block(self, state: BackfillState, *, reason: str) -> bool:
+        """Keep partial records and cursor, but stop repeating permanent failures."""
+        if reason not in {"permission", "channel_gone", "invalid_page"}:
+            raise ValueError("Invalid collection block reason")
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                cursor = connection.execute(
+                    "UPDATE backfill_state SET blocked_reason=?, retry_at_us=0 "
+                    "WHERE guild_id=? AND channel_id=? AND token=? AND phase=? "
+                    "AND blocked_reason IS NULL",
+                    (reason, state.guild_id, state.channel_id, state.token, state.phase),
+                )
+                return cursor.rowcount == 1
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to block initial collection") from exc
+
+    def resume_blocked(self, guild_id: int, channel_id: int) -> bool:
+        """Called only after the Gateway reports accessible channel permissions."""
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                cursor = connection.execute(
+                    "UPDATE backfill_state SET blocked_reason=NULL, retry_at_us=0 "
+                    "WHERE guild_id=? AND channel_id=? AND phase IN ('history', 'overlap') "
+                    "AND blocked_reason IN ('permission', 'channel_gone') "
+                    "AND EXISTS (SELECT 1 FROM watched_channels w "
+                    "WHERE w.guild_id=? AND w.channel_id=?)",
+                    (guild_id, channel_id, guild_id, channel_id),
+                )
+                return cursor.rowcount == 1
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to resume initial collection") from exc
 
     def mark_notice_attempt(
         self, state: BackfillState, *, ready: bool, at: datetime
@@ -226,7 +267,8 @@ class SQLiteBackfillStore:
             with self.watches._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
                 row = connection.execute(
-                    "SELECT phase, before_id, overlap_before_id FROM backfill_state "
+                    "SELECT phase, before_id, overlap_before_id, blocked_reason "
+                    "FROM backfill_state "
                     "WHERE guild_id=? AND channel_id=? AND token=?",
                     (state.guild_id, state.channel_id, state.token),
                 ).fetchone()
@@ -234,7 +276,7 @@ class SQLiteBackfillStore:
                     "SELECT 1 FROM watched_channels WHERE guild_id=? AND channel_id=?",
                     (state.guild_id, state.channel_id),
                 ).fetchone()
-                if row is None or watched is None or row[0] != state.phase or (
+                if row is None or watched is None or row[3] is not None or row[0] != state.phase or (
                     row[2] if state.phase == "overlap" else row[1]
                 ) != state.cursor:
                     return False
@@ -327,7 +369,14 @@ class InitialBackfill:
             page = await self.source.fetch_page(
                 channel, before=state.cursor, limit=self.page_size
             )
-        except (discord.HTTPException, ClientError, OSError) as exc:
+        except discord.HTTPException as exc:
+            if exc.status in {401, 403, 404}:
+                kind = "channel_gone" if exc.status == 404 else "permission"
+                raise BackfillError(
+                    "History access denied", retryable=False, kind=kind
+                ) from exc
+            raise BackfillError("History page unavailable") from exc
+        except (ClientError, OSError) as exc:
             raise BackfillError("History page unavailable") from exc
         if len(page) > self.page_size or any(
             message.id >= state.cursor
@@ -335,7 +384,9 @@ class InitialBackfill:
             or getattr(getattr(message, "guild", None), "id", None) != state.guild_id
             for message in page
         ) or any(left.id <= right.id for left, right in pairwise(page)):
-            raise BackfillError("Invalid History page")
+            raise BackfillError(
+                "Invalid History page", retryable=False, kind="invalid_page"
+            )
         lower_us = (
             state.cutoff_us if state.phase == "history"
             else state.overlap_start_us or state.started_us

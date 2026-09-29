@@ -132,6 +132,7 @@ class SQLiteWatchStore:
                         "verified_us INTEGER, retry_at_us INTEGER NOT NULL DEFAULT 0, "
                         "started_notice_id INTEGER, ready_notice_id INTEGER, "
                         "started_notice_attempt_us INTEGER, ready_notice_attempt_us INTEGER, "
+                        "blocked_reason TEXT, "
                         "PRIMARY KEY(guild_id, channel_id))"
                     )
                     columns = {
@@ -148,6 +149,10 @@ class SQLiteWatchStore:
                     if "ready_notice_attempt_us" not in columns:
                         connection.execute(
                             "ALTER TABLE backfill_state ADD COLUMN ready_notice_attempt_us INTEGER"
+                        )
+                    if "blocked_reason" not in columns:
+                        connection.execute(
+                            "ALTER TABLE backfill_state ADD COLUMN blocked_reason TEXT"
                         )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS deleted_messages ("

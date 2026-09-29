@@ -286,12 +286,43 @@ def test_network_permission_or_rate_failure_keeps_cursor_for_retry(tmp_path, sta
                 return []
 
         worker = InitialBackfill(backfills, FlakyPages())
-        with pytest.raises(BackfillError):
+        with pytest.raises(BackfillError) as raised:
             await worker.step(fake_channel(), state)
+        if status == 403:
+            assert not raised.value.retryable and raised.value.kind == "permission"
+        else:
+            assert raised.value.retryable
         unchanged = backfills.get(1, 99)
         assert unchanged is not None and unchanged.cursor == state.cursor
         assert unchanged.phase == "history"
+        if status == 403:
+            assert backfills.block(unchanged, reason="permission")
+            restarted = SQLiteBackfillStore(path)
+            blocked = restarted.get(1, 99)
+            assert blocked is not None and blocked.blocked_reason == "permission"
+            assert restarted.pending(datetime.now(UTC)) == ()
+            assert restarted.resume_blocked(1, 99)
+            assert not restarted.resume_blocked(1, 99)
+            backfills = restarted
+            unchanged = backfills.get(1, 99)
+            assert unchanged is not None and unchanged.cursor == state.cursor
         assert await worker.step(fake_channel(), unchanged)
         assert backfills.get(1, 99).phase == "overlap"  # type: ignore[union-attr]
 
     asyncio.run(scenario())
+
+
+def test_permanent_failure_blocks_only_one_channel_until_access_returns(tmp_path) -> None:
+    path = tmp_path / "messages.db"
+    SQLiteWatchStore(path).replace(1, frozenset({99, 100}))
+    backfills = SQLiteBackfillStore(path)
+    blocked = backfills.get(1, 99)
+    other = backfills.get(1, 100)
+    assert blocked is not None and other is not None
+    assert backfills.block(blocked, reason="permission")
+    assert backfills.get(1, 99).blocked_reason == "permission"  # type: ignore[union-attr]
+    assert {item.channel_id for item in backfills.pending(datetime.now(UTC))} == {100}
+    assert backfills.resume_blocked(1, 99)
+    assert {item.channel_id for item in backfills.pending(datetime.now(UTC))} == {99, 100}
+    assert backfills.block(other, reason="invalid_page")
+    assert not backfills.resume_blocked(1, 100)
