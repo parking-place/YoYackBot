@@ -5,7 +5,7 @@
 | 단계 | 목표 | 상태 | C/E/D 원격 증거 | 선행 |
 |---|---|---|---|---|
 | [P1](01-baseline.md) | 동시 부하 기준선 | DONE | [C `8b3c679`](https://github.com/parking-place/YoYackBot/commit/8b3c6794eff44d5b0b20a0901c7c819986a31620) / [E `6c5f7c9`](https://github.com/parking-place/YoYackBot/commit/6c5f7c9cc2338400b7bb228403c914d4e3a2cfea) / [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36535928308) / D 원격 확인은 브랜치 이력 | 1.0.0b-1 완료 |
-| [P2](02-fair-queue.md) | 공정한 대기열 | PLANNED | — | P1 DONE |
+| [P2](02-fair-queue.md) | 공정한 대기열 | IN_PROGRESS | — | P1 DONE |
 | [P3](03-collection-db.md) | 수집·DB 병목 | PLANNED | — | P2 DONE |
 | [P4](04-model.md) | 모델 처리량·역압 | PLANNED | — | P3 DONE |
 | [P5](05-release.md) | 다중 채널 통합·출시 | PLANNED | — | P4 DONE |

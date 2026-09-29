@@ -123,3 +123,59 @@ def test_cancelling_running_job_releases_slot_and_promotes_next_waiter() -> None
 async def _until_queue_waiters(queue: SummaryJobQueue, wanted: int) -> None:
     while (await queue.snapshot())[1] != wanted:
         await asyncio.sleep(0.001)
+
+
+def test_short_jobs_and_other_guild_progress_without_starving_oldest() -> None:
+    async def scenario(guilds: tuple[int, ...], expected: list[str]) -> None:
+        queue = SummaryJobQueue(concurrency=1, capacity=4, wait_seconds=2)
+        first = await queue.acquire(guild_id=1, size_hint=120)
+        order: list[str] = []
+        releases = {name: asyncio.Event() for name in ("long", "short1", "short2")}
+
+        async def waiting(name: str, guild_id: int, size_hint: int) -> None:
+            async with await queue.acquire(guild_id=guild_id, size_hint=size_hint):
+                order.append(name)
+                await releases[name].wait()
+
+        jobs = []
+        for index, (name, size) in enumerate((("long", 120), ("short1", 8), ("short2", 8))):
+            jobs.append(asyncio.create_task(waiting(name, guilds[index], size)))
+            await asyncio.wait_for(_until_queue_waiters(queue, index + 1), 2)
+
+        await first.__aexit__(None, None, None)
+        for index, name in enumerate(expected):
+            await asyncio.wait_for(_until(lambda: len(order) == index + 1), 2)
+            assert order[index] == name
+            releases[name].set()
+        await asyncio.gather(*jobs)
+        assert await queue.snapshot() == (0, 0, False)
+
+    asyncio.run(scenario((1, 1, 2), ["short2", "short1", "long"]))
+    asyncio.run(scenario((1, 1, 1), ["short1", "short2", "long"]))
+
+
+def test_size_aware_queue_has_bounded_overtaking() -> None:
+    async def scenario() -> None:
+        queue = SummaryJobQueue(concurrency=1, capacity=4, wait_seconds=2)
+        first = await queue.acquire(guild_id=1, size_hint=120)
+        order: list[str] = []
+        releases = {name: asyncio.Event() for name in ("long", "a", "b", "c")}
+
+        async def waiting(name: str, size_hint: int) -> None:
+            async with await queue.acquire(guild_id=1, size_hint=size_hint):
+                order.append(name)
+                await releases[name].wait()
+
+        jobs = []
+        for index, (name, size) in enumerate((("long", 120), ("a", 8), ("b", 8), ("c", 8))):
+            jobs.append(asyncio.create_task(waiting(name, size)))
+            await asyncio.wait_for(_until_queue_waiters(queue, index + 1), 2)
+        await first.__aexit__(None, None, None)
+        for index, name in enumerate(("a", "b", "long", "c")):
+            await asyncio.wait_for(_until(lambda: len(order) == index + 1), 2)
+            assert order[index] == name
+            releases[name].set()
+        await asyncio.gather(*jobs)
+        assert await queue.snapshot() == (0, 0, False)
+
+    asyncio.run(scenario())

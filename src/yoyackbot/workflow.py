@@ -67,7 +67,9 @@ class SummaryWorkflow:
         if self.queue is not None:
             waiting_since = time.monotonic()
             try:
-                slot = await self.queue.acquire()
+                slot = await self.queue.acquire(
+                    guild_id=channel.guild.id, size_hint=len(messages),
+                )
             finally:
                 metrics.queue_ms = max(0, round((time.monotonic() - waiting_since) * 1000))
             async with slot:
