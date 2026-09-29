@@ -8,10 +8,10 @@ import pytest
 
 from yoyackbot.codex import CodexContract, CodexFailure
 from yoyackbot.codex_runner import (
-    _OutputExceeded,
-    _bounded_read,
     CodexRunError,
     SandboxedCodex,
+    _bounded_read,
+    _OutputExceeded,
     final_text,
 )
 from yoyackbot.input_files import InputWorkspace
@@ -151,9 +151,11 @@ def test_final_message_limit_still_applies_after_verbose_cli_output(
         return 0, b"", b""
 
     monkeypatch.setattr("yoyackbot.codex_runner._invoke", fake_invoke)
-    with InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace:
-        with pytest.raises(CodexRunError) as raised:
-            asyncio.run(isolated.execute(workspace, "synthetic prompt"))
+    with (
+        InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace,
+        pytest.raises(CodexRunError) as raised,
+    ):
+        asyncio.run(isolated.execute(workspace, "synthetic prompt"))
     assert raised.value.kind is CodexFailure.OUTPUT_LIMIT
 
 
