@@ -6,8 +6,8 @@
 |---|---|---|---|---|
 | [1.0.1-P1](01-app-server-contract.md) | app-server JSON 계약 | PLANNED | — | 봇 계정·CLI 응답 확인 전 |
 | [1.0.1-P2](02-usage-command.md) | 사용량·한도 초과 | PLANNED | — | P1 선행 |
-| [1.0.1-P3](03-detailed-summary.md) | 자세한 1시간 요약 | PLANNED | — | P2 선행 |
-| [1.0.1-P4](04-short-summary.md) | 짧은 1시간 요약 | PLANNED | — | P3 선행 |
+| [1.0.1-P3](03-detailed-summary.md) | 범위 지정 자세한 요약 | PLANNED | — | P2 선행 |
+| [1.0.1-P4](04-short-summary.md) | 범위 지정 짧은 요약 | PLANNED | — | P3 선행 |
 | [1.0.1-P5](05-status-command.md) | 실측 상태 응답 | PLANNED | — | P4 선행 |
 | [1.0.1-P6](06-help-release.md) | 도움말·통합·출시 | PLANNED | — | P1~P5 원격 증거 선행 |
 
