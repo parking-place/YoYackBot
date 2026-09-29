@@ -6,7 +6,7 @@
 
 | 순서 | 독립 단계 | 검사 | 상태 |
 |---|---|---|---|
-| 1 | [설정·보존 계약](01-contract.md) | A1/A2 | PLANNED |
+| 1 | [설정·보존 계약](01-contract.md) | A1/A2 | IN_PROGRESS |
 | 2 | [DB 정리·복원](02-cache.md) | A3/A4 | PLANNED |
 | 3 | [기간·개수 수집](03-collection.md) | A5/A6 | PLANNED |
 | 4 | [명령·도움말](04-help.md) | A7/A8 | PLANNED |

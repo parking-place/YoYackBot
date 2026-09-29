@@ -242,13 +242,19 @@ def build_workflow(
     recent = TimeRangeCollector(messages, watches, history)
     collector = CollectionCoordinator(
         watches,
-        LongRangeCollector(recent, history, max_content_bytes=settings.max_input_bytes),
+        LongRangeCollector(
+            recent, history, retention_days=settings.cache_retention_days,
+            max_days=settings.max_days, max_content_bytes=settings.max_input_bytes,
+            max_pages=settings.max_history_pages,
+        ),
         CountCollector(
-            recent, history, max_count=settings.max_messages,
+            recent, history, retention_days=settings.cache_retention_days,
+            max_days=settings.max_days, max_count=settings.max_messages,
             max_content_bytes=settings.max_input_bytes,
             max_pages=settings.max_history_pages,
         ),
-        history, max_count=settings.max_messages, max_content_bytes=settings.max_input_bytes,
+        history, max_days=settings.max_days, max_count=settings.max_messages,
+        max_content_bytes=settings.max_input_bytes,
         max_pages=settings.max_history_pages,
     )
     return SummaryWorkflow(

@@ -4,7 +4,7 @@
 
 | 단계 | 목표 | 상태 | C/E/D 원격 증거 | 선행 |
 |---|---|---|---|---|
-| [P1](01-contract.md) | 설정·보존 계약 | PLANNED | — | 1.0.0 완료 |
+| [P1](01-contract.md) | 설정·보존 계약 | IN_PROGRESS | — | 1.0.0 완료 |
 | [P2](02-cache.md) | DB 정리·복원 | PLANNED | — | P1 DONE |
 | [P3](03-collection.md) | 기간·개수 수집 | PLANNED | — | P2 DONE |
 | [P4](04-help.md) | 명령·도움말 | PLANNED | — | P3 DONE |

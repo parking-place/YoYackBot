@@ -45,7 +45,7 @@ class LongRangeCollector:
         max_content_bytes: int = 1_000_000,
         max_pages: int = 100,
     ) -> None:
-        if not 1 <= retention_days <= 7 or max_days < retention_days:
+        if not 1 <= retention_days <= 30 or not 1 <= max_days <= 30:
             raise ValueError("Invalid retention or request duration")
         if max_content_bytes < 1 or max_pages < 1:
             raise ValueError("Collection budgets must be positive")

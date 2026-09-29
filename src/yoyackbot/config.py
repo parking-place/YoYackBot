@@ -95,9 +95,21 @@ class Settings:
         if effort not in {"minimal", "low", "medium", "high", "xhigh"}:
             raise ConfigurationError("YOYACK_CODEX_REASONING_EFFORT is unsupported")
 
-        retention = _integer(values, "YOYACK_CACHE_RETENTION_DAYS", 7)
-        if retention > 7:
-            raise ConfigurationError("YOYACK_CACHE_RETENTION_DAYS cannot exceed 7")
+        retention = _integer(values, "YOYACK_CACHE_RETENTION_DAYS", 30)
+        if retention > 30:
+            raise ConfigurationError("YOYACK_CACHE_RETENTION_DAYS cannot exceed 30")
+        max_days = _integer(values, "YOYACK_MAX_DAYS", 30)
+        if max_days > 30:
+            raise ConfigurationError("YOYACK_MAX_DAYS cannot exceed 30")
+        max_weeks = _integer(values, "YOYACK_MAX_WEEKS", 4)
+        if max_weeks > 4:
+            raise ConfigurationError("YOYACK_MAX_WEEKS cannot exceed 4")
+        max_hours = _integer(values, "YOYACK_MAX_HOURS", 168)
+        if max_hours > 720:
+            raise ConfigurationError("YOYACK_MAX_HOURS cannot exceed 720")
+        max_minutes = _integer(values, "YOYACK_MAX_MINUTES", 1440)
+        if max_minutes > 43_200:
+            raise ConfigurationError("YOYACK_MAX_MINUTES cannot exceed 43200")
         message_limit = _integer(values, "YOYACK_DISCORD_MESSAGE_LIMIT", 1900)
         if message_limit > 2000:
             raise ConfigurationError("YOYACK_DISCORD_MESSAGE_LIMIT cannot exceed 2000")
@@ -127,10 +139,10 @@ class Settings:
             success_cooldown_seconds=_integer(
                 values, "YOYACK_SUCCESS_COOLDOWN_SECONDS", 300, minimum=0
             ),
-            max_minutes=_integer(values, "YOYACK_MAX_MINUTES", 1440),
-            max_hours=_integer(values, "YOYACK_MAX_HOURS", 168),
-            max_days=_integer(values, "YOYACK_MAX_DAYS", 7),
-            max_weeks=_integer(values, "YOYACK_MAX_WEEKS", 4),
+            max_minutes=max_minutes,
+            max_hours=max_hours,
+            max_days=max_days,
+            max_weeks=max_weeks,
             max_messages=_integer(values, "YOYACK_MAX_MESSAGES", 1000),
             codex_timeout_seconds=_integer(values, "YOYACK_CODEX_TIMEOUT_SECONDS", 120),
             input_directory=Path(_text(values, "YOYACK_INPUT_DIRECTORY", "runtime/input")),

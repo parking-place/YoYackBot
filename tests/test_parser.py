@@ -99,7 +99,7 @@ def test_conflicting_or_unknown_options_are_rejected(option: str) -> None:
 
 @pytest.mark.parametrize(
     ("unit", "maximum"),
-    [("분", 1440), ("시간", 168), ("일", 7), ("주", 4), ("개", 1000)],
+    [("분", 1440), ("시간", 168), ("일", 30), ("주", 4), ("개", 1000)],
 )
 def test_each_numeric_limit_has_closed_upper_boundary(unit: str, maximum: int) -> None:
     settings = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
@@ -120,7 +120,7 @@ def test_limits_are_configurable_and_do_not_truncate_four_weeks_to_cache_retenti
         validate_option(parse_option("3주"), settings)
 
     defaults = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
-    assert defaults.cache_retention_days == 7
+    assert defaults.cache_retention_days == 30
     assert validate_option(parse_option("4주"), defaults).value == 4
     with pytest.raises(CommandLimitError):
         validate_option(parse_option("5주"), defaults)
