@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import tempfile
+import time
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -57,13 +58,16 @@ class Engine:
 class Publisher:
     def __init__(self) -> None:
         self.published: list[tuple[int, int]] = []
+        self.timings_ms: list[int] = []
 
     async def publish(self, request: SummaryRequest, _result: SummaryResult,
                       messages: tuple[MessageRecord, ...]) -> PublicationReceipt:
         assert all((message.guild_id, message.channel_id) == (
             request.guild_id, request.channel_id
         ) for message in messages), "cross-channel message leak"
+        started = time.monotonic()
         await asyncio.sleep(0.003)
+        self.timings_ms.append(round((time.monotonic() - started) * 1000))
         self.published.append((request.guild_id, request.channel_id))
         return PublicationReceipt((request.channel_id * 1000,), datetime.now(UTC))
 
@@ -127,6 +131,7 @@ async def scenario(count: int, *, mixed_guilds: bool) -> dict:
                 "collection_p95_ms": percentile95([row["collection_ms"] for row in success]),
                 "queue_p95_ms": percentile95([row["queue_ms"] for row in success]),
                 "model_p95_ms": percentile95([row["model_ms"] for row in success]),
+                "post_p95_ms": percentile95(publisher.timings_ms),
                 "duration_p95_ms": percentile95([row["duration_ms"] for row in success]),
                 "max_queue_ms": max((row["queue_ms"] for row in rows), default=0),
                 "published": len(publisher.published),
