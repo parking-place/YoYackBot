@@ -1,6 +1,6 @@
 # 1.0.2-P3 — 준비 완료 채널의 요약 시작 안내
 
-- 상태: **IN_PROGRESS** · 검사: `T102-P3-A/B` · 환경: 개발 LXC, 합성 Discord 전송
+- 상태: **PUSH_PENDING** · 검사: `T102-P3-A/B` · 환경: 개발 LXC, 합성 Discord 전송
 
 ## 선행 조건·작업
 

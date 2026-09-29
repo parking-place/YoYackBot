@@ -8,8 +8,8 @@
 | `T102-P1-B` | [P1](01-range-contract.md) | LXC 격리 DB | 초기 수집·누락 재확인·완료 안내 미게시는 준비 중, 준비 완료만 입장 경로; 운영 실효 상한 기록 | PASS — [증거](../evidence/1.0.2-P1.md) |
 | `T102-P2-A` | [P2](02-active-scope.md) | LXC 합성 | 원자적 입장·첫 요청 범위 스냅샷·동일 채널 20건/타 Guild 분리 | PASS — [증거](../evidence/1.0.2-P2.md) |
 | `T102-P2-B` | [P2](02-active-scope.md) | LXC 합성 | 성공·빈 결과·실패·한도 초과·취소·재시작 후 범위 정리와 쿨타임 보존 | PASS — [증거](../evidence/1.0.2-P2.md) |
-| `T102-P3-A` | [P3](03-collection-notice.md) | LXC 합성 | 준비 완료 채널의 모든 입장 요청에 조회 직전 정확히 한 번의 시작 안내, 후속 안내 순서 | NOT_RUN |
-| `T102-P3-B` | [P3](03-collection-notice.md) | LXC 합성 | 미주시·준비 중(초기 수집·재확인)·옵션 오류·쿨타임·종료·전송 실패에 허위 시작 안내·조회 없음 | NOT_RUN |
+| `T102-P3-A` | [P3](03-collection-notice.md) | LXC 합성 | 준비 완료 채널의 모든 입장 요청에 조회 직전 정확히 한 번의 시작 안내, 후속 안내 순서 | PASS — [증거](../evidence/1.0.2-P3.md) |
+| `T102-P3-B` | [P3](03-collection-notice.md) | LXC 합성 | 미주시·준비 중(초기 수집·재확인)·옵션 오류·쿨타임·종료·전송 실패에 허위 시작 안내·조회 없음 | PASS — [증거](../evidence/1.0.2-P3.md) |
 | `T102-P4-A` | [P4](04-busy-notice.md) | LXC 합성 | `10일` 활성 중 `5분` 중복에 정확한 두 줄, 첫 안내 선행, 단일 작업 | NOT_RUN |
 | `T102-P4-B` | [P4](04-busy-notice.md) | LXC 합성 | 시작 안내 전송·조회·대기·모델·게시·종료 경계의 활성 범위와 채널/Guild 분리 | NOT_RUN |
 | `T102-P5-A` | [P5](05-integration-release.md) | LXC/CI | 전체 옵션·1.0.1 명령·준비 상태 경계·도움말·보안·쿨타임·패키지 회귀 | NOT_RUN |
