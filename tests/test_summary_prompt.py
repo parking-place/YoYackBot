@@ -38,7 +38,7 @@ def test_twenty_synthetic_cases_have_reviewable_truth_and_speaker_boundaries() -
         by_person: dict[str, set[str]] = {}
         for raw, serialized in zip(case["messages"], rows[1:], strict=True):
             by_person.setdefault(raw[0], set()).add(serialized["speaker"])
-            assert serialized["display_name"] == raw[1]
+            assert serialized["display_name"] == rows[0]["speaker_names"][serialized["speaker"]]
         assert all(len(speakers) == 1 for speakers in by_person.values())
         assert len({next(iter(speakers)) for speakers in by_person.values()}) == len(by_person)
 
