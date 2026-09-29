@@ -12,6 +12,7 @@
 - [1.0.0d 실제 닉네임 표시 계획](Plans/0.DevelopPhase/1.0.0d/README.md)
 - [1.0.1 사용량·요약 밀도·상태 명령](Plans/0.DevelopPhase/1.0.1/README.md)
 - [1.0.2 요약 시작·진행 중 범위 안내](Plans/0.DevelopPhase/1.0.2/README.md)
+- [1.0.2b 주시 채널 목록 명령 계획](Plans/0.DevelopPhase/1.0.2b/README.md)
 - [단계별 진행 상태](Plans/0.DevelopPhase/STATUS.md)
 - [각 단계의 GitHub 업로드 완료 규칙](Plans/0.DevelopPhase/GIT_WORKFLOW.md)
 - [개발 환경과 실행 방법](DEVELOPMENT.md)
