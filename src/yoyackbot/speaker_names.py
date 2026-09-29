@@ -20,8 +20,7 @@ def safe_display_name(raw: str) -> str | None:
     """Return a one-line visible label, or None when no reliable name survives."""
     normalized = unicodedata.normalize("NFC", raw)
     printable = "".join(
-        character if character.isspace() else character
-        for character in normalized
+        character for character in normalized
         if character.isprintable() or character.isspace()
     )
     name = " ".join(printable.split()).strip()
