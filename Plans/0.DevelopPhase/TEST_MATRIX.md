@@ -124,7 +124,7 @@
 | `T100-P2-B` | [1.0.0-P2](1.0.0/02-release-package.md) | LXC | 배포 산출물에 필요 파일이 빠지지 않고 비밀·실데이터 파일이 포함되지 않는다. | NOT_RUN |
 | `T100-P3-A` | [1.0.0-P3](1.0.0/03-rollback-rehearsal.md) | OPS | 업데이트와 복귀 후 주시 설정·권한 격리가 유지되고 오래된 원문이 복원되어 보존 정책을 넘지 않는다. | NOT_RUN |
 | `T100-P3-B` | [1.0.0-P3](1.0.0/03-rollback-rehearsal.md) | OPS | 실패한 migration은 부분 성공 상태로 서비스가 뜨지 않으며 검증된 복구 순서로 정상 기동한다. | NOT_RUN |
-| `T100-P4-A` | [1.0.0-P4](1.0.0/04-production-validation.md) | OPS | 실행 중 버전/SHA가 후보와 일치하고 실제 게시까지 성공한 요청에서만 cooldown이 적용된다. | NOT_RUN |
+| `T100-P4-A` | [1.0.0-P4](1.0.0/04-production-validation.md) | OPS | 실행 중 버전/SHA가 후보와 일치하고 실제 게시까지 성공한 요청에서만 cooldown이 적용된다. 새 배포의 게시 결과는 [사용자 결정](1.0.0/POSTING_WAIVER.md)으로 미확인이다. | SKIPPED_BY_USER |
 | `T100-P4-B` | [1.0.0-P4](1.0.0/04-production-validation.md) | OPS | 배포 직후 상태·자원·보존 점검이 기준을 충족하고 출시 차단 결함이 생기면 P5로 진행하지 않는다. 24시간 가용성은 미검증이다. | NOT_RUN |
 | `T100-P5-A` | [1.0.0-P5](1.0.0/05-release-publish.md) | DOC | 원격 태그가 운영에서 검증한 코드 SHA를 가리키고 Release에서 문서와 배포 산출물을 확인할 수 있다. | NOT_RUN |
 | `T100-P5-B` | [1.0.0-P5](1.0.0/05-release-publish.md) | DOC | 선행 54단계의 원격 증거와 운영 인수 기록에 누락이 없다. 현재 단계 종료 커밋까지 원격 확인하는 G-PUSH를 마치면 55단계 완료다. | NOT_RUN |
