@@ -9,22 +9,24 @@ from dataclasses import dataclass, field
 import discord
 
 from yoyackbot.channel_config import valid_channel
+from yoyackbot.backfill import SQLiteBackfillStore
+from yoyackbot.cache_collector import CacheOnlyCollector
 from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
-from yoyackbot.collection import EMPTY_NOTICE, CollectionCoordinator, CollectionUnavailable
+from yoyackbot.collection import EMPTY_NOTICE, CollectionUnavailable
 from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore, cooldown_notice
-from yoyackbot.count_collection import CountCollector, CountError
+from yoyackbot.count_collection import CountError
 from yoyackbot.domain import MessageRecord, SummaryRequest, SummaryResult
 from yoyackbot.errors import FailureKind, message_for
-from yoyackbot.history import HistoryAdapter, HistoryError
+from yoyackbot.history import HistoryError
 from yoyackbot.input_files import InputFileError
 from yoyackbot.job_queue import QueueClosed, QueueFull, QueueWaitExpired, SummaryJobQueue
-from yoyackbot.long_range import LongRangeCollector, LongRangeError
+from yoyackbot.long_range import LongRangeError
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.ops import RequestMetrics
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
-from yoyackbot.range_collection import CollectionError, TimeRangeCollector
+from yoyackbot.range_collection import CollectionError
 from yoyackbot.state import AdmissionKind, ChannelStates
 from yoyackbot.watch_gate import ChannelLease
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
@@ -44,7 +46,7 @@ class JobInvalidated(RuntimeError):
 
 @dataclass
 class SummaryWorkflow:
-    collector: CollectionCoordinator
+    collector: CacheOnlyCollector
     engine: CodexSummaryEngine
     publisher: DiscordSummaryPublisher
     states: ChannelStates = field(default_factory=ChannelStates)
@@ -270,24 +272,10 @@ def build_workflow(
     settings: Settings, client: discord.Client,
     watches: SQLiteWatchStore, messages: SQLiteMessageStore,
 ) -> SummaryWorkflow:
-    history = HistoryAdapter(max_pages=settings.max_history_pages)
-    recent = TimeRangeCollector(messages, watches, history)
-    collector = CollectionCoordinator(
-        watches,
-        LongRangeCollector(
-            recent, history, retention_days=settings.cache_retention_days,
-            max_days=settings.max_days, max_content_bytes=settings.max_input_bytes,
-            max_pages=settings.max_history_pages,
-        ),
-        CountCollector(
-            recent, history, retention_days=settings.cache_retention_days,
-            max_days=settings.max_days, max_count=settings.max_messages,
-            max_content_bytes=settings.max_input_bytes,
-            max_pages=settings.max_history_pages,
-        ),
-        history, max_days=settings.max_days, max_count=settings.max_messages,
-        max_content_bytes=settings.max_input_bytes,
-        max_pages=settings.max_history_pages,
+    collector = CacheOnlyCollector(
+        watches, messages, SQLiteBackfillStore(settings.database_path),
+        retention_days=settings.cache_retention_days, max_days=settings.max_days,
+        max_count=settings.max_messages, max_content_bytes=settings.max_input_bytes,
     )
     return SummaryWorkflow(
         collector, CodexSummaryEngine.from_settings(settings),

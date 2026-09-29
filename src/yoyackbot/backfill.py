@@ -1,0 +1,270 @@
+"""Resumable first-watch History import, followed by live Gateway storage."""
+
+import asyncio
+import sqlite3
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from itertools import pairwise
+from pathlib import Path
+
+import discord
+from aiohttp import ClientError
+
+from yoyackbot.domain import MessageRecord
+from yoyackbot.history import DiscordHistorySource, HistoryPageSource
+from yoyackbot.message_store import SQLiteMessageStore, _microseconds
+from yoyackbot.watch_store import SQLiteWatchStore, _new_backfill
+
+
+class BackfillError(RuntimeError):
+    """Safe backfill failure; never includes Discord message data."""
+
+
+def _us(value: datetime) -> int:
+    return _microseconds(value)
+
+
+@dataclass(frozen=True)
+class BackfillState:
+    guild_id: int
+    channel_id: int
+    token: str
+    first_watch: bool
+    started_us: int
+    cutoff_us: int
+    before_id: int
+    phase: str
+    finished_us: int | None
+    overlap_before_id: int | None
+    verified_us: int | None
+    retry_at_us: int
+
+    @property
+    def ready(self) -> bool:
+        return self.phase == "ready"
+
+    @property
+    def cursor(self) -> int:
+        if self.phase == "overlap":
+            assert self.overlap_before_id is not None
+            return self.overlap_before_id
+        return self.before_id
+
+
+class SQLiteBackfillStore:
+    """Share the watch database so page records and cursor commit atomically."""
+
+    def __init__(self, path: Path) -> None:
+        self.watches = SQLiteWatchStore(path)
+
+    @staticmethod
+    def _state(row: tuple) -> BackfillState:
+        return BackfillState(
+            row[0], row[1], row[2], bool(row[3]), row[4], row[5], row[6],
+            row[7], row[8], row[9], row[10], row[11],
+        )
+
+    @staticmethod
+    def _select() -> str:
+        return (
+            "SELECT guild_id, channel_id, token, first_watch, started_us, cutoff_us, "
+            "before_id, phase, finished_us, overlap_before_id, verified_us, retry_at_us "
+            "FROM backfill_state "
+        )
+
+    def ensure_existing(self) -> int:
+        """Backfill preexisting watches once on upgrade without first-watch notices."""
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                missing = connection.execute(
+                    "SELECT w.guild_id, w.channel_id FROM watched_channels w "
+                    "LEFT JOIN backfill_state b ON b.guild_id=w.guild_id "
+                    "AND b.channel_id=w.channel_id WHERE b.channel_id IS NULL"
+                ).fetchall()
+                connection.executemany(
+                    "INSERT INTO backfill_state "
+                    "(guild_id, channel_id, token, first_watch, started_us, cutoff_us, "
+                    "before_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (_new_backfill(guild_id, channel_id, first_watch=False)
+                     for guild_id, channel_id in missing),
+                )
+                return len(missing)
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to prepare existing watched channels") from exc
+
+    def get(self, guild_id: int, channel_id: int) -> BackfillState | None:
+        try:
+            with self.watches._connection() as connection:
+                row = connection.execute(
+                    self._select() + "WHERE guild_id=? AND channel_id=?",
+                    (guild_id, channel_id),
+                ).fetchone()
+                return self._state(row) if row is not None else None
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to read initial collection state") from exc
+
+    def pending(self, now: datetime, *, limit: int = 20) -> tuple[BackfillState, ...]:
+        try:
+            with self.watches._connection() as connection:
+                rows = connection.execute(
+                    self._select() + "WHERE phase IN ('history', 'overlap') "
+                    "AND retry_at_us<=? ORDER BY started_us, guild_id, channel_id LIMIT ?",
+                    (_us(now), limit),
+                ).fetchall()
+                return tuple(self._state(row) for row in rows)
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to list initial collections") from exc
+
+    def defer(self, state: BackfillState, *, until: datetime) -> None:
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    "UPDATE backfill_state SET retry_at_us=? WHERE guild_id=? AND channel_id=? "
+                    "AND token=? AND phase=?",
+                    (_us(until), state.guild_id, state.channel_id, state.token, state.phase),
+                )
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to defer initial collection") from exc
+
+    def save_page(
+        self, state: BackfillState, records: Sequence[MessageRecord], *,
+        next_cursor: int, next_phase: str, finished_at: datetime | None,
+        cached_at: datetime,
+    ) -> bool:
+        """Reject stale watch generations before any message from that page is written."""
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                row = connection.execute(
+                    "SELECT phase, before_id, overlap_before_id FROM backfill_state "
+                    "WHERE guild_id=? AND channel_id=? AND token=?",
+                    (state.guild_id, state.channel_id, state.token),
+                ).fetchone()
+                watched = connection.execute(
+                    "SELECT 1 FROM watched_channels WHERE guild_id=? AND channel_id=?",
+                    (state.guild_id, state.channel_id),
+                ).fetchone()
+                if row is None or watched is None or row[0] != state.phase or (
+                    row[2] if state.phase == "overlap" else row[1]
+                ) != state.cursor:
+                    return False
+                for record in records:
+                    if record.guild_id != state.guild_id or record.channel_id != state.channel_id:
+                        raise BackfillError("History page channel mismatch")
+                    SQLiteMessageStore._upsert(connection, record, cached_at)
+                if state.phase == "history":
+                    if next_phase == "overlap":
+                        assert finished_at is not None
+                        finished_us = _us(finished_at)
+                        overlap_before = discord.utils.time_snowflake(
+                            finished_at, high=True
+                        ) + 1
+                        connection.execute(
+                            "UPDATE backfill_state SET before_id=?, phase='overlap', "
+                            "finished_us=?, overlap_before_id=?, retry_at_us=0 "
+                            "WHERE guild_id=? AND channel_id=? AND token=?",
+                            (next_cursor, finished_us, overlap_before,
+                             state.guild_id, state.channel_id, state.token),
+                        )
+                    else:
+                        connection.execute(
+                            "UPDATE backfill_state SET before_id=?, retry_at_us=0 "
+                            "WHERE guild_id=? AND channel_id=? AND token=?",
+                            (next_cursor, state.guild_id, state.channel_id, state.token),
+                        )
+                elif next_phase == "ready":
+                    connection.execute(
+                        "UPDATE backfill_state SET phase='ready', overlap_before_id=?, "
+                        "verified_us=finished_us, retry_at_us=0 "
+                        "WHERE guild_id=? AND channel_id=? AND token=?",
+                        (next_cursor, state.guild_id, state.channel_id, state.token),
+                    )
+                else:
+                    connection.execute(
+                        "UPDATE backfill_state SET overlap_before_id=?, retry_at_us=0 "
+                        "WHERE guild_id=? AND channel_id=? AND token=?",
+                        (next_cursor, state.guild_id, state.channel_id, state.token),
+                    )
+                return True
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to store initial collection page") from exc
+
+
+def _record(message: discord.Message, guild_id: int, channel_id: int) -> MessageRecord | None:
+    if (
+        message.webhook_id is not None or message.author.bot
+        or message.type not in {discord.MessageType.default, discord.MessageType.reply}
+    ):
+        return None
+    return MessageRecord(
+        message.id, guild_id, channel_id, message.author.id,
+        getattr(message.author, "display_name", None)
+        or getattr(message.author, "name", "unknown"),
+        message.content, message.created_at, message.edited_at,
+        has_attachment=bool(getattr(message, "attachments", ())),
+        is_reply=message.type is discord.MessageType.reply,
+    )
+
+
+class InitialBackfill:
+    def __init__(
+        self, store: SQLiteBackfillStore,
+        source: HistoryPageSource | None = None,
+        *,
+        clock: Callable[[], datetime] | None = None,
+        page_size: int = 100,
+    ) -> None:
+        if not 1 <= page_size <= 100:
+            raise ValueError("Discord History page size must be 1..100")
+        self.store = store
+        self.source = source or DiscordHistorySource()
+        self.clock = clock or (lambda: datetime.now(UTC))
+        self.page_size = page_size
+
+    async def step(self, channel: discord.TextChannel, state: BackfillState) -> bool:
+        """Import one bounded page so other watched channels can make progress."""
+        if state.phase not in {"history", "overlap"}:
+            return False
+        if (
+            getattr(channel, "type", None) is not discord.ChannelType.text
+            or getattr(channel, "id", None) != state.channel_id
+            or getattr(getattr(channel, "guild", None), "id", None) != state.guild_id
+        ):
+            raise BackfillError("History channel mismatch")
+        try:
+            page = await self.source.fetch_page(
+                channel, before=state.cursor, limit=self.page_size
+            )
+        except (discord.HTTPException, ClientError, OSError) as exc:
+            raise BackfillError("History page unavailable") from exc
+        if len(page) > self.page_size or any(
+            message.id >= state.cursor
+            or getattr(message.channel, "id", None) != state.channel_id
+            or getattr(getattr(message, "guild", None), "id", None) != state.guild_id
+            for message in page
+        ) or any(left.id <= right.id for left, right in pairwise(page)):
+            raise BackfillError("Invalid History page")
+        lower_us = state.cutoff_us if state.phase == "history" else state.started_us
+        upper_us = state.started_us if state.phase == "history" else state.finished_us
+        assert upper_us is not None
+        records = tuple(
+            record for message in page
+            if lower_us <= _us(message.created_at) < upper_us
+            if (record := _record(message, state.guild_id, state.channel_id)) is not None
+        )
+        oldest_us = _us(page[-1].created_at) if page else 0
+        exhausted = len(page) < self.page_size or oldest_us < lower_us
+        next_phase = (
+            ("overlap" if state.phase == "history" else "ready")
+            if exhausted else state.phase
+        )
+        next_cursor = page[-1].id if page else state.cursor
+        return await asyncio.to_thread(
+            self.store.save_page, state, records,
+            next_cursor=next_cursor, next_phase=next_phase,
+            finished_at=self.clock() if next_phase == "overlap" else None,
+            cached_at=self.clock(),
+        )
