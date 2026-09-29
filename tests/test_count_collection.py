@@ -94,26 +94,50 @@ def test_hundred_cached_with_middle_gap_fetches_hidden_newer_message(tmp_path) -
     asyncio.run(scenario())
 
 
-def test_shortage_searches_at_most_28_days_and_reports_actual_count(tmp_path) -> None:
+def test_shortage_searches_at_most_30_days_and_reports_actual_count(tmp_path) -> None:
     async def scenario() -> None:
         recent = record(1, 10)
         older = [
             MessageRecord(2, 1, 10, 3, "synthetic", "old", NOW - timedelta(days=10)),
             MessageRecord(3, 1, 10, 3, "synthetic", "older", NOW - timedelta(days=27)),
+            MessageRecord(4, 1, 10, 3, "synthetic", "day29", NOW - timedelta(days=29)),
+            MessageRecord(5, 1, 10, 3, "synthetic", "day31", NOW - timedelta(days=31)),
         ]
         history = FakeHistory([recent, *older])
         collector, store = setup(tmp_path, history)
         result = await collector.collect(
-            channel(), guild_id=1, channel_id=10, count=4, accepted_at=NOW,
+            channel(), guild_id=1, channel_id=10, count=5, accepted_at=NOW,
         )
-        assert [item.message_id for item in result.messages] == [3, 2, 1]
-        assert result.shortage == 1 and result.searched_since == NOW - timedelta(days=28)
-        assert result.pages == 4
+        assert [item.message_id for item in result.messages] == [4, 3, 2, 1]
+        assert result.shortage == 1 and result.searched_since == NOW - timedelta(days=30)
+        assert result.pages == 1
         assert [item.message_id for item in store.recent(
-            1, 10, NOW - timedelta(days=28), NOW
-        )] == [1]
-        assert len(history.calls) == 4
-        assert all(start >= NOW - timedelta(days=28) for start, _, _ in history.calls)
+            1, 10, NOW - timedelta(days=30), NOW
+        )] == [4, 3, 2, 1]
+        assert history.calls == [(NOW - timedelta(days=30), NOW, None)]
+
+    asyncio.run(scenario())
+
+
+def test_lower_request_limit_does_not_use_older_cached_messages(tmp_path) -> None:
+    async def scenario() -> None:
+        old = MessageRecord(11, 1, 10, 3, "synthetic", "old", NOW - timedelta(days=10))
+        fresh = record(12, 10)
+        history = FakeHistory([old, fresh])
+        path = tmp_path / "messages.db"
+        watches = SQLiteWatchStore(path)
+        watches.replace(1, frozenset({10}))
+        store = SQLiteMessageStore(path)
+        store.upsert(old, cached_at=NOW)
+        store.upsert(fresh, cached_at=NOW)
+        recent = TimeRangeCollector(store, watches, history, clock=lambda: NOW)
+        collector = CountCollector(recent, history, retention_days=30, max_days=7)
+        result = await collector.collect(
+            channel(), guild_id=1, channel_id=10, count=2, accepted_at=NOW,
+        )
+        assert [item.message_id for item in result.messages] == [12]
+        assert result.shortage == 1
+        assert all(start >= NOW - timedelta(days=7) for start, _, _ in history.calls)
 
     asyncio.run(scenario())
 

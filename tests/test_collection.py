@@ -148,7 +148,7 @@ def test_fallback_count_and_input_budget(tmp_path) -> None:
         request = RangeRequest(RequestKind.COUNT, NOW, count=3)
         result = await coordinator.collect(channel(), guild_id=1, channel_id=10, request=request)
         assert result.fallback_used and len(result.messages) == 2 and result.shortage == 1
-        assert history.calls == [(NOW - timedelta(days=28), NOW, 3)]
+        assert history.calls == [(NOW - timedelta(days=30), NOW, 3)]
 
         large_history = FakeHistory([message(content="too large")])
         limited, _, _ = setup(

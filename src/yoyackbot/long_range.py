@@ -1,4 +1,4 @@
-"""Join nonpersistent older History with the seven-day verified cache."""
+"""Join any nonpersistent older History with the configured verified cache."""
 
 import asyncio
 from collections.abc import Awaitable, Callable
@@ -40,8 +40,8 @@ class LongRangeCollector:
         recent: TimeRangeCollector,
         history: HistoryAdapter,
         *,
-        retention_days: int = 7,
-        max_days: int = 28,
+        retention_days: int = 30,
+        max_days: int = 30,
         max_content_bytes: int = 1_000_000,
         max_pages: int = 100,
     ) -> None:

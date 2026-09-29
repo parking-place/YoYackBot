@@ -46,7 +46,9 @@ def setup(tmp_path, history, **limits):
     watches.replace(1, frozenset({10}))
     store = SQLiteMessageStore(path)
     recent = TimeRangeCollector(store, watches, history, clock=lambda: NOW)
-    collector = LongRangeCollector(recent, history, **limits)
+    collector = LongRangeCollector(recent, history, **{
+        "retention_days": 7, "max_days": 28, **limits,
+    })
     return collector, store
 
 
@@ -87,6 +89,35 @@ def test_more_than_four_weeks_is_rejected_before_history_or_db_mutation(tmp_path
             )
         assert failed.value.kind is LongRangeFailure.TOO_OLD
         assert history.calls == [] and store.coverage(1, 10) == []
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("age", [6, 7, 8, 29, 30])
+def test_thirty_day_cache_includes_boundary_and_rejects_day_31(tmp_path, age) -> None:
+    async def scenario() -> None:
+        included = message(100, age)
+        excluded = message(101, 31)
+        history = FakeHistory([included, excluded])
+        collector, store = setup(
+            tmp_path, history, retention_days=30, max_days=30
+        )
+        result = await collector.collect(
+            channel(), guild_id=1, channel_id=10,
+            start=NOW - timedelta(days=30), end=NOW, accepted_at=NOW,
+        )
+        assert [item.message_id for item in result.messages] == [100]
+        assert result.older_count == 0 and result.pages == 1
+        assert history.calls == [(NOW - timedelta(days=30), NOW)]
+        assert [item.message_id for item in store.recent(
+            1, 10, NOW - timedelta(days=30), NOW
+        )] == [100]
+        with pytest.raises(LongRangeError) as failed:
+            await collector.collect(
+                channel(), guild_id=1, channel_id=10,
+                start=NOW - timedelta(days=31), end=NOW, accepted_at=NOW,
+            )
+        assert failed.value.kind is LongRangeFailure.TOO_OLD
 
     asyncio.run(scenario())
 
