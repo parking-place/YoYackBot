@@ -17,6 +17,7 @@
 - [개발 환경과 실행 방법](DEVELOPMENT.md)
 - [주시 채널 설정 안내](docs/channel-settings.md)
 - [1.0.0 설치·업데이트·제거](docs/install-release.md)
+- [1.0.0d 승격·복귀](docs/upgrade-rollback-1.0.0d.md)
 - [1.0.0 운영 인수·제한](docs/handoff-1.0.0.md)
 - [변경 기록](CHANGELOG.md)
 
