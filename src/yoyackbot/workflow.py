@@ -28,7 +28,7 @@ from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.ops import RequestMetrics
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError
-from yoyackbot.scope import start_notice
+from yoyackbot.scope import busy_notice, start_notice
 from yoyackbot.state import AdmissionKind, ChannelStates
 from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
 from yoyackbot.watch_gate import ChannelLease
@@ -165,12 +165,24 @@ class SummaryWorkflow:
             metrics.failure_detail = "permission"
             await send_notice(FAILED_NOTICE)
             return
-        admission = await self.states.admit(
-            guild_id, channel_id, scope=request.scope, mode=request.mode,
-        )
-        if admission.kind is AdmissionKind.BUSY:
+        while True:
+            admission = await self.states.admit(
+                guild_id, channel_id, scope=request.scope, mode=request.mode,
+            )
+            if admission.kind is not AdmissionKind.BUSY:
+                break
+            job = admission.job
+            if job is not None and not job.announced.is_set():
+                # Never overtake the running request's start notice; if it ended without
+                # announcing (not ready or send failure), judge this request afresh.
+                await job.announced.wait()
+                if await self.states.active(guild_id, channel_id) is not job:
+                    continue
             metrics.outcome = "busy"
-            await send_notice(BUSY_NOTICE)
+            await send_notice(
+                busy_notice(job.scope, job.mode) if job is not None and job.scope is not None
+                else BUSY_NOTICE
+            )
             return
         if admission.kind is AdmissionKind.COOLDOWN:
             metrics.outcome = "cooldown"
