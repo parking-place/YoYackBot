@@ -63,6 +63,7 @@ def test_help_examples_cover_all_supported_forms() -> None:
         "`!!요약좀 상태`",
     ):
         assert example in HELP_TEXT
+    assert "요약을 시작하면 범위를 먼저 알려주고" in HELP_TEXT and "준비 중이라고 답하오" in HELP_TEXT
     assert "범위를 생략하면 최근 1시간" in HELP_TEXT and "모든 서버가 함께 쓰는 파일" in HELP_TEXT
     assert len(HELP_TEXT) < 2000
     assert "기간 요약은 최대 30일까지 가능하오." in HELP_TEXT
