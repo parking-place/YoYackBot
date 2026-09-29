@@ -1,12 +1,19 @@
 """The model process receives one request file and only its final model message escapes."""
 
 import asyncio
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from yoyackbot.codex import CodexContract, CodexFailure
-from yoyackbot.codex_runner import CodexRunError, SandboxedCodex, final_text
+from yoyackbot.codex_runner import (
+    _OutputExceeded,
+    _bounded_read,
+    CodexRunError,
+    SandboxedCodex,
+    final_text,
+)
 from yoyackbot.input_files import InputWorkspace
 
 
@@ -110,6 +117,44 @@ def test_empty_or_non_utf8_final_is_rejected() -> None:
         final_text(b"\x1b[31m\x1b[0m")
     with pytest.raises(CodexRunError):
         final_text(b"\xff")
+
+
+def test_verbose_cli_stream_is_drained_but_only_small_sample_is_retained() -> None:
+    async def scenario() -> None:
+        stream = asyncio.StreamReader()
+        stream.feed_data(b"A" * 4096 + b"B" * 200_000 + b"C" * 4096)
+        stream.feed_eof()
+        sample = await _bounded_read(stream, 5_000_000)
+        assert len(sample) == 8192
+        assert sample.startswith(b"A" * 4096)
+        assert sample.endswith(b"C" * 4096)
+
+        excessive = asyncio.StreamReader()
+        excessive.feed_data(b"X" * 10_001)
+        excessive.feed_eof()
+        with pytest.raises(_OutputExceeded):
+            await _bounded_read(excessive, 10_000)
+
+    asyncio.run(scenario())
+
+
+def test_final_message_limit_still_applies_after_verbose_cli_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    isolated = replace(runner(tmp_path), max_output_bytes=100)
+
+    async def fake_invoke(
+        _command: list[str], _prompt: bytes, _env: dict[str, str],
+        _timeout: float, _limit: int,
+    ) -> tuple[int, bytes, bytes]:
+        (workspace.output_directory / "final.txt").write_bytes(b"A" * 101)
+        return 0, b"", b""
+
+    monkeypatch.setattr("yoyackbot.codex_runner._invoke", fake_invoke)
+    with InputWorkspace.create(tmp_path / "inputs", b"synthetic") as workspace:
+        with pytest.raises(CodexRunError) as raised:
+            asyncio.run(isolated.execute(workspace, "synthetic prompt"))
+    assert raised.value.kind is CodexFailure.OUTPUT_LIMIT
 
 
 def test_auth_refresh_persists_without_cli_state_residue(

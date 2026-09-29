@@ -31,12 +31,22 @@ class _OutputExceeded(RuntimeError):
 
 
 async def _bounded_read(stream: asyncio.StreamReader, limit: int) -> bytes:
-    data = bytearray()
+    """Drain verbose CLI diagnostics without retaining their private full text."""
+    first = bytearray()
+    tail = bytearray()
+    total = 0
     while chunk := await stream.read(8192):
-        if len(data) + len(chunk) > limit:
+        total += len(chunk)
+        if total > limit:
             raise _OutputExceeded
-        data.extend(chunk)
-    return bytes(data)
+        if len(first) < 8192:
+            first.extend(chunk[:8192 - len(first)])
+        tail.extend(chunk)
+        if len(tail) > 4096:
+            del tail[:-4096]
+    if total <= 8192:
+        return bytes(first)
+    return bytes(first[:4096] + tail)
 
 
 async def _send_prompt(stream: asyncio.StreamWriter, prompt: bytes) -> None:
@@ -66,10 +76,11 @@ async def _invoke(
         env=env, start_new_session=True,
     )
     assert process.stdin is not None and process.stdout is not None and process.stderr is not None
+    diagnostic_limit = max(5_000_000, output_limit)
     tasks = [
         asyncio.create_task(_send_prompt(process.stdin, prompt)),
-        asyncio.create_task(_bounded_read(process.stdout, output_limit)),
-        asyncio.create_task(_bounded_read(process.stderr, output_limit)),
+        asyncio.create_task(_bounded_read(process.stdout, diagnostic_limit)),
+        asyncio.create_task(_bounded_read(process.stderr, diagnostic_limit)),
         asyncio.create_task(process.wait()),
     ]
     try:
