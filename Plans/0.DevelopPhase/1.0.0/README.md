@@ -20,7 +20,7 @@
 | 1 | [1.0.0-P1 — 정식 출시 범위·증거 최종 검토](01-release-review.md) | `T100-P1-A/B` | DONE |
 | 2 | [1.0.0-P2 — 버전·배포 산출물·설정 재현성](02-release-package.md) | `T100-P2-A/B` | DONE |
 | 3 | [1.0.0-P3 — 업데이트·migration·롤백 리허설](03-rollback-rehearsal.md) | `T100-P3-A/B` | DONE |
-| 4 | [1.0.0-P4 — 운영 배포·동일 SHA smoke·초기 관측](04-production-validation.md) | `T100-P4-A/B` | IN_PROGRESS |
+| 4 | [1.0.0-P4 — 운영 배포·동일 SHA smoke·초기 관측](04-production-validation.md) | `T100-P4-A/B` | DONE |
 | 5 | [1.0.0-P5 — GitHub 정식 릴리스·최종 인수](05-release-publish.md) | `T100-P5-A/B` | PLANNED |
 
 ## 버전 완료 조건

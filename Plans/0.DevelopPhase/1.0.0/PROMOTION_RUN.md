@@ -1,6 +1,6 @@
 # 1.0.0-P4 제자리 승격 중간 기록
 
-- 상태: **배포 완료·P4 종료 증거 작성 중** — 새 배포의 실제 Discord 게시 결과는 [사용자 결정](POSTING_WAIVER.md)에 따라 `SKIPPED_BY_USER`이며 PASS가 아니다.
+- 상태: **P4 완료(게시 검증 생략)** — 새 배포의 실제 Discord 게시 결과는 [사용자 결정](POSTING_WAIVER.md)에 따라 `SKIPPED_BY_USER`이며 PASS가 아니다.
 - 대상 구현/배포 SHA: `aed79b1d5ae7a869154479fbbd7c2daa2424727a` (`develop/1.0.0`, 원격 CI 성공).
 - 대상: 사용자 선택에 따라 기존 개발 LXC·전용 봇 계정과 같은 systemd 서비스 사용. 운영 DB 원문이나 서버 식별자는 기록하지 않는다.
 - 2026-09-29 01:12:05–01:12:10 UTC: 이전 단일 Gateway 중지 확인 후, 검증한 1.0.0 wheel을 서비스 가상환경에 설치하고 단일 서비스 기동. 새 PID에서 wheel의 메타데이터·모듈 버전 `1.0.0`, 대상 Git SHA, `check-ready`, `health.ready=true`, `gateway_ready=true` 확인. 서비스 프로세스 1개·재시작 0회.
