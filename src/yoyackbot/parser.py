@@ -10,6 +10,7 @@ from yoyackbot.domain import SummaryMode
 TRIGGER = "!!요약좀"
 USAGE_WORD = "사용량"
 STATUS_WORD = "상태"
+CHANNELS_WORD = "채널"
 HELP_WORD = re.compile(r"(?<!\S)도움(?:말)?(?=\s|$)")
 
 HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
@@ -61,6 +62,7 @@ class RouteKind(Enum):
     SUMMARY = "summary"
     USAGE = "usage"
     STATUS = "status"
+    CHANNELS = "channels"
 
 
 @dataclass(frozen=True)
@@ -119,6 +121,8 @@ def route_trigger(content: str) -> TriggerRoute:
         return TriggerRoute(RouteKind.USAGE, repeated=repeated)
     if options == STATUS_WORD:
         return TriggerRoute(RouteKind.STATUS, repeated=repeated)
+    if options == CHANNELS_WORD:
+        return TriggerRoute(RouteKind.CHANNELS, repeated=repeated)
     return TriggerRoute(RouteKind.SUMMARY, options=options, repeated=repeated)
 
 
