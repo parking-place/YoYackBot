@@ -116,6 +116,30 @@ def test_permission_change_during_page_fetch_preserves_cursor(tmp_path) -> None:
     asyncio.run(scenario())
 
 
+def test_slow_or_cancelled_page_does_not_hold_other_guild() -> None:
+    async def scenario() -> None:
+        scheduler = BackfillPageScheduler(global_limit=2, per_guild_limit=1)
+        entered = asyncio.Event()
+
+        async def slow() -> bool:
+            entered.set()
+            await asyncio.Event().wait()
+            return True
+
+        async def fast() -> bool:
+            return True
+
+        blocked = asyncio.create_task(scheduler.run(1, slow))
+        await asyncio.wait_for(entered.wait(), 1)
+        assert await asyncio.wait_for(scheduler.run(2, fast), 1)
+        blocked.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await blocked
+        assert await asyncio.wait_for(scheduler.run(1, fast), 1)
+
+    asyncio.run(scenario())
+
+
 def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_path) -> None:
     async def scenario() -> None:
         path = tmp_path / "messages.db"
