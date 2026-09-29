@@ -163,7 +163,9 @@ class SummaryWorkflow:
             metrics.failure_detail = "permission"
             await send_notice(FAILED_NOTICE)
             return
-        admission = await self.states.admit(guild_id, channel_id)
+        admission = await self.states.admit(
+            guild_id, channel_id, scope=request.scope, mode=request.mode,
+        )
         if admission.kind is AdmissionKind.BUSY:
             metrics.outcome = "busy"
             await send_notice(BUSY_NOTICE)

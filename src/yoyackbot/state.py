@@ -4,11 +4,13 @@ import asyncio
 import math
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 from yoyackbot.cooldown import SQLiteCooldownStore
+from yoyackbot.domain import SummaryMode
+from yoyackbot.scope import RangeScope
 
 
 class ChannelStatus(Enum):
@@ -23,10 +25,20 @@ class AdmissionKind(Enum):
     COOLDOWN = "cooldown"
 
 
+@dataclass(eq=False)
+class ActiveJob:
+    """The first admitted request's fixed scope; later requests only read it."""
+
+    scope: RangeScope | None
+    mode: SummaryMode = SummaryMode.NORMAL
+    announced: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
+
+
 @dataclass(frozen=True)
 class Admission:
     kind: AdmissionKind
     remaining_seconds: int = 0
+    job: ActiveJob | None = None
 
 
 class ChannelStates:
@@ -38,7 +50,7 @@ class ChannelStates:
         self.cooldowns = cooldowns
         self.clock = clock or (lambda: datetime.now(UTC))
         self.monotonic = monotonic or time.monotonic
-        self._active: set[tuple[int, int]] = set()
+        self._active: dict[tuple[int, int], ActiveJob] = {}
         self._deadline: dict[tuple[int, int], float] = {}
         self._expired: set[tuple[int, int]] = set()
         self._guard = asyncio.Lock()
@@ -46,16 +58,31 @@ class ChannelStates:
     async def begin(self, guild_id: int, channel_id: int) -> bool:
         return (await self.admit(guild_id, channel_id)).kind is AdmissionKind.ACCEPTED
 
-    async def admit(self, guild_id: int, channel_id: int) -> Admission:
+    async def admit(
+        self, guild_id: int, channel_id: int, *,
+        scope: RangeScope | None = None, mode: SummaryMode = SummaryMode.NORMAL,
+    ) -> Admission:
+        """Admit one job per channel; BUSY returns the running job's scope, never the new one."""
         key = guild_id, channel_id
         async with self._guard:
-            if key in self._active:
-                return Admission(AdmissionKind.BUSY)
+            active = self._active.get(key)
+            if active is not None:
+                return Admission(AdmissionKind.BUSY, job=active)
             remaining = await self._remaining_locked(key)
             if remaining > 0:
                 return Admission(AdmissionKind.COOLDOWN, remaining)
-            self._active.add(key)
-            return Admission(AdmissionKind.ACCEPTED)
+            job = ActiveJob(scope, mode)
+            self._active[key] = job
+            return Admission(AdmissionKind.ACCEPTED, job=job)
+
+    def _release_locked(self, key: tuple[int, int]) -> None:
+        job = self._active.pop(key, None)
+        if job is not None:
+            job.announced.set()
+
+    async def active(self, guild_id: int, channel_id: int) -> ActiveJob | None:
+        async with self._guard:
+            return self._active.get((guild_id, channel_id))
 
     async def _remaining_locked(self, key: tuple[int, int]) -> int:
         if self.cooldowns is None or key in self._expired:
@@ -88,11 +115,11 @@ class ChannelStates:
                 else:
                     self._deadline.pop(key, None)
                     self._expired.add(key)
-            self._active.discard(key)
+            self._release_locked(key)
 
     async def finish(self, guild_id: int, channel_id: int) -> None:
         async with self._guard:
-            self._active.discard((guild_id, channel_id))
+            self._release_locked((guild_id, channel_id))
 
     async def status(self, guild_id: int, channel_id: int) -> ChannelStatus:
         async with self._guard:

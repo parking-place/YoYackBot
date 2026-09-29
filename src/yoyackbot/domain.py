@@ -4,7 +4,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from yoyackbot.scope import RangeScope
 
 
 class SummaryMode(Enum):
@@ -82,6 +85,7 @@ class SummaryRequest:
     user_id: int
     requested_range: RangeRequest
     mode: SummaryMode = SummaryMode.NORMAL
+    scope: "RangeScope | None" = None
 
 
 @dataclass(frozen=True)

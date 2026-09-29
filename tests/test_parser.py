@@ -219,7 +219,7 @@ def test_all_command_forms_reach_normalized_request_and_invalid_options_stop() -
         requests = []
 
         class SpyClient(YoYackClient):
-            async def on_summary_request(self, message, request, lease, *, mode) -> None:
+            async def on_summary_request(self, message, request, lease, *, mode, scope) -> None:
                 assert lease.valid()
                 assert mode is SummaryMode.NORMAL
                 requests.append(request)
