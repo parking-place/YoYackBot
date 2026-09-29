@@ -7,7 +7,7 @@
 - [기능 명세 v1.5](Plans/shinchangseop_discord_summary_bot_spec_v1.5.md)
 - [0.0.0 → 1.0.0 개발 계획](Plans/0.DevelopPhase/README.md)
 - [1.0.0a 캐시·요약 기간 30일 계획](Plans/0.DevelopPhase/1.0.0a/README.md)
-- [1.0.0b 100건 초과 실패 수정 계획](Plans/0.DevelopPhase/1.0.0b/README.md)
+- [1.0.0b-1 대량 요약 복구·첫 30일 전체 수집 계획](Plans/0.DevelopPhase/1.0.0b-1/README.md) ([옛 1.0.0b 계획은 폐기](Plans/0.DevelopPhase/1.0.0b/README.md))
 - [1.0.0c 여러 채널 동시 요청 최적화 계획](Plans/0.DevelopPhase/1.0.0c/README.md)
 - [1.0.0d 실제 닉네임 표시 계획](Plans/0.DevelopPhase/1.0.0d/README.md)
 - [1.0.1 후속 명령 계획](Plans/0.DevelopPhase/1.0.1/README.md)
@@ -22,7 +22,7 @@
 
 11개 버전, 버전별 5단계, 총 55단계로 개발한다. 각 단계는 작업과 검증을 마치고 **Git commit → GitHub push → 원격 반영 확인**까지 끝나야 완료된다.
 
-1.0.0a·c·d는 각 5단계, 초기 30일 수집을 추가한 1.0.0b는 6단계의 후속 계획이다. 단계별 실제 진행은 각 버전의 상태 문서를 따른다. 1.0.1 후속 명령은 그 뒤의 별도 6단계 계획이며 아직 구현되지 않았다.
+1.0.0a는 5단계 완료·출시됐고, 이를 이은 1.0.0b-1은 첫 30일 전체 수집 후 실시간 DB 수집으로 전환하는 6단계 계획이다. 1.0.0c·d는 각 5단계 계획이다. 단계별 실제 진행은 각 버전의 상태 문서를 따른다. 1.0.1 후속 명령은 그 뒤의 별도 6단계 계획이며 아직 구현되지 않았다.
 
 1.0.2의 수집 시작·진행 중 범위 안내도 별도 5단계 계획이며 아직 구현되지 않았다.
 
