@@ -12,6 +12,8 @@
 
 기존 개별 `message_cached`, `cache_cleanup`, `gateway_ready` 등은 이벤트명과 개수만 남긴다. Discord 라이브러리의 일반 로그는 오류 수준으로 낮추고, 애플리케이션 실패 로그에서 예외 스택과 메시지를 제거했다. 오류 분류는 요청 JSON과 상태 검사로 판단한다.
 
+1.0.0c의 기본 모델 작업 정책은 실행 1건·대기 8건·대기 최대 600초다. `collection_ms`, `queue_ms`, `model_ms`, `duration_ms`와 `queue_full`·`queue_timeout`을 함께 보면 수집·모델·게시 중 병목을 구분할 수 있다. 첫 수집은 한 번에 전체 3페이지·서버당 2페이지로 제한하고 서버별 순번으로 진행한다. 병렬 수집에서도 권한 거부·429·DB 잠금은 채널별로 분리 기록한다. 실제 운영값이 환경 변수에 명시돼 있으면 이 기본값과 다를 수 있다.
+
 ## 보존 및 알림
 
 개발 서비스는 `LogNamespace=yoyackbot-dev`로 분리한다. 설치 시 `deploy/journald-yoyackbot-dev.conf`를 `/etc/systemd/journald@yoyackbot-dev.conf`에 놓고 `systemctl restart systemd-journald@yoyackbot-dev.service`, `systemctl daemon-reload`, `systemctl restart yoyackbot-dev.service` 순으로 반영한다. 전용 journal은 최대 50 MiB, 파일당 5 MiB, 최대 7일 보존이며, 단위 로그는 분당 120건을 넘으면 억제한다. `journalctl --namespace=yoyackbot-dev -u yoyackbot-dev.service`로 확인한다. 이 분리는 다른 서비스의 로그 정책을 바꾸지 않는다.
