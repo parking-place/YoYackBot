@@ -18,7 +18,7 @@ from yoyackbot.collection import EMPTY_NOTICE, CollectionUnavailable
 from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore, cooldown_notice
 from yoyackbot.count_collection import CountError
-from yoyackbot.domain import MessageRecord, SummaryRequest, SummaryResult
+from yoyackbot.domain import MessageRecord, SummaryMode, SummaryRequest, SummaryResult
 from yoyackbot.errors import FailureKind, message_for
 from yoyackbot.history import HistoryError
 from yoyackbot.input_files import ConversationTooLarge, InputFileError
@@ -63,7 +63,7 @@ class SummaryWorkflow:
 
     async def _summarize_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
-        trigger_message_id: int | None,
+        trigger_message_id: int | None, mode: SummaryMode,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
     ) -> SummaryResult:
         if self.queue is not None:
@@ -79,22 +79,22 @@ class SummaryWorkflow:
                     raise JobInvalidated
                 return await self._run_model_guarded(
                     messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
-                    channel=channel, lease=lease, metrics=metrics,
+                    mode=mode, channel=channel, lease=lease, metrics=metrics,
                 )
         return await self._run_model_guarded(
             messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
-            channel=channel, lease=lease, metrics=metrics,
+            mode=mode, channel=channel, lease=lease, metrics=metrics,
         )
 
     async def _run_model_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
-        trigger_message_id: int | None,
+        trigger_message_id: int | None, mode: SummaryMode,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
     ) -> SummaryResult:
         model_started = time.monotonic()
         model = asyncio.create_task(self.engine.summarize(
             messages, channel_name=channel_name, range_label="선택한 대화",
-            trigger_message_id=trigger_message_id,
+            trigger_message_id=trigger_message_id, mode=mode,
             on_input_size=lambda size: setattr(metrics, "input_bytes", size),
         ))
         try:
@@ -123,7 +123,7 @@ class SummaryWorkflow:
         self, request: SummaryRequest, channel: discord.TextChannel,
         lease: ChannelLease, send_notice: Callable[[str], Awaitable[None]],
     ) -> None:
-        metrics = RequestMetrics(request.requested_range.kind.value)
+        metrics = RequestMetrics(request.requested_range.kind.value, mode=request.mode.value)
         task = asyncio.current_task()
         if task is not None:
             self._jobs.add(task)
@@ -203,7 +203,7 @@ class SummaryWorkflow:
             result = await self._summarize_guarded(
                 outcome.messages, channel_name=channel.name,
                 trigger_message_id=request.requested_range.trigger_message_id,
-                channel=channel, lease=lease, metrics=metrics,
+                mode=request.mode, channel=channel, lease=lease, metrics=metrics,
             )
             metrics.model_result = "success"
             if not await can_continue():

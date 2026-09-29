@@ -12,6 +12,7 @@ from yoyackbot.channel_config import MemoryWatchStore
 from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore
 from yoyackbot.discord import PREVIEW_NOTICE, YoYackClient
+from yoyackbot.domain import SummaryMode
 from yoyackbot.parser import (
     HELP_TEXT,
     CommandLimitError,
@@ -213,8 +214,9 @@ def test_all_command_forms_reach_normalized_request_and_invalid_options_stop() -
         requests = []
 
         class SpyClient(YoYackClient):
-            async def on_summary_request(self, message, request, lease) -> None:
+            async def on_summary_request(self, message, request, lease, *, mode) -> None:
                 assert lease.valid()
+                assert mode is SummaryMode.NORMAL
                 requests.append(request)
 
         client = SpyClient(

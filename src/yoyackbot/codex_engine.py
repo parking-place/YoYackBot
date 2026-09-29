@@ -8,10 +8,10 @@ from typing import Self
 from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
 from yoyackbot.codex_runner import CodexRunError, SandboxedCodex
 from yoyackbot.config import Settings
-from yoyackbot.domain import MessageRecord, SummaryResult
+from yoyackbot.domain import MessageRecord, SummaryMode, SummaryResult
 from yoyackbot.input_files import InputWorkspace, serialize_conversation
 from yoyackbot.output_quality import OutputIssue, inspect_output
-from yoyackbot.summary_prompt import SPEAKER_RETRY_PROMPT, SUMMARY_PROMPT
+from yoyackbot.summary_prompt import prompt_for
 
 
 @dataclass(frozen=True)
@@ -40,6 +40,7 @@ class CodexSummaryEngine:
         self, messages: Sequence[MessageRecord], *, channel_name: str = "현재 채널",
         range_label: str = "요청 범위", trigger_message_id: int | None = None,
         on_input_size: Callable[[int], None] | None = None,
+        mode: SummaryMode = SummaryMode.NORMAL,
     ) -> SummaryResult:
         included = [item for item in messages if item.message_id != trigger_message_id]
         if not included:
@@ -52,11 +53,13 @@ class CodexSummaryEngine:
         root = self.settings.input_directory.absolute()
         async with self._slots:
             workspace = InputWorkspace.create(root, data)
-            result = await self.runner.execute(workspace, SUMMARY_PROMPT)
+            result = await self.runner.execute(workspace, prompt_for(mode))
             source_bodies = [item.content for item in included]
             if inspect_output(result, source_bodies) is OutputIssue.SPEAKER_KEY:
                 retry_workspace = InputWorkspace.create(root, data)
-                result = await self.runner.execute(retry_workspace, SPEAKER_RETRY_PROMPT)
+                result = await self.runner.execute(
+                    retry_workspace, prompt_for(mode, speaker_retry=True)
+                )
         if inspect_output(result, [item.content for item in included]) is not None:
             raise CodexRunError(CodexFailure.OUTPUT_INVALID)
         return SummaryResult(result, self.runner.contract.model, len(included))

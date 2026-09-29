@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from yoyackbot.config import Settings
+from yoyackbot.domain import SummaryMode
 
 TRIGGER = "!!요약좀"
 USAGE_WORD = "사용량"
@@ -104,6 +105,29 @@ def route_trigger(content: str) -> TriggerRoute:
     if options == USAGE_WORD:
         return TriggerRoute(RouteKind.USAGE, repeated=repeated)
     return TriggerRoute(RouteKind.SUMMARY, options=options, repeated=repeated)
+
+
+MODE_WORDS = {"자세히": SummaryMode.DETAILED}
+
+
+def _without_polite_ending(text: str) -> str:
+    for ending in POLITE_ENDINGS:
+        if text == ending:
+            return ""
+        if text.endswith(" " + ending):
+            return text[: -len(ending)].strip()
+    return text
+
+
+def split_mode(options: str) -> tuple[str, SummaryMode]:
+    """Accept one density word only after the range; never reorder or merge modes."""
+    words = _without_polite_ending(options.strip()).split()
+    mode = SummaryMode.NORMAL
+    if words and words[-1] in MODE_WORDS:
+        mode = MODE_WORDS[words.pop()]
+    if any(word in MODE_WORDS for word in words):
+        raise CommandSyntaxError(USAGE_NOTICE)
+    return " ".join(words), mode
 
 
 def parse_option(options: str) -> ParsedOption:
