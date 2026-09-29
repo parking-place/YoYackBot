@@ -145,6 +145,35 @@ def test_preexisting_watch_is_migrated_without_first_watch_announcement(tmp_path
     assert backfills.ensure_existing() == 0
 
 
+def test_history_page_cannot_undo_newer_live_edit_or_delete(tmp_path) -> None:
+    path = tmp_path / "messages.db"
+    watches = SQLiteWatchStore(path)
+    watches.replace(1, frozenset({99}))
+    backfills = SQLiteBackfillStore(path)
+    state = backfills.get(1, 99)
+    assert state is not None
+    now = datetime.now(UTC)
+    original = MessageRecord(123, 1, 99, 7, "합성 화자", "예전 본문", now - timedelta(hours=1))
+    messages = SQLiteMessageStore(path)
+    messages.upsert(original, cached_at=now)
+    assert messages.update_content(
+        1, 99, 123, "새 본문", edited_at=now, cached_at=now
+    )
+    assert backfills.save_page(
+        state, (original,), next_cursor=state.cursor - 1,
+        next_phase="history", finished_at=None, cached_at=now,
+    )
+    assert messages.recent(1, 99, now - timedelta(days=1), now)[0].content == "새 본문"
+    assert messages.delete_many(1, 99, {123}) == 1
+    current = backfills.get(1, 99)
+    assert current is not None
+    assert backfills.save_page(
+        current, (original,), next_cursor=current.cursor - 1,
+        next_phase="history", finished_at=None, cached_at=now,
+    )
+    assert messages.recent(1, 99, now - timedelta(days=1), now) == []
+
+
 def test_normal_summary_uses_ready_cache_only(tmp_path) -> None:
     async def scenario() -> None:
         path = tmp_path / "messages.db"

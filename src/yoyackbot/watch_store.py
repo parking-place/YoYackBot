@@ -140,6 +140,12 @@ class SQLiteWatchStore:
                         connection.execute(
                             "ALTER TABLE backfill_state ADD COLUMN overlap_start_us INTEGER"
                         )
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS deleted_messages ("
+                        "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
+                        "message_id INTEGER NOT NULL, deleted_at_us INTEGER NOT NULL, "
+                        "PRIMARY KEY(guild_id, channel_id, message_id))"
+                    )
         except (OSError, sqlite3.Error) as exc:
             raise WatchStoreError("Settings database unavailable") from exc
 
@@ -212,6 +218,10 @@ class SQLiteWatchStore:
                 )
                 for removed_id in existing - channel_ids:
                     connection.execute(
+                        "DELETE FROM deleted_messages WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
                         "DELETE FROM backfill_state WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
@@ -255,6 +265,10 @@ class SQLiteWatchStore:
                 )
                 if cursor.rowcount:
                     connection.execute(
+                        "DELETE FROM deleted_messages WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
                         "DELETE FROM backfill_state WHERE guild_id=? AND channel_id=?",
                         (guild_id, channel_id),
                     )
@@ -289,6 +303,7 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM coverage WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM coverage_recheck WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM summary_cooldowns WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM deleted_messages WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM backfill_state WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
