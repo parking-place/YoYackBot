@@ -12,7 +12,7 @@
 | `T102-P3-B` | [P3](03-collection-notice.md) | LXC 합성 | 미주시·준비 중(초기 수집·재확인)·옵션 오류·쿨타임·종료·전송 실패에 허위 시작 안내·조회 없음 | PASS — [증거](../evidence/1.0.2-P3.md) |
 | `T102-P4-A` | [P4](04-busy-notice.md) | LXC 합성 | `10일` 활성 중 `5분` 중복에 정확한 두 줄, 첫 안내 선행, 단일 작업 | PASS — [증거](../evidence/1.0.2-P4.md) |
 | `T102-P4-B` | [P4](04-busy-notice.md) | LXC 합성 | 시작 안내 전송·조회·대기·모델·게시·종료 경계의 활성 범위와 채널/Guild 분리 | PASS — [증거](../evidence/1.0.2-P4.md) |
-| `T102-P5-A` | [P5](05-integration-release.md) | LXC/CI | 전체 옵션·1.0.1 명령·준비 상태 경계·도움말·보안·쿨타임·패키지 회귀 | NOT_RUN |
-| `T102-P5-B` | [P5](05-integration-release.md) | LXC/시험 Discord | 동일 SHA의 시작/진행 중 게시·순서(사용자 확인+로그), 배포/복구 및 원격 증거 | NOT_RUN |
+| `T102-P5-A` | [P5](05-integration-release.md) | LXC/CI | 전체 옵션·1.0.1 명령·준비 상태 경계·도움말·보안·쿨타임·패키지 회귀 | PASS — [증거](../evidence/1.0.2-P5.md) |
+| `T102-P5-B` | [P5](05-integration-release.md) | LXC/시험 Discord | 동일 SHA의 시작/진행 중 게시·순서(사용자 확인+로그), 배포/복구 및 원격 증거 | PASS(시험 Discord 사용자 확인+로그, 복귀는 격리) — [증거](../evidence/1.0.2-P5.md) |
 
 각 단계의 A/B 결과, 구현 C·증거 E·종료 D의 GitHub 반영과 필요한 CI가 확인돼야 [상태 문서](STATUS.md)를 DONE으로 변경한다. 실제 Discord 게시가 미실행이면 해당 항목은 `NOT_RUN`이다. 사용자 요청에 따라 8시간·24시간 연속 관측은 이 버전의 필수 검사에 포함하지 않는다.
