@@ -3,7 +3,7 @@
 ## 배포 기준
 
 - 운영 대상은 사용자가 선택한 기존 개발 LXC·전용 봇 계정이다. 서비스 이름은 `yoyackbot-dev.service`를 유지한다.
-- 1.0.0 배포 및 `v1.0.0` 태그의 대상 Git SHA는 `aed79b1d5ae7a869154479fbbd7c2daa2424727a`이다. 실행 패키지는 이 SHA의 wheel이며, 패키지 메타데이터·모듈 버전은 `1.0.0`이다. [설치 산출물과 checksum](install-release.md)은 GitHub Release에 게시한다.
+- 1.0.0 배포 및 `v1.0.0` 태그의 대상 Git SHA는 `aed79b1d5ae7a869154479fbbd7c2daa2424727a`이다. 실행 패키지는 이 SHA의 wheel이며, 패키지 메타데이터·모듈 버전은 `1.0.0`이다. [설치 산출물과 checksum](install-release.md)은 [GitHub Release](https://github.com/parking-place/YoYackBot/releases/tag/v1.0.0)에 게시했다.
 - 운영 DB는 schema 5다. 전환 당시 주시 설정과 성공 대기 기록을 유지했고, DB 무결성·입력 임시 디렉터리·7일 경계를 확인했다. 실제 개인 대화와 인증 파일은 Release 자산에 없다.
 
 ## 평시 운영과 복구
