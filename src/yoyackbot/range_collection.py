@@ -32,6 +32,7 @@ class TimeCollectionResult:
     messages: tuple[MessageRecord, ...]
     queried: tuple[CoverageInterval, ...]
     pages: int
+    history_ids: frozenset[int] = frozenset()
 
 
 class TimeRangeCollector:
@@ -71,6 +72,7 @@ class TimeRangeCollector:
             raise CollectionError(CollectionFailure.UNWATCHED)
         gaps = await asyncio.to_thread(self.store.missing, guild_id, request)
         pages = 0
+        history_ids: set[int] = set()
         for gap in gaps:
             fetched_after = self.clock()
             result = await self.history.collect(
@@ -96,6 +98,7 @@ class TimeRangeCollector:
             )
             if not completed:
                 raise CollectionError(CollectionFailure.WATCH_CHANGED)
+            history_ids.update(item.message_id for item in result.messages)
             pages += result.pages
         messages = await asyncio.to_thread(self.store.recent, guild_id, channel_id, start, end)
         final_version, final_selected = await asyncio.to_thread(self.watches.snapshot, guild_id)
@@ -105,4 +108,5 @@ class TimeRangeCollector:
             tuple(message for message in messages if message.message_id != trigger_message_id),
             tuple(gaps),
             pages,
+            frozenset(history_ids),
         )

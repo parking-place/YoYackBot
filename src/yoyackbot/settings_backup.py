@@ -1,0 +1,121 @@
+"""Settings-only recovery without retaining conversation records."""
+
+import json
+import os
+import secrets
+import sqlite3
+from contextlib import closing
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
+from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
+
+FORMAT = "yoyackbot-settings-v1"
+
+
+class BackupError(RuntimeError):
+    """Secret-safe settings backup or restore failure."""
+
+
+def backup_settings(database: Path, backup_root: Path) -> Path:
+    """Write only watch revisions, selected channels, and cooldowns to a 0600 file."""
+    if not database.is_file():
+        raise BackupError("Settings database unavailable")
+    try:
+        with closing(sqlite3.connect(database, timeout=5)) as connection:
+            connection.execute("BEGIN")
+            if connection.execute("PRAGMA user_version").fetchone()[0] != 5:
+                raise BackupError("Unsupported settings schema")
+            if connection.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+                raise BackupError("Settings database integrity failed")
+            snapshot = {
+                "format": FORMAT,
+                "schema": 5,
+                "watch_meta": connection.execute(
+                    "SELECT guild_id, version FROM guild_watch_meta ORDER BY guild_id"
+                ).fetchall(),
+                "channels": connection.execute(
+                    "SELECT guild_id, channel_id, updated_at FROM watched_channels "
+                    "ORDER BY guild_id, channel_id"
+                ).fetchall(),
+                "cooldowns": connection.execute(
+                    "SELECT guild_id, channel_id, last_success_us, expires_at_us "
+                    "FROM summary_cooldowns ORDER BY guild_id, channel_id"
+                ).fetchall(),
+            }
+        backup_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if backup_root.is_symlink() or backup_root.stat().st_mode & 0o077:
+            raise BackupError("Backup directory is not private")
+        name = datetime.now(UTC).strftime("settings-%Y%m%dT%H%M%SZ-")
+        name += secrets.token_hex(4) + ".json"
+        target = backup_root / name
+        descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                json.dump(snapshot, stream, separators=(",", ":"))
+                stream.flush()
+                os.fsync(stream.fileno())
+        except BaseException:
+            target.unlink(missing_ok=True)
+            raise
+        return target
+    except (OSError, sqlite3.Error) as exc:
+        raise BackupError("Settings backup failed") from exc
+
+
+def _validated_rows(data: object, key: str, columns: int) -> list[tuple[int, ...]]:
+    if not isinstance(data, dict) or not isinstance(data.get(key), list):
+        raise BackupError("Settings backup is invalid")
+    rows: list[tuple[int, ...]] = []
+    for row in data[key]:
+        if not isinstance(row, list) or len(row) != columns:
+            raise BackupError("Settings backup is invalid")
+        if any(type(value) is not int or value < 0 for value in row):
+            raise BackupError("Settings backup is invalid")
+        if row[0] < 1 or (columns > 2 and row[1] < 1):
+            raise BackupError("Settings backup is invalid")
+        rows.append(tuple(row))
+    return rows
+
+
+def restore_settings(backup: Path, target: Path, *, live_database: Path) -> None:
+    """Create an isolated schema-5 database with an empty message cache."""
+    if target.resolve() == live_database.resolve() or target.exists() or target.is_symlink():
+        raise BackupError("Restore target must be a new isolated database")
+    try:
+        if backup.stat().st_mode & 0o077:
+            raise BackupError("Settings backup is not private")
+        data = json.loads(backup.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or data.get("format") != FORMAT or data.get("schema") != 5:
+            raise BackupError("Settings backup is invalid")
+        meta = _validated_rows(data, "watch_meta", 2)
+        channels = _validated_rows(data, "channels", 3)
+        cooldowns = _validated_rows(data, "cooldowns", 4)
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        os.close(descriptor)
+        try:
+            SQLiteWatchStore(target)
+            with closing(sqlite3.connect(target, timeout=5)) as connection:
+                connection.execute("PRAGMA foreign_keys=ON")
+                connection.execute("BEGIN IMMEDIATE")
+                connection.executemany(
+                    "INSERT INTO guild_watch_meta(guild_id, version) VALUES (?, ?)", meta
+                )
+                connection.executemany(
+                    "INSERT INTO watched_channels(guild_id, channel_id, updated_at) "
+                    "VALUES (?, ?, ?)", channels,
+                )
+                connection.executemany(
+                    "INSERT INTO summary_cooldowns(guild_id, channel_id, "
+                    "last_success_us, expires_at_us) VALUES (?, ?, ?, ?)", cooldowns,
+                )
+                connection.commit()
+            SQLiteMessageStore(target).prune_before(datetime.now(UTC) - timedelta(days=7))
+        except BaseException:
+            target.unlink(missing_ok=True)
+            raise
+    except (OSError, sqlite3.Error, ValueError, TypeError, WatchStoreError,
+            MessageStoreError, json.JSONDecodeError) as exc:
+        raise BackupError("Settings restore failed") from exc

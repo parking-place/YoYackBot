@@ -1,6 +1,6 @@
 # 개발 진행 상태
 
-기준일: 2026-09-28. 개발 완료 **40 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 15개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
+기준일: 2026-09-28. 개발 완료 **45 / 55**. 완료한 단계는 원격 증거를 확인했다. 나머지 10개 단계는 PLANNED 또는 진행 중이다. 계획 문서 작성·GitHub 게시 자체는 제품 단계의 완료 수에 포함하지 않는다.
 
 ## 상태 규칙
 
@@ -61,15 +61,15 @@ DONE 표시만으로 완료를 인정하지 않는다. [Git 절차](GIT_WORKFLOW
 | 0.7.0-P3 | [실패·주시 해제·취소 시 상태 복구](0.7.0/03-failure-recovery.md) | DONE | `6d085f95182ed9650db49eb62dcddd2cb12932f7` | [evidence E](https://github.com/parking-place/YoYackBot/commit/88049558c60d4d3feaaac1ec2f43c4e16a650795) | DiscordBotLXC Python 3.13, 합성 장애 주입; 실제 Discord 권한 변경 미실행 검증; 세부 결과는 증거 파일 |
 | 0.7.0-P4 | [전역 실행 제한·대기열·재시작](0.7.0/04-global-queue.md) | DONE | `e22f972989d92af105153fe3127ecb7cc2fbd25a` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3edd27275ac13c3ebb3270d7a8b39be6f39bbf16) | DiscordBotLXC Python 3.13, 합성 동시 요청·재시작 모의 검증; 세부 결과는 증거 파일 |
 | 0.7.0-P5 | [전체 명령·상태 실환경 회귀 게이트](0.7.0/05-workflow-acceptance.md) | DONE | `46c7d10a37fbbc9a4449acfadea7e6b9b4dca1df` | [evidence E](https://github.com/parking-place/YoYackBot/commit/3beab75bd4f7d81aba5a11a768d489153b01bd2e) | DiscordBotLXC 전용 계정 + 개발 Discord 2개 주시 채널 + 실제 gpt-6-luna; 46c7d10 검증; 세부 결과는 증거 파일 |
-| 0.8.0-P1 | [전용 계정 서비스·자동 재시작](0.8.0/01-service.md) | PLANNED | — | — | 미착수 |
-| 0.8.0-P2 | [원문 없는 로그·지표·상태 확인](0.8.0/02-observability.md) | PLANNED | — | — | 미착수 |
-| 0.8.0-P3 | [설정 백업·캐시 재생성·복구](0.8.0/03-restore.md) | PLANNED | — | — | 미착수 |
-| 0.8.0-P4 | [비밀·파일·프롬프트 입력 보안 점검](0.8.0/04-security-review.md) | PLANNED | — | — | 미착수 |
-| 0.8.0-P5 | [자원 한도·장시간 실행·운영 게이트](0.8.0/05-resource-soak.md) | PLANNED | — | — | 미착수 |
+| 0.8.0-P1 | [전용 계정 서비스·자동 재시작](0.8.0/01-service.md) | DONE | `501bc47f23300a00bafdf20cc5143b1ba836a594` | [evidence E](https://github.com/parking-place/YoYackBot/commit/5fcab7f5bca5b61a1cbb82473e0be9e36dfd4c13) | 개발 LXC 전용 systemd 서비스, C 501bc47, Ruff·214 pytest·verify_repo·systemd-analyze·CI 검증; 세부 결과는 증거 파일 |
+| 0.8.0-P2 | [원문 없는 로그·지표·상태 확인](0.8.0/02-observability.md) | DONE | `31064e4346e045dd071e703f4d6d4330f4baf89d` | [evidence E](https://github.com/parking-place/YoYackBot/commit/681298d74af31e8de70d38e05b51b73862d59964) | 개발 LXC 정확 SHA 31064e4, Ruff·216 pytest·계획 검증·systemd 검증·GitHub CI, 전용 journal 운영 시험 검증; 세부 결과는 증거 파일 |
+| 0.8.0-P3 | [설정 백업·캐시 재생성·복구](0.8.0/03-restore.md) | DONE | `4fd9bdb37018c79e2a40d62de3dd12884a0ab249` | [evidence E](https://github.com/parking-place/YoYackBot/commit/964d6eabd9e5323fe7a6687f5acdf1334b2727eb) | 개발 LXC 정확 SHA 4fd9bdb, Ruff·218 pytest·계획 검증·GitHub CI, 전용 계정 실제 설정 백업/격리 복원 검증; 세부 결과는 증거 파일 |
+| 0.8.0-P4 | [비밀·파일·프롬프트 입력 보안 점검](0.8.0/04-security-review.md) | DONE | `bf00432bbf342547a94bdcaf6be6d99fd230f07e` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d6317e38391babd8aeccefa1861c76867b14258d) | 개발 LXC 정확 SHA bf00432(실행 코드 1438d81), Ruff·221 pytest·전체 Git 이력 스캔·CI·실제 인증 모델 공격성 합성 입력 검증; 세부 결과는 증거 파일 |
+| 0.8.0-P5 | [자원 한도·장시간 실행·운영 게이트](0.8.0/05-resource-soak.md) | DONE | `790c047715f7e1a3c93d8f2f007bc2b3094e01bd` | [evidence E](https://github.com/parking-place/YoYackBot/commit/d0bbe3ea1b40bfc7661578c994521e667bd90eaf) | 개발 LXC 고정 SHA 790c047, 실제 봇 서비스와 격리 합성 부하; GitHub CI 검증; 세부 결과는 증거 파일 |
 | 0.9.0-P1 | [요구사항 전체 회귀·누락 확인](0.9.0/01-full-regression.md) | PLANNED | — | — | 미착수 |
 | 0.9.0-P2 | [개발 Discord 사용자 흐름·품질 베타](0.9.0/02-beta-usage.md) | PLANNED | — | — | 미착수 |
 | 0.9.0-P3 | [장애 복구·권한 회수·재시작 훈련](0.9.0/03-fault-drills.md) | PLANNED | — | — | 미착수 |
-| 0.9.0-P4 | [24시간 베타 soak·보존 경계 검증](0.9.0/04-beta-soak.md) | PLANNED | — | — | 미착수 |
+| 0.9.0-P4 | [베타 부하·보존 경계 검증](0.9.0/04-beta-soak.md) | PLANNED | — | — | 24시간 지속 시간 생략; 나머지 검증 미착수 |
 | 0.9.0-P5 | [출시 후보 고정·차단 결함 종료](0.9.0/05-rc-freeze.md) | PLANNED | — | — | 미착수 |
 | 1.0.0-P1 | [정식 출시 범위·증거 최종 검토](1.0.0/01-release-review.md) | PLANNED | — | — | 미착수 |
 | 1.0.0-P2 | [버전·배포 산출물·설정 재현성](1.0.0/02-release-package.md) | PLANNED | — | — | 미착수 |

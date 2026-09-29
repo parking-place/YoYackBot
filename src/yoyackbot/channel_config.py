@@ -189,8 +189,8 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
         except ConcurrentUpdate:
             await reject(interaction, "다른 관리자가 설정을 바꾸었소. 명령을 다시 열어 확인하시오.")
             return
-        except Exception:
-            LOGGER.exception("watched_channel_save_failed")
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("watched_channel_save_failed")
             await reject(interaction, "설정을 저장하지 못했소. 잠시 후 다시 시도하시오.")
             return
         LOGGER.info("watched_channel_saved count=%d", len(view.draft))
@@ -263,8 +263,8 @@ def install_channel_commands(tree: app_commands.CommandTree, store: WatchStore) 
             return
         try:
             view = ChannelSettingsView(store, guild.id, interaction.user.id)
-        except Exception:
-            LOGGER.exception("watched_channel_read_failed")
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("watched_channel_read_failed")
             await reject(interaction, "설정을 읽지 못했소. 잠시 후 다시 시도하시오.")
             return
         await interaction.response.send_message(

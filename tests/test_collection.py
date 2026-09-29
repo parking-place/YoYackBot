@@ -67,11 +67,15 @@ def test_cache_write_failure_falls_back_only_with_trusted_settings(tmp_path) -> 
         request = RangeRequest(RequestKind.TIME, NOW, start=NOW - timedelta(hours=1))
         normal = await healthy.collect(channel(), guild_id=1, channel_id=10, request=request)
         assert not normal.fallback_used
+        assert (normal.cache_count, normal.history_count) == (0, 1)
+        cached = await healthy.collect(channel(), guild_id=1, channel_id=10, request=request)
+        assert (cached.cache_count, cached.history_count) == (1, 0)
 
         fallback_history = FakeHistory([message()])
         fallback, store, _ = setup(tmp_path / "fallback", fallback_history, broken=True)
         recovered = await fallback.collect(channel(), guild_id=1, channel_id=10, request=request)
         assert recovered.fallback_used
+        assert (recovered.cache_count, recovered.history_count) == (0, 1)
         assert [(item.message_id, item.content) for item in recovered.messages] == [
             (item.message_id, item.content) for item in normal.messages
         ]

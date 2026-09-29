@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import signal
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -14,6 +15,7 @@ from yoyackbot.channel_config import MemoryWatchStore, WatchStore, install_chann
 from yoyackbot.codex import CodexContractError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryRequest
+from yoyackbot.health import write_heartbeat
 from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.parser import (
@@ -96,12 +98,15 @@ class YoYackClient(discord.Client):
         self.clock = clock or (lambda: datetime.now(UTC))
         self.summary_workflow = summary_workflow
         self._cleanup_task: asyncio.Task[None] | None = None
+        self._heartbeat_task: asyncio.Task[None] | None = None
         self._disconnected_at: datetime | None = None
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store)
 
     async def setup_hook(self) -> None:
+        if self.settings is not None:
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         if self.message_store is not None and self.settings is not None:
             await self._prune_once()
             await self._mark_recheck("startup")
@@ -123,6 +128,7 @@ class YoYackClient(discord.Client):
     async def on_ready(self) -> None:
         self.connection_count += 1
         self.ready_event.set()
+        self._write_heartbeat()
         LOGGER.info("gateway_ready guild_count=%d", len(self.guilds))
         if self._disconnected_at is not None:
             await self._mark_recheck("gateway_gap")
@@ -132,26 +138,36 @@ class YoYackClient(discord.Client):
                 try:
                     await self._sync_guild_commands(guild)
                 except discord.HTTPException:
-                    LOGGER.exception("guild_commands_sync_failed")
+                    LOGGER.warning("guild_commands_sync_failed")
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
         if self.dev_guild_id is not None:
             try:
                 await self._sync_guild_commands(guild)
             except discord.HTTPException:
-                LOGGER.exception("guild_commands_sync_failed")
+                LOGGER.warning("guild_commands_sync_failed")
 
     async def on_resumed(self) -> None:
         LOGGER.info("gateway_resumed")
+        self.ready_event.set()
+        self._write_heartbeat()
         if self._disconnected_at is not None:
             await self._mark_recheck("gateway_gap")
             self._disconnected_at = None
 
     async def on_disconnect(self) -> None:
         LOGGER.info("gateway_disconnected")
+        self.ready_event.clear()
+        self._write_heartbeat()
         self._disconnected_at = self.clock()
 
     async def close(self) -> None:
+        self.ready_event.clear()
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
+            await asyncio.gather(self._heartbeat_task, return_exceptions=True)
+            self._heartbeat_task = None
+        self._write_heartbeat()
         if self.summary_workflow is not None:
             await self.summary_workflow.shutdown()
         if self._cleanup_task is not None:
@@ -159,6 +175,18 @@ class YoYackClient(discord.Client):
             await asyncio.gather(self._cleanup_task, return_exceptions=True)
             self._cleanup_task = None
         await super().close()
+
+    def _write_heartbeat(self) -> None:
+        if self.settings is not None:
+            try:
+                write_heartbeat(self.settings.input_directory, gateway_ready=self.ready_event.is_set())
+            except OSError:
+                LOGGER.warning("gateway_health_write_failed")
+
+    async def _heartbeat_loop(self) -> None:
+        while True:
+            self._write_heartbeat()
+            await asyncio.sleep(10)
 
     async def _prune_once(self) -> None:
         if self.message_store is None or self.settings is None:
@@ -168,7 +196,7 @@ class YoYackClient(discord.Client):
             deleted = await asyncio.to_thread(self.message_store.prune_before, cutoff)
             LOGGER.info("cache_cleanup deleted=%d", deleted)
         except MessageStoreError:
-            LOGGER.exception("cache_cleanup_failed")
+            LOGGER.warning("cache_cleanup_failed")
 
     async def _mark_recheck(self, reason: str) -> None:
         if self.message_store is None or self.settings is None:
@@ -181,7 +209,7 @@ class YoYackClient(discord.Client):
             )
             LOGGER.info("cache_recheck_marked count=%d reason=%s", count, reason)
         except MessageStoreError:
-            LOGGER.exception("cache_recheck_mark_failed")
+            LOGGER.warning("cache_recheck_mark_failed")
 
     async def _prune_loop(self) -> None:
         assert self.settings is not None
@@ -193,15 +221,15 @@ class YoYackClient(discord.Client):
         try:
             if await asyncio.to_thread(self.watch_store.remove_channel, channel.guild.id, channel.id):
                 LOGGER.info("watched_channel_deleted")
-        except Exception:
-            LOGGER.exception("watched_channel_delete_cleanup_failed")
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("watched_channel_delete_cleanup_failed")
 
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         try:
             await asyncio.to_thread(self.watch_store.remove_guild, guild.id)
             LOGGER.info("watched_guild_removed")
-        except Exception:
-            LOGGER.exception("watched_guild_cleanup_failed")
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("watched_guild_cleanup_failed")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if classify_message(after) is not MessageClass.HUMAN_TEXT or after.guild is None:
@@ -237,7 +265,7 @@ class YoYackClient(discord.Client):
                 cached_at=self.clock(),
             )
         except MessageStoreError:
-            LOGGER.exception("message_edit_sync_failed")
+            LOGGER.warning("message_edit_sync_failed")
 
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent) -> None:
         if self.message_store is None or payload.guild_id is None:
@@ -250,7 +278,7 @@ class YoYackClient(discord.Client):
                 {payload.message_id},
             )
         except MessageStoreError:
-            LOGGER.exception("message_delete_sync_failed")
+            LOGGER.warning("message_delete_sync_failed")
 
     async def on_raw_bulk_message_delete(self, payload: discord.RawBulkMessageDeleteEvent) -> None:
         if self.message_store is None or payload.guild_id is None:
@@ -263,7 +291,7 @@ class YoYackClient(discord.Client):
                 set(payload.message_ids),
             )
         except MessageStoreError:
-            LOGGER.exception("message_bulk_delete_sync_failed")
+            LOGGER.warning("message_bulk_delete_sync_failed")
 
     async def on_message(self, message: discord.Message) -> None:
         if classify_message(message) is not MessageClass.HUMAN_TEXT:
@@ -344,7 +372,7 @@ class YoYackClient(discord.Client):
             ):
                 LOGGER.info("message_cached")
         except MessageStoreError:
-            LOGGER.exception("message_cache_write_failed")
+            LOGGER.warning("message_cache_write_failed")
 
     async def on_summary_request(
         self, message: discord.Message, request: RangeRequest, lease: ChannelLease
@@ -413,7 +441,7 @@ async def _run_gateway_locked(
     )
     async with client:
         if smoke_seconds is None:
-            await client.start(settings.discord_bot_token)
+            await _serve_until_stop(client, settings.discord_bot_token)
             return
         task = asyncio.create_task(client.start(settings.discord_bot_token))
         try:
@@ -435,3 +463,31 @@ async def _run_gateway_locked(
             if not task.done():
                 task.cancel()
             await asyncio.gather(ready, task, return_exceptions=True)
+
+
+async def _serve_until_stop(client: YoYackClient, token: str) -> None:
+    """Drain accepted work on a normal service stop; crashes are recovered on restart."""
+    loop = asyncio.get_running_loop()
+    stop = asyncio.Event()
+    registered: list[signal.Signals] = []
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(signum, stop.set)
+            registered.append(signum)
+        except NotImplementedError:
+            pass
+    running = asyncio.create_task(client.start(token))
+    stopping = asyncio.create_task(stop.wait())
+    try:
+        done, _ = await asyncio.wait({running, stopping}, return_when=asyncio.FIRST_COMPLETED)
+        if stopping in done:
+            await client.close()
+        if running in done:
+            await running
+    finally:
+        for signum in registered:
+            loop.remove_signal_handler(signum)
+        stopping.cancel()
+        if not running.done():
+            running.cancel()
+        await asyncio.gather(stopping, running, return_exceptions=True)

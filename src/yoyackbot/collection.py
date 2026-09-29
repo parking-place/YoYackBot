@@ -30,6 +30,8 @@ class CollectionOutcome:
     searched_since: datetime
     pages: int
     fallback_used: bool
+    cache_count: int = 0
+    history_count: int = 0
 
     @property
     def empty(self) -> bool:
@@ -97,7 +99,11 @@ class CollectionCoordinator:
                     trigger_message_id=request.trigger_message_id,
                     can_continue=can_continue,
                 )
-                outcome = CollectionOutcome(result.messages, 0, request.start, result.pages, False)
+                fetched = result.history_count
+                outcome = CollectionOutcome(
+                    result.messages, 0, request.start, result.pages, False,
+                    len(result.messages) - fetched, fetched,
+                )
             else:
                 assert request.count is not None
                 result = await self.count.collect(
@@ -110,7 +116,8 @@ class CollectionCoordinator:
                     can_continue=can_continue,
                 )
                 outcome = CollectionOutcome(
-                    result.messages, result.shortage, result.searched_since, result.pages, False
+                    result.messages, result.shortage, result.searched_since, result.pages, False,
+                    len(result.messages) - result.history_count, result.history_count,
                 )
         except MessageStoreError:
             if await self._trusted_version(guild_id, channel_id) != version:
@@ -171,4 +178,7 @@ class CollectionCoordinator:
             raise LongRangeError(LongRangeFailure.PAGE_LIMIT)
         if sum(len(item.content.encode("utf-8")) for item in messages) > self.max_content_bytes:
             raise LongRangeError(LongRangeFailure.INPUT_LIMIT)
-        return CollectionOutcome(tuple(messages), shortage, searched_since, history.pages, True)
+        return CollectionOutcome(
+            tuple(messages), shortage, searched_since, history.pages, True,
+            0, len(messages),
+        )

@@ -1,6 +1,8 @@
 """Atomic per-channel admission and the connected summary pipeline."""
 
 import asyncio
+import json
+import logging
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -152,7 +154,7 @@ def test_empty_result_never_calls_model_or_publisher(monkeypatch: pytest.MonkeyP
 
 @pytest.mark.parametrize("failure", ["collection", "model", "publication"])
 def test_failure_releases_channel_and_allows_retry_without_success_cooldown(
-    tmp_path, monkeypatch: pytest.MonkeyPatch, failure: str,
+    tmp_path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, failure: str,
 ) -> None:
     monkeypatch.setattr("yoyackbot.workflow.valid_channel", lambda _guild, _id: True)
     fail = [True]
@@ -201,7 +203,15 @@ def test_failure_releases_channel_and_allows_retry_without_success_cooldown(
         await workflow.run(request(), channel(), lease, notice)  # type: ignore[arg-type]
         assert await states.status(1, 2) is ChannelStatus.COOLDOWN
 
-    asyncio.run(scenario())
+    with caplog.at_level(logging.INFO, logger="yoyackbot.metrics"):
+        asyncio.run(scenario())
+    records = [json.loads(item.message) for item in caplog.records
+               if item.name == "yoyackbot.metrics"]
+    assert [item["outcome"] for item in records] == [
+        {"collection": "unexpected", "model": "model_error", "publication": "post_error"}[failure],
+        "success",
+    ]
+    assert all("합성 대화" not in item.message for item in caplog.records)
 
 
 def test_watch_removed_after_collection_prevents_model_and_releases_state(

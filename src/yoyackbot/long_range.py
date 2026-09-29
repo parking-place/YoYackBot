@@ -31,6 +31,7 @@ class LongRangeResult:
     messages: tuple[MessageRecord, ...]
     older_count: int
     pages: int
+    history_count: int = 0
 
 
 class LongRangeCollector:
@@ -90,6 +91,7 @@ class LongRangeCollector:
         cutoff = accepted_at - timedelta(days=self.retention_days)
         await asyncio.to_thread(self.recent.store.prune_before, cutoff)
         older: tuple[MessageRecord, ...] = ()
+        history_ids: set[int] = set()
         pages = 0
         if start < cutoff:
             older_end = min(end, cutoff)
@@ -104,6 +106,7 @@ class LongRangeCollector:
                     can_continue=can_continue,
                 )
                 older = old_result.messages
+                history_ids.update(item.message_id for item in older)
                 pages += old_result.pages
                 self._check_budget(older, pages)
 
@@ -120,6 +123,7 @@ class LongRangeCollector:
                 can_continue=can_continue,
             )
             current = current_result.messages
+            history_ids.update(current_result.history_ids)
             pages += current_result.pages
         combined = tuple(sorted({item.message_id: item for item in (*older, *current)}.values(),
                                 key=lambda item: (item.created_at, item.message_id)))
@@ -127,7 +131,10 @@ class LongRangeCollector:
         final_version, final_selected = await asyncio.to_thread(self.recent.watches.snapshot, guild_id)
         if final_version != version or channel_id not in final_selected:
             raise CollectionError(CollectionFailure.WATCH_CHANGED)
-        return LongRangeResult(combined, len(older), pages)
+        return LongRangeResult(
+            combined, len(older), pages,
+            sum(item.message_id in history_ids for item in combined),
+        )
 
     def _check_budget(self, records: tuple[MessageRecord, ...], pages: int) -> None:
         if pages > self.max_pages:

@@ -32,6 +32,7 @@ class CountResult:
     shortage: int
     pages: int
     searched_since: datetime
+    history_count: int = 0
 
 
 class CountCollector:
@@ -86,6 +87,7 @@ class CountCollector:
         cached = await self._latest(guild_id, channel_id, cutoff, accepted_at, count,
                                     trigger_message_id)
         pages = 0
+        history_ids: set[int] = set()
         if len(cached) >= count:
             candidate_start = cached[-1].created_at
             gaps = await asyncio.to_thread(
@@ -103,6 +105,7 @@ class CountCollector:
                 can_continue=can_continue,
             )
             pages += verified.pages
+            history_ids.update(verified.history_ids)
             self._check_pages(pages)
             cached = await self._latest(guild_id, channel_id, cutoff, accepted_at, count,
                                         trigger_message_id)
@@ -115,7 +118,7 @@ class CountCollector:
                 )
                 if not new_gaps:
                     return await self._finish(cached, count, pages, new_start,
-                                              guild_id, channel_id, version)
+                                              guild_id, channel_id, version, history_ids)
 
         verified = await self.recent.collect(
             channel, guild_id=guild_id, channel_id=channel_id,
@@ -123,12 +126,13 @@ class CountCollector:
             can_continue=can_continue,
         )
         pages += verified.pages
+        history_ids.update(verified.history_ids)
         self._check_pages(pages)
         cached = await self._latest(guild_id, channel_id, cutoff, accepted_at, count,
                                     trigger_message_id)
         if len(cached) >= count:
             return await self._finish(cached, count, pages, cutoff, guild_id, channel_id,
-                                      version)
+                                      version, history_ids)
 
         older: list[MessageRecord] = []
         cursor = cutoff
@@ -143,11 +147,12 @@ class CountCollector:
                 can_continue=can_continue,
             )
             older.extend(history.messages)
+            history_ids.update(item.message_id for item in history.messages)
             pages += history.pages
             self._check_pages(pages)
             cursor = start
         return await self._finish(
-            [*cached, *older], count, pages, cursor, guild_id, channel_id, version
+            [*cached, *older], count, pages, cursor, guild_id, channel_id, version, history_ids
         )
 
     async def _latest(self, guild_id, channel_id, start, end, count, excluded):
@@ -165,7 +170,8 @@ class CountCollector:
             raise CountError(CountFailure.PAGE_LIMIT)
 
     async def _finish(
-        self, records, count, pages, searched_since, guild_id, channel_id, version
+        self, records, count, pages, searched_since, guild_id, channel_id, version,
+        history_ids: set[int] | None = None,
     ) -> CountResult:
         ordered = sorted(
             {item.message_id: item for item in records}.values(),
@@ -176,4 +182,7 @@ class CountCollector:
         final_version, final_selected = await asyncio.to_thread(self.recent.watches.snapshot, guild_id)
         if final_version != version or channel_id not in final_selected:
             raise CollectionError(CollectionFailure.WATCH_CHANGED)
-        return CountResult(tuple(ordered), count, count - len(ordered), pages, searched_since)
+        return CountResult(
+            tuple(ordered), count, count - len(ordered), pages, searched_since,
+            sum(item.message_id in (history_ids or ()) for item in ordered),
+        )

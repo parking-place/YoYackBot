@@ -4,10 +4,15 @@ import os
 import subprocess
 import sys
 
+import pytest
+
+from yoyackbot.config import ConfigurationError, Settings
+
 
 def invoke(command: str, token: str | None, *options: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.pop("DISCORD_BOT_TOKEN", None)
+    env.pop("DISCORD_BOT_TOKEN_FILE", None)
     if token is not None:
         env["DISCORD_BOT_TOKEN"] = token
     return subprocess.run(
@@ -22,7 +27,7 @@ def invoke(command: str, token: str | None, *options: str) -> subprocess.Complet
 def test_config_check_without_secret_names_missing_setting_only() -> None:
     result = invoke("check-config", None)
     assert result.returncode == 2
-    assert result.stdout.strip() == "Configuration error: DISCORD_BOT_TOKEN is not set"
+    assert result.stdout.strip() == "Configuration error: Discord bot credential is not set"
     assert result.stderr == ""
 
 
@@ -38,3 +43,33 @@ def test_invalid_smoke_duration_rejects_before_network_access() -> None:
     result = invoke("run", "only-a-test-secret-value", "--smoke-seconds", "0")
     assert result.returncode == 2
     assert "Gateway smoke duration must be positive" in result.stdout
+
+
+def test_private_credential_file_precedes_environment_token(tmp_path) -> None:
+    file = tmp_path / "discord-token"
+    file.write_text("only-a-test-file-token\n")
+    file.chmod(0o600)
+    values = {
+        "DISCORD_BOT_TOKEN_FILE": str(file),
+        "DISCORD_BOT_TOKEN": "only-a-test-env-token",
+    }
+    settings = Settings.from_environment(values)
+    assert settings.discord_bot_token == "only-a-test-file-token"
+    assert "only-a-test-file-token" not in repr(settings)
+    file.chmod(0o644)
+    with pytest.raises(ConfigurationError) as raised:
+        Settings.from_environment(values)
+    assert "only-a-test-file-token" not in str(raised.value)
+
+
+def test_systemd_credential_copy_precedes_manual_file(tmp_path) -> None:
+    directory = tmp_path / "credentials"
+    directory.mkdir()
+    copied = directory / "discord_token"
+    copied.write_text("only-a-test-systemd-token")
+    copied.chmod(0o444)
+    settings = Settings.from_environment({
+        "CREDENTIALS_DIRECTORY": str(directory),
+        "DISCORD_BOT_TOKEN_FILE": "/missing/manual-token",
+    })
+    assert settings.discord_bot_token == "only-a-test-systemd-token"

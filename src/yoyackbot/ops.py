@@ -1,1 +1,58 @@
-"""Service lifecycle and operational diagnostics."""
+"""Allowlisted request diagnostics without Discord or model text."""
+
+import json
+import logging
+import secrets
+import time
+from dataclasses import dataclass, field
+
+LOGGER = logging.getLogger("yoyackbot.metrics")
+
+
+@dataclass
+class RequestMetrics:
+    """Only fixed categories and numeric measurements may reach the journal."""
+
+    request_kind: str
+    request_id: str = field(default_factory=lambda: secrets.token_hex(8))
+    started: float = field(default_factory=time.monotonic, repr=False)
+    selected_count: int = 0
+    cache_count: int = 0
+    history_count: int = 0
+    history_pages: int = 0
+    cache_fallback: bool = False
+    model_result: str = "not_started"
+    post_result: str = "not_started"
+    outcome: str = "unknown"
+    error_kind: str = "none"
+
+    def emit(self) -> None:
+        allowed_outcomes = {
+            "success", "empty", "busy", "cooldown", "invalidated", "history_error",
+            "model_error", "post_error", "queue_full", "queue_timeout", "queue_closed",
+            "channel_unavailable", "unexpected", "cancelled",
+        }
+        if self.outcome not in allowed_outcomes:
+            self.outcome = "unexpected"
+        payload = {
+            "event": "summary_request",
+            "request_id": self.request_id,
+            "kind": self.request_kind if self.request_kind in {"time", "count"} else "unknown",
+            "selected_count": max(0, self.selected_count),
+            "cache_count": max(0, self.cache_count),
+            "history_count": max(0, self.history_count),
+            "history_pages": max(0, self.history_pages),
+            "cache_fallback": self.cache_fallback,
+            "duration_ms": max(0, round((time.monotonic() - self.started) * 1000)),
+            "model_result": self.model_result if self.model_result in {
+                "not_started", "success", "failure", "cancelled"
+            } else "failure",
+            "post_result": self.post_result if self.post_result in {
+                "not_started", "success", "failure", "partial"
+            } else "failure",
+            "outcome": self.outcome,
+            "error_kind": self.error_kind if self.error_kind in {
+                "none", "history", "model", "send", "queue", "permission", "unexpected"
+            } else "unexpected",
+        }
+        LOGGER.info("%s", json.dumps(payload, separators=(",", ":"), sort_keys=True))

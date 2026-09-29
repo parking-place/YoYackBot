@@ -109,6 +109,7 @@ class SQLiteWatchStore:
         connection = sqlite3.connect(self.path, timeout=5)
         try:
             connection.execute("PRAGMA foreign_keys=ON")
+            connection.execute("PRAGMA secure_delete=ON")
             yield connection
         finally:
             connection.close()
