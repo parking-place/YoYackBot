@@ -4,8 +4,8 @@
 
 | 검사 ID | 단계 | 환경 | 통과 기준 | 결과 |
 |---|---|---|---|---|
-| `T102-P1-A` | [P1](01-range-contract.md) | LXC 합성 | 10·28일 허용, 29일/낮은 설정 거부, 기본·모든 옵션의 안전한 표시값 | NOT_RUN |
-| `T102-P1-B` | [P1](01-range-contract.md) | LXC 격리 DB | 10일 범위의 7일 초과 History 보충과 최대 7일 영속 보존 | NOT_RUN |
+| `T102-P1-A` | [P1](01-range-contract.md) | LXC 합성 | 10·30일 허용, 31일/낮은 설정 거부, 기본·모든 옵션의 안전한 표시값 | NOT_RUN |
+| `T102-P1-B` | [P1](01-range-contract.md) | LXC 격리 DB | 최대 30일 영속 보존과 범위 내 캐시 공백의 History 보충 | NOT_RUN |
 | `T102-P2-A` | [P2](02-active-scope.md) | LXC 합성 | 원자적 입장·첫 요청 범위 스냅샷·동일 채널 20건/타 Guild 분리 | NOT_RUN |
 | `T102-P2-B` | [P2](02-active-scope.md) | LXC 합성 | 성공·빈 결과·실패·취소·재시작 후 범위 정리와 쿨타임 보존 | NOT_RUN |
 | `T102-P3-A` | [P3](03-collection-notice.md) | LXC 합성 | 수집 직전 정확한 한 번의 시작 안내, 빈 결과·실패 시 후속 순서 | NOT_RUN |

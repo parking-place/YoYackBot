@@ -4,7 +4,7 @@
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
-| [1.0.2-P1](01-range-contract.md) | 10일 허용·범위 라벨 | PLANNED | — | 1.0.1 완료 선행 |
+| [1.0.2-P1](01-range-contract.md) | 30일 상한 상속·범위 라벨 | PLANNED | — | 1.0.0a·1.0.1 완료 선행 |
 | [1.0.2-P2](02-active-scope.md) | 활성 범위 원자적 보관 | PLANNED | — | P1 원격 완료 선행 |
 | [1.0.2-P3](03-collection-notice.md) | 수집 시작 안내 | PLANNED | — | P2 원격 완료 선행 |
 | [1.0.2-P4](04-busy-notice.md) | 중복 요청 안내 | PLANNED | — | P3 원격 완료 선행 |
