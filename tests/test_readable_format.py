@@ -40,7 +40,7 @@ def test_every_prompt_carries_the_format_rules(mode: SummaryMode, retry: dict) -
              ("신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(모든 길이 공통)", "추가 요청:",
               "말투(반드시 적용)", "비아냥 형식", "금지(말투보다 우선)")]
     assert order == sorted(order)
-    assert PROMPT_VERSION == "1.1.0a-p2-v1"
+    assert PROMPT_VERSION == "1.1.0a-p2-v2"
 
 
 def test_short_is_bounded_by_topics_and_bullets() -> None:
@@ -71,3 +71,15 @@ def test_long_formatted_output_splits_between_lines() -> None:
     for part in parts[:-1]:
         last = part.rstrip("\n").splitlines()[-1]
         assert last in FORMATTED.splitlines() or last.startswith("**🚀 배포 일정")
+
+
+def test_format_fixes_after_the_first_real_evaluation() -> None:
+    prompt = prompt_for(SummaryMode.SHORT)
+    for phrase in ("틀림: `- **가람**은 물었고, **나래**는 답했소.`",
+                   "불릿이 하나도 없는 소제목은 절대 쓰지 마시오",
+                   "결과가 안 나왔다는 이유로 새 질문(이유,\n완료 여부 등)을 만들어내지 마시오"):
+        assert phrase in SUMMARY_PROMPT, phrase
+    for phrase in ("`결정 난 거`·`아직 안 정해진 거` 묶음을 따로 만들지 말고", "`**결정**:`",
+                   "`**미정**:`", "덜 중요한 발언을 빼시오"):
+        assert phrase in SHORT_NOTE and phrase in prompt, phrase
+    assert "묶음을 따로 만들지 말고" not in prompt_for(SummaryMode.LONG)
