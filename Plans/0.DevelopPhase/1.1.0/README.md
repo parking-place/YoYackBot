@@ -1,6 +1,6 @@
 # 1.1.0 — 짧은 기본 요약·추가 요청·더 싸가지없는 말투
 
-- 상태: **IN_PROGRESS** (P1 완료, P2 진행 중)
+- 상태: **IN_PROGRESS** (P1~P2 완료, P3 진행 중)
 - 단계 수: **5단계**
 - 선행 버전: 출시된 [1.0.2c](../1.0.2c/README.md)(`v1.0.2c`, 2026-09-30)
 
@@ -18,8 +18,8 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [P1 — 길이 재정의·명령 문법](01-grammar.md) | `T110-P1-A/B` | DONE |
-| 2 | [P2 — 추가 요청 전달·신뢰 경계](02-request-note.md) | `T110-P2-A/B` | IN_PROGRESS |
-| 3 | [P3 — 길이별 프롬프트·싸가지 말투](03-prompt-tone.md) | `T110-P3-A/B` | PLANNED |
+| 2 | [P2 — 추가 요청 전달·신뢰 경계](02-request-note.md) | `T110-P2-A/B` | DONE |
+| 3 | [P3 — 길이별 프롬프트·싸가지 말투](03-prompt-tone.md) | `T110-P3-A/B` | IN_PROGRESS |
 | 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T110-P4-A/B` | PLANNED |
 | 5 | [P5 — 도움말·통합·배포·출시](05-release.md) | `T110-P5-A/B` | PLANNED |
 
