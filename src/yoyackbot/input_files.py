@@ -57,6 +57,7 @@ def serialize_conversation(
     trigger_message_id: int | None,
     max_bytes: int,
     on_size: Callable[[int], None] | None = None,
+    request_note: str | None = None,
 ) -> bytes:
     """Use JSON lines so quoted names and multiline bodies cannot forge record boundaries."""
     if max_bytes < 1:
@@ -67,10 +68,12 @@ def serialize_conversation(
     )
     names = speaker_labels(ordered)
     speakers = {author_id: f"P{index}" for index, author_id in enumerate(names, start=1)}
-    lines = [json.dumps({"type": "scope", "channel": _name(channel_name),
-                         "range": _name(range_label),
-                         "speaker_names": {speakers[author_id]: label for author_id, label in names.items()}},
-                        ensure_ascii=False)]
+    scope = {"type": "scope", "channel": _name(channel_name), "range": _name(range_label),
+             "speaker_names": {speakers[author_id]: label for author_id, label in names.items()}}
+    if request_note:
+        # Untrusted requester text travels as data beside the conversation, never in the prompt.
+        scope["request_note"] = request_note
+    lines = [json.dumps(scope, ensure_ascii=False)]
     for item in ordered:
         lines.append(json.dumps({
             "type": "message",

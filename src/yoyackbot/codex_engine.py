@@ -41,6 +41,7 @@ class CodexSummaryEngine:
         range_label: str = "요청 범위", trigger_message_id: int | None = None,
         on_input_size: Callable[[int], None] | None = None,
         mode: SummaryMode = SummaryMode.SHORT,
+        request_note: str | None = None,
     ) -> SummaryResult:
         included = [item for item in messages if item.message_id != trigger_message_id]
         if not included:
@@ -48,7 +49,7 @@ class CodexSummaryEngine:
         data = serialize_conversation(
             included, channel_name=channel_name, range_label=range_label,
             trigger_message_id=trigger_message_id, max_bytes=self.settings.max_input_bytes,
-            on_size=on_input_size,
+            on_size=on_input_size, request_note=request_note,
         )
         root = self.settings.input_directory.absolute()
         async with self._slots:
