@@ -10,6 +10,7 @@ from yoyackbot.domain import SummaryMode
 TRIGGER = "!!요약좀"
 USAGE_WORD = "사용량"
 STATUS_WORD = "상태"
+CHANNELS_WORD = "채널"
 HELP_WORD = re.compile(r"(?<!\S)도움(?:말)?(?=\s|$)")
 
 HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
@@ -33,7 +34,8 @@ HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
 
 `!!요약좀 사용량` — 요약봇 Codex 계정의 남은 한도를 알려주오.
 `!!요약좀 상태` — 이 서버의 주시 채널·캐시 건수·DB 크기(모든 서버가 함께 쓰는 파일)·마지막 요약을 알려주오.
-사용량·상태는 주시 채널에서만 답하며, 요약이 아니므로 대기 시간을 쓰지 않소.
+`!!요약좀 채널` — 이 서버에서 봇이 살피고 있는 채널 가운데 그대에게 보이는 채널을 알려주오.
+사용량·상태·채널은 주시 채널에서만 답하며, 요약이 아니므로 대기 시간을 쓰지 않소.
 
 요약을 시작하면 범위를 먼저 알려주고, 요약 중에 다시 부르면 진행 중인 범위를 알려주오.
 채널이 처음 대화를 모으거나 빠진 대화를 확인하는 동안에는 준비 중이라고 답하오.
@@ -61,6 +63,7 @@ class RouteKind(Enum):
     SUMMARY = "summary"
     USAGE = "usage"
     STATUS = "status"
+    CHANNELS = "channels"
 
 
 @dataclass(frozen=True)
@@ -119,6 +122,8 @@ def route_trigger(content: str) -> TriggerRoute:
         return TriggerRoute(RouteKind.USAGE, repeated=repeated)
     if options == STATUS_WORD:
         return TriggerRoute(RouteKind.STATUS, repeated=repeated)
+    if options == CHANNELS_WORD:
+        return TriggerRoute(RouteKind.CHANNELS, repeated=repeated)
     return TriggerRoute(RouteKind.SUMMARY, options=options, repeated=repeated)
 
 
