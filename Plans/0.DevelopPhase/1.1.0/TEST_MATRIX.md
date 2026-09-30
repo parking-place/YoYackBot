@@ -12,7 +12,7 @@
 | `T110-P3-B` | [P3](03-prompt-tone.md) | LXC 합성 | 비하어 재시도·오탐 없음, 긴 출력 분할·상한 | PASS — [증거](../evidence/1.1.0-P3.md) |
 | `T110-P4-A` | [P4](04-evaluation.md) | LXC 실제 모델 | 사실·귀속·지어낸 인용·둔갑 0, 주입 무시와 안내 한 줄 | PASS(v1 12건·v3 4건; v2는 FAIL 뒤 수정) — [증거](../evidence/1.1.0-P4.md) |
 | `T110-P4-B` | [P4](04-evaluation.md) | LXC 실제 모델 | 길이 차이, 요청 반영, 비꼬는 하오체 말투, 금지선 위반 0, 사용자 확인 | PASS(v3, 사실 우선 수준; 최종 말투 확인은 P5) — [증거](../evidence/1.1.0-P4.md) |
-| `T110-P5-A` | [P5](05-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
-| `T110-P5-B` | [P5](05-release.md) | LXC/시험 Discord | 배포·복귀, 사용자 확인+로그 대조, P1~P4 원격 증거, 병합 후 `main` CI | NOT_RUN |
+| `T110-P5-A` | [P5](05-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | PASS — [증거](../evidence/1.1.0-P5.md) |
+| `T110-P5-B` | [P5](05-release.md) | LXC/시험 Discord | 배포·복귀, 사용자 확인+로그 대조, P1~P4 원격 증거, 병합 후 `main` CI | PASS(사용자 확인+로그, 복귀는 격리; 길게·자세히 실제 채널 NOT_RUN) — [증거](../evidence/1.1.0-P5.md) |
 
 각 단계의 A/B 결과와 구현 C·증거 E·종료 D의 GitHub 반영, 필요한 CI 성공이 확인돼야 [상태 문서](STATUS.md)를 DONE으로 바꾼다. 8시간·24시간 연속 관측은 필수 검사가 아니다.
