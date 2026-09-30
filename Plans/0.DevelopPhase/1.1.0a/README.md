@@ -1,6 +1,6 @@
 # 1.1.0a — 읽기 쉬운 요약·떡밥 한줄 평가
 
-- 상태: **IN_PROGRESS** (P1 진행 중)
+- 상태: **IN_PROGRESS** (P1 완료, P2 진행 중)
 - 단계 수: **4단계**
 - 선행 버전: 출시된 [1.1.0](../1.1.0/README.md)(`v1.1.0`, 2026-09-30)
 
@@ -15,8 +15,8 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 가독성 형식 프롬프트](01-format.md) | `T110a-P1-A/B` | PLANNED |
-| 2 | [P2 — 떡밥 한줄 평가·출력 검사](02-rating-line.md) | `T110a-P2-A/B` | PLANNED |
+| 1 | [P1 — 가독성 형식 프롬프트](01-format.md) | `T110a-P1-A/B` | DONE |
+| 2 | [P2 — 떡밥 한줄 평가·출력 검사](02-rating-line.md) | `T110a-P2-A/B` | IN_PROGRESS |
 | 3 | [P3 — 실제 모델 평가](03-evaluation.md) | `T110a-P3-A/B` | PLANNED |
 | 4 | [P4 — 도움말·통합·배포·출시](04-release.md) | `T110a-P4-A/B` | PLANNED |
 
