@@ -43,7 +43,7 @@ def test_every_prompt_carries_the_tone_after_the_fact_rules(mode, retry) -> None
     tone = prompt.index("말투(반드시 적용): 위의 사실·화자 귀속·신뢰 경계 규칙을 지키는 범위 안에서")
     assert prompt.index("원문에 없는 사실·동기·결론") < tone
     assert prompt.index("신뢰 경계:") < tone
-    for phrase in ("천박한 입담", "하오체", "존나, 시발", "외설적인 속어", "거친 소제목",
+    for phrase in ("천박한 입담", "하오체", "존나, 시발", "외설적인 속어", "떡밥을 비꼬는 거친 말로",
                    "금지(말투보다 우선)", "하지 않은 욕설을 그 사람이 한 말처럼 쓰지 말고",
                    "성적으로 묘사하거나", "집단을 비하하는 말", "인신공격",
                    "말투 때문에 사실을\n바꾸거나 보태지 마시오"):
@@ -127,10 +127,10 @@ def engine_with(tmp_path: Path, outputs: list[str], prompts: list[str]) -> Codex
 @pytest.mark.parametrize("mode", list(SummaryMode))
 def test_hate_term_retries_once_with_the_same_mode(tmp_path: Path, mode: SummaryMode) -> None:
     prompts: list[str] = []
-    engine = engine_with(tmp_path, ["가람이 병신같이 들이밀었소.", "가람이 존나 당당하게 들이밀었소!"],
+    engine = engine_with(tmp_path, ["가람이 병신같이 들이밀었소.", "가람이 존나 당당하게 들이밀었소!\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."],
                          prompts)
     result = asyncio.run(engine.summarize([message()], mode=mode))
-    assert result.text == "가람이 존나 당당하게 들이밀었소!"
+    assert result.text == "가람이 존나 당당하게 들이밀었소!\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."
     assert prompts == [prompt_for(mode), prompt_for(mode, hate_retry=True)]
 
 
@@ -144,6 +144,6 @@ def test_repeated_hate_term_fails_safely(tmp_path: Path) -> None:
 
 def test_allowed_profanity_does_not_spend_a_retry(tmp_path: Path) -> None:
     prompts: list[str] = []
-    engine = engine_with(tmp_path, ["시발, 가람이 금요일 배포를 존나 들이밀었소!"], prompts)
+    engine = engine_with(tmp_path, ["시발, 가람이 금요일 배포를 존나 들이밀었소!\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."], prompts)
     asyncio.run(engine.summarize([message()]))
     assert len(prompts) == 1

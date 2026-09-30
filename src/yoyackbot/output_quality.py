@@ -27,6 +27,29 @@ _QUOTED = re.compile(r'"[^"\n]*"|“[^”\n]*”|‘[^’\n]*’|「[^」\n]*」
 _FILLER = re.compile(r"[^\w\s]|[\d_]|[\u200b-\u200d\ufeff]")
 
 
+RATING_LABEL = "**요약창섭의 떡밥 한줄 평가** : "
+_RATING_LINE = re.compile(r"^\s*(?:\*\*)?요약창섭의 떡밥 한줄 평가(?:\*\*)?\s*:\s*(.*?)\s*$")
+
+
+def split_rating(text: str) -> tuple[str, str | None]:
+    """Return the body and one normalized closing rating line, or None if it is not last.
+
+    Earlier duplicate rating lines are dropped; a rating followed by other text is a format
+    violation, so every rating line is removed and the caller may ask for the rating alone.
+    """
+    lines = text.rstrip().splitlines()
+    matches = [index for index, line in enumerate(lines) if _RATING_LINE.match(line)]
+    if not matches:
+        return text.rstrip(), None
+    last = matches[-1]
+    content = _RATING_LINE.match(lines[last]).group(1)  # type: ignore[union-attr]
+    trailing = [line for line in lines[last + 1:] if line.strip()]
+    body = "\n".join(line for index, line in enumerate(lines) if index not in matches).rstrip()
+    if trailing or not content:
+        return body, None
+    return body, RATING_LABEL + content
+
+
 def narrator_uses_hate_term(text: str) -> bool:
     """Look only at narration: quoted source words and block quotes may be reported as said."""
     in_code = False

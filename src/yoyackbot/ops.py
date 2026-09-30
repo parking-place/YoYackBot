@@ -31,6 +31,7 @@ class RequestMetrics:
     outcome: str = "unknown"
     error_kind: str = "none"
     failure_detail: str = "none"
+    rating: str = "none"
 
     def emit(self) -> None:
         allowed_outcomes = {
@@ -65,6 +66,9 @@ class RequestMetrics:
             "error_kind": self.error_kind if self.error_kind in {
                 "none", "history", "input", "model", "send", "queue", "permission", "unexpected"
             } else "unexpected",
+            "rating": self.rating if self.rating in {
+                "none", "present", "retried", "missing"
+            } else "none",
             "failure_detail": self.failure_detail if self.failure_detail in {
                 "none", "input_file", "input_size", "auth", "model", "limit", "usage_limit", "process",
                 "timeout",

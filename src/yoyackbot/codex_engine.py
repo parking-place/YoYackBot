@@ -1,8 +1,10 @@
 """Summarize request-scoped message records through the pinned Codex CLI."""
 
 import asyncio
+import json
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Self
 
 from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
@@ -10,8 +12,13 @@ from yoyackbot.codex_runner import CodexRunError, SandboxedCodex
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode, SummaryResult
 from yoyackbot.input_files import InputWorkspace, serialize_conversation
-from yoyackbot.output_quality import OutputIssue, inspect_output
-from yoyackbot.summary_prompt import prompt_for
+from yoyackbot.output_quality import (
+    OutputIssue,
+    inspect_output,
+    narrator_uses_hate_term,
+    split_rating,
+)
+from yoyackbot.summary_prompt import RATING_PROMPT, prompt_for
 
 
 @dataclass(frozen=True)
@@ -63,6 +70,27 @@ class CodexSummaryEngine:
                     mode, speaker_retry=issue is OutputIssue.SPEAKER_KEY,
                     hate_retry=issue is OutputIssue.HATE_TERM,
                 ))
-        if inspect_output(result, [item.content for item in included]) is not None:
-            raise CodexRunError(CodexFailure.OUTPUT_INVALID)
-        return SummaryResult(result, self.runner.contract.model, len(included))
+            if inspect_output(result, source_bodies) is not None:
+                raise CodexRunError(CodexFailure.OUTPUT_INVALID)
+            body, rating = split_rating(result)
+            status = "present"
+            if rating is None:
+                status = "missing"
+                rating = await self._rating_only(root, data, body)
+                if rating is not None:
+                    status = "retried"
+        text = body if rating is None else f"{body}\n\n{rating}"
+        return SummaryResult(text, self.runner.contract.model, len(included), status)
+
+    async def _rating_only(self, root: Path, data: bytes, body: str) -> str | None:
+        """Ask once for the closing rating alone; a bad or failed answer leaves it out."""
+        summary = json.dumps({"type": "summary", "body": body}, ensure_ascii=False).encode()
+        workspace = InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + summary + b"\n")
+        try:
+            answer = await self.runner.execute(workspace, RATING_PROMPT)
+        except CodexRunError:
+            return None
+        _rest, rating = split_rating(answer)
+        if rating is None or narrator_uses_hate_term(rating):
+            return None
+        return rating

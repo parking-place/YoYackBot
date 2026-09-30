@@ -35,15 +35,15 @@ def test_prompt_order_and_length_notes(mode: SummaryMode, retry: dict) -> None:
         assert prompt.index(length_note) > positions[-1]
     assert (SPEAKER_RETRY_NOTE in prompt) is bool(retry.get("speaker_retry"))
     assert (HATE_RETRY_NOTE in prompt) is bool(retry.get("hate_retry"))
-    assert PROMPT_VERSION == "1.1.0-p3-v3"
+    assert PROMPT_VERSION == "1.1.0a-p2-v2"
 
 
 def test_each_length_has_its_own_instruction() -> None:
-    assert "4~6줄" in SHORT_NOTE
+    assert "8개 이하" in SHORT_NOTE and "주제는 2~4개" in SHORT_NOTE
     for phrase in ("아주 길게", "빠짐없이", "시간 순서", "누가 누구 말에 어떻게 반응했는지",
                    "요점을 합쳐 줄이지 말고", "원문에 없는 사실·이견·해결책을\n보태지 마시오"):
         assert phrase in DETAILED_NOTE
-    assert "4~6줄" not in DETAILED_NOTE and "4~6줄" not in SUMMARY_PROMPT
+    assert "8개 이하" not in DETAILED_NOTE and "불릿 수에 제한은 없소" in DETAILED_NOTE
 
 
 def test_snark_is_aimed_at_actions_and_keeps_haoche() -> None:
