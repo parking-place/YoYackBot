@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | [1.1.0-P1](01-grammar.md) | 길이 재정의·명령 문법 | DONE | [C `76697a3`](https://github.com/parking-place/YoYackBot/commit/76697a3631f28951d376122486b6cf7103166f2d) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36697270003) / [E `294c38a`](https://github.com/parking-place/YoYackBot/commit/294c38a4a3df2e3533def566359717c0eb6e4ae1) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36697395129) / [증거](../evidence/1.1.0-P1.md); 원격 확인 | P1-A/B PASS |
 | [1.1.0-P2](02-request-note.md) | 추가 요청 전달·신뢰 경계 | DONE | [C `0c37aee`](https://github.com/parking-place/YoYackBot/commit/0c37aee8a6f42c882d0567c867f672967f91738c) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36697792137) / [E `9b8736f`](https://github.com/parking-place/YoYackBot/commit/9b8736fc84473422ddfadd06ff6460254bf1b35f) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36697885231) / [증거](../evidence/1.1.0-P2.md); 원격 확인 | P2-A/B PASS |
-| [1.1.0-P3](03-prompt-tone.md) | 길이별 프롬프트·싸가지 말투 | IN_PROGRESS | — | P2 원격 완료 선행 |
+| [1.1.0-P3](03-prompt-tone.md) | 길이별 프롬프트·싸가지 말투 | PUSH_PENDING | C `58112d9` / [증거](../evidence/1.1.0-P3.md) | P3-A/B PASS |
 | [1.1.0-P4](04-evaluation.md) | 실제 모델 평가 | PLANNED | — | P3 원격 완료, 계정 한도 확인 |
 | [1.1.0-P5](05-release.md) | 도움말·통합·배포·출시 | PLANNED | — | P1~P4 원격 증거 선행 |
 

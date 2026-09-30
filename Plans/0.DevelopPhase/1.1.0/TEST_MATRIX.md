@@ -8,8 +8,8 @@
 | `T110-P1-B` | [P1](01-grammar.md) | LXC 합성 | 오인 입력 사용법 안내, 도움 우선, 200자 상한, 정리, 로그 비노출, 단독 명령 유지 | PASS — [증거](../evidence/1.1.0-P1.md) |
 | `T110-P2-A` | [P2](02-request-note.md) | LXC 합성 | 추가 요청은 scope 줄에만, 프롬프트 비혼입, JSON 구조, 입력 크기 포함 | PASS — [증거](../evidence/1.1.0-P2.md) |
 | `T110-P2-B` | [P2](02-request-note.md) | LXC 합성 | 주입 문장의 구조 보존·대화 자료 취급, 무시 규칙 포함 | PASS(구조·규칙; 모델 준수는 P4) — [증거](../evidence/1.1.0-P2.md) |
-| `T110-P3-A` | [P3](03-prompt-tone.md) | LXC 합성 | 길이별·재시도별 프롬프트 구성과 순서, 안내 문구 유지 | NOT_RUN |
-| `T110-P3-B` | [P3](03-prompt-tone.md) | LXC 합성 | 비하어 재시도·오탐 없음, 긴 출력 분할·상한 | NOT_RUN |
+| `T110-P3-A` | [P3](03-prompt-tone.md) | LXC 합성 | 길이별·재시도별 프롬프트 구성과 순서, 안내 문구 유지 | PASS — [증거](../evidence/1.1.0-P3.md) |
+| `T110-P3-B` | [P3](03-prompt-tone.md) | LXC 합성 | 비하어 재시도·오탐 없음, 긴 출력 분할·상한 | PASS — [증거](../evidence/1.1.0-P3.md) |
 | `T110-P4-A` | [P4](04-evaluation.md) | LXC 실제 모델 | 사실·귀속·지어낸 인용·둔갑 0, 주입 무시와 안내 한 줄 | NOT_RUN |
 | `T110-P4-B` | [P4](04-evaluation.md) | LXC 실제 모델 | 길이 차이, 요청 반영, 비꼬는 하오체 말투, 금지선 위반 0, 사용자 확인 | NOT_RUN |
 | `T110-P5-A` | [P5](05-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
