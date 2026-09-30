@@ -1,6 +1,6 @@
 # 1.0.2c — 쿨타임 1분·천박한 하오체 요약
 
-- 상태: **IN_PROGRESS** (P1 진행 중)
+- 상태: **IN_PROGRESS** (P1 완료, P2 진행 중)
 - 단계 수: **4단계**
 - 선행 버전: 출시된 [1.0.2b](../1.0.2b/README.md)(`v1.0.2b`, 2026-09-30)
 
@@ -15,8 +15,8 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 성공 쿨타임 1분](01-cooldown.md) | `T102c-P1-A/B` | PLANNED |
-| 2 | [P2 — 말투 프롬프트·금지선 검사](02-tone-prompt.md) | `T102c-P2-A/B` | PLANNED |
+| 1 | [P1 — 성공 쿨타임 1분](01-cooldown.md) | `T102c-P1-A/B` | DONE |
+| 2 | [P2 — 말투 프롬프트·금지선 검사](02-tone-prompt.md) | `T102c-P2-A/B` | IN_PROGRESS |
 | 3 | [P3 — 실제 모델 말투·사실성 평가](03-tone-evaluation.md) | `T102c-P3-A/B` | PLANNED |
 | 4 | [P4 — 통합·배포·출시](04-release.md) | `T102c-P4-A/B` | PLANNED |
 
