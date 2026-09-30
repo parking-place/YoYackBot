@@ -1,6 +1,6 @@
 # 1.1.0 진행 상태
 
-기준일: 2026-09-30. **계획 5단계 / 구현 완료 4단계, P5 진행 중.** 현재 출시 코드는 [`v1.0.2c`](../1.0.2c/STATUS.md)다. 이 문서의 GitHub 게시는 1.1.0 구현·검증의 완료가 아니다.
+기준일: 2026-09-30. **계획 5단계 / 완료 5단계, `v1.1.0` 출시(코드 `35b2706`, 개발 LXC 운영 서비스 배포).** 현재 출시 코드는 [`v1.0.2c`](../1.0.2c/STATUS.md)다. 이 문서의 GitHub 게시는 1.1.0 구현·검증의 완료가 아니다.
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
@@ -8,7 +8,7 @@
 | [1.1.0-P2](02-request-note.md) | 추가 요청 전달·신뢰 경계 | DONE | [C `0c37aee`](https://github.com/parking-place/YoYackBot/commit/0c37aee8a6f42c882d0567c867f672967f91738c) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36697792137) / [E `9b8736f`](https://github.com/parking-place/YoYackBot/commit/9b8736fc84473422ddfadd06ff6460254bf1b35f) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36697885231) / [증거](../evidence/1.1.0-P2.md); 원격 확인 | P2-A/B PASS |
 | [1.1.0-P3](03-prompt-tone.md) | 길이별 프롬프트·싸가지 말투 | DONE | [C `b7eeefb`](https://github.com/parking-place/YoYackBot/commit/b7eeefb674690f40692ee901939215c8e7e09c51) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36699842348) / [E `5d6dd59`](https://github.com/parking-place/YoYackBot/commit/5d6dd5930eb85a75f4e11a3b81baf8c722098011) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36700078832) / [증거](../evidence/1.1.0-P3.md); 원격 확인 | P3-A/B PASS(프롬프트 v3로 재검증) |
 | [1.1.0-P4](04-evaluation.md) | 실제 모델 평가 | DONE | [C `b7eeefb`](https://github.com/parking-place/YoYackBot/commit/b7eeefb674690f40692ee901939215c8e7e09c51) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36699842348) / [E `d383a91`](https://github.com/parking-place/YoYackBot/commit/d383a91e6907b5509cf57bb79d13b5e71a8744ec) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36700309033) / [증거](../evidence/1.1.0-P4.md); 원격 확인 | P4-A PASS(v1 12·v3 4건), P4-B v3 PASS(말투 최종 확인은 P5) |
-| [1.1.0-P5](05-release.md) | 도움말·통합·배포·출시 | PUSH_PENDING | C `35b2706` / [증거](../evidence/1.1.0-P5.md) | P5-A/B PASS, 운영 배포·시험 Discord 사용자 확인(길게·자세히 실제 채널 NOT_RUN) |
+| [1.1.0-P5](05-release.md) | 도움말·통합·배포·출시 | DONE | [C `35b2706`](https://github.com/parking-place/YoYackBot/commit/35b270657222c31570922df02745d87b0a9a0ffc) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36700672183) / [E `c467782`](https://github.com/parking-place/YoYackBot/commit/c467782866a883741f8fa5c32ae7afa60acc7104) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36701282218) / [증거](../evidence/1.1.0-P5.md); 원격 확인 | P5-A/B PASS, 운영 배포·시험 Discord 사용자 확인, [Release v1.1.0](https://github.com/parking-place/YoYackBot/releases/tag/v1.1.0) |
 
 실행 시 [검증 목록](TEST_MATRIX.md)의 결과와 대상 SHA·환경·원격 URL·남은 공백을 단계마다 기록한다. 구현 C·증거 E·종료 D가 모두 원격에서 확인되고 E의 CI가 성공한 뒤에만 DONE으로 바꾼다.
 
