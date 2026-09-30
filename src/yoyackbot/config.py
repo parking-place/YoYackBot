@@ -140,7 +140,7 @@ class Settings:
             timezone=timezone,
             default_minutes=_integer(values, "YOYACK_DEFAULT_MINUTES", 60),
             success_cooldown_seconds=_integer(
-                values, "YOYACK_SUCCESS_COOLDOWN_SECONDS", 300, minimum=0
+                values, "YOYACK_SUCCESS_COOLDOWN_SECONDS", 60, minimum=0
             ),
             max_minutes=max_minutes,
             max_hours=max_hours,

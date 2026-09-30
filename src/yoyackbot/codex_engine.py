@@ -55,11 +55,13 @@ class CodexSummaryEngine:
             workspace = InputWorkspace.create(root, data)
             result = await self.runner.execute(workspace, prompt_for(mode))
             source_bodies = [item.content for item in included]
-            if inspect_output(result, source_bodies) is OutputIssue.SPEAKER_KEY:
+            issue = inspect_output(result, source_bodies)
+            if issue in (OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM):
                 retry_workspace = InputWorkspace.create(root, data)
-                result = await self.runner.execute(
-                    retry_workspace, prompt_for(mode, speaker_retry=True)
-                )
+                result = await self.runner.execute(retry_workspace, prompt_for(
+                    mode, speaker_retry=issue is OutputIssue.SPEAKER_KEY,
+                    hate_retry=issue is OutputIssue.HATE_TERM,
+                ))
         if inspect_output(result, [item.content for item in included]) is not None:
             raise CodexRunError(CodexFailure.OUTPUT_INVALID)
         return SummaryResult(result, self.runner.contract.model, len(included))
