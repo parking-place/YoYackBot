@@ -127,27 +127,66 @@ def route_trigger(content: str) -> TriggerRoute:
     return TriggerRoute(RouteKind.SUMMARY, options=options, repeated=repeated)
 
 
-MODE_WORDS = {"자세히": SummaryMode.DETAILED, "짧게": SummaryMode.SHORT}
+MODE_WORDS = {"짧게": SummaryMode.SHORT, "길게": SummaryMode.LONG, "자세히": SummaryMode.DETAILED}
+RESERVED_WORDS = (USAGE_WORD, STATUS_WORD, CHANNELS_WORD)
+MAX_REQUEST_NOTE = 200
+REQUEST_TOO_LONG_NOTICE = f"추가 요청은 {MAX_REQUEST_NOTE}자까지만 알아듣겠소."
+_RANGE_UNITS = {"개", "분", "시간", "일", "주"}
+_MENTION = re.compile(r"<@[!&]?\d+>|<#\d+>|@everyone|@here")
+_CONTROL = re.compile(r"[\x00-\x1f\x7f\u200b-\u200f\u2028\u2029\ufeff]")
 
 
-def _without_polite_ending(text: str) -> str:
-    for ending in POLITE_ENDINGS:
-        if text == ending:
-            return ""
-        if text.endswith(" " + ending):
-            return text[: -len(ending)].strip()
-    return text
+@dataclass(frozen=True)
+class SummaryCommand:
+    """`[range] [length] [request note...]`, read in that order only."""
+
+    range_text: str
+    mode: SummaryMode
+    note: str | None
 
 
-def split_mode(options: str) -> tuple[str, SummaryMode]:
-    """Accept one density word only after the range; never reorder or merge modes."""
-    words = _without_polite_ending(options.strip()).split()
-    mode = SummaryMode.NORMAL
-    if words and words[-1] in MODE_WORDS:
-        mode = MODE_WORDS[words.pop()]
-    if any(word in MODE_WORDS for word in words):
-        raise CommandSyntaxError(USAGE_NOTICE)
-    return " ".join(words), mode
+def _looks_like_range(text: str) -> bool:
+    try:
+        parse_option(text)
+    except CommandSyntaxError:
+        return False
+    return bool(text.strip())
+
+
+def clean_request_note(text: str) -> str | None:
+    """Drop mentions and control characters, collapse spaces; empty means no request."""
+    cleaned = " ".join(_CONTROL.sub(" ", _MENTION.sub(" ", text)).split())
+    if not cleaned or cleaned in POLITE_ENDINGS:
+        return None
+    if len(cleaned) > MAX_REQUEST_NOTE:
+        raise CommandLimitError(REQUEST_TOO_LONG_NOTICE)
+    return cleaned
+
+
+def parse_summary_command(options: str) -> SummaryCommand:
+    """Never reorder parts: a request that looks like a range, length, or command is refused."""
+    words = options.split()
+    range_text = ""
+    for size in (2, 1):
+        if len(words) >= size and (size == 1 or words[1] in _RANGE_UNITS):
+            candidate = " ".join(words[:size])
+            if _looks_like_range(candidate):
+                range_text, words = candidate, words[size:]
+                break
+    mode = SummaryMode.SHORT
+    if words and words[0] in MODE_WORDS:
+        mode = MODE_WORDS[words.pop(0)]
+    if words:
+        first = words[0]
+        if (
+            _looks_like_range(first)
+            or first[:1].isdigit()
+            or (len(words) > 1 and words[1] in _RANGE_UNITS and _looks_like_range(" ".join(words[:2])))
+            or any(word.startswith(tuple(MODE_WORDS)) for word in words)
+            or first.startswith(RESERVED_WORDS)
+        ):
+            raise CommandSyntaxError(USAGE_NOTICE)
+    return SummaryCommand(range_text, mode, clean_request_note(" ".join(words)))
 
 
 def parse_option(options: str) -> ParsedOption:

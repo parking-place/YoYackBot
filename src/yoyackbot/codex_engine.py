@@ -40,7 +40,7 @@ class CodexSummaryEngine:
         self, messages: Sequence[MessageRecord], *, channel_name: str = "현재 채널",
         range_label: str = "요청 범위", trigger_message_id: int | None = None,
         on_input_size: Callable[[int], None] | None = None,
-        mode: SummaryMode = SummaryMode.NORMAL,
+        mode: SummaryMode = SummaryMode.SHORT,
     ) -> SummaryResult:
         included = [item for item in messages if item.message_id != trigger_message_id]
         if not included:

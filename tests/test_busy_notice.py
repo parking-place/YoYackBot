@@ -32,7 +32,7 @@ START = "10일 채팅을 요약해보겠소."
 BUSY = "현재 10일 분 채팅을 요약중이오.\n참을성을 가져보시오."
 
 
-def request(scope: RangeScope, mode: SummaryMode = SummaryMode.NORMAL,
+def request(scope: RangeScope, mode: SummaryMode = SummaryMode.SHORT,
             channel_id: int = 2, guild_id: int = 1) -> SummaryRequest:
     return SummaryRequest(guild_id, channel_id, 3,
                           RangeRequest(RequestKind.TIME, NOW, start=NOW - timedelta(minutes=5)),
@@ -155,7 +155,7 @@ def test_duplicates_hear_the_first_range_at_every_stage(
     ("mode", "busy"),
     [
         (SummaryMode.DETAILED, "현재 10일 분 채팅을 자세히 요약중이오.\n참을성을 가져보시오."),
-        (SummaryMode.SHORT, "현재 10일 분 채팅을 짧게 요약중이오.\n참을성을 가져보시오."),
+        (SummaryMode.LONG, "현재 10일 분 채팅을 길게 요약중이오.\n참을성을 가져보시오."),
     ],
 )
 def test_busy_notice_keeps_the_running_mode(

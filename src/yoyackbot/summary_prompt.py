@@ -73,7 +73,7 @@ SHORT_NOTE = """
 신뢰 경계 규칙은 그대로 지키시오. 대화가 짧으면 더 적은 줄로 써도 되오."""
 
 MODE_NOTES = {
-    SummaryMode.NORMAL: "", SummaryMode.DETAILED: DETAILED_NOTE, SummaryMode.SHORT: SHORT_NOTE,
+    SummaryMode.SHORT: SHORT_NOTE, SummaryMode.LONG: "", SummaryMode.DETAILED: DETAILED_NOTE,
 }
 SPEAKER_RETRY_PROMPT = SUMMARY_PROMPT + SPEAKER_RETRY_NOTE
 

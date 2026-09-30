@@ -46,7 +46,7 @@ START = "10일 채팅을 요약해보겠소."
 
 
 def request(scope: RangeScope | None = TEN_DAYS,
-            mode: SummaryMode = SummaryMode.NORMAL) -> SummaryRequest:
+            mode: SummaryMode = SummaryMode.SHORT) -> SummaryRequest:
     return SummaryRequest(1, 2, 3, RangeRequest(RequestKind.TIME, NOW,
                                                 start=NOW - timedelta(days=10)), mode, scope)
 
@@ -224,8 +224,10 @@ def test_no_start_notice_for_busy_cooldown_or_closing(
         ("!!요약좀 오늘", "오늘 채팅을 요약해보겠소."),
         ("!!요약좀 100개", "최근 100개 채팅을 요약해보겠소."),
         ("!!요약좀 오늘 자세히", "오늘 채팅을 자세히 요약해보겠소."),
-        ("!!요약좀 5시간 짧게 부탁하오", "5시간 채팅을 짧게 요약해보겠소."),
-        ("!!요약좀 10일 <@123>", None),
+        ("!!요약좀 5시간 짧게 부탁하오", "5시간 채팅을 요약해보겠소."),
+        ("!!요약좀 5시간 길게 시간순으로", "5시간 채팅을 길게 요약해보겠소."),
+        ("!!요약좀 10일 <@123>", START),
+        ("!!요약좀 자세히 2시간", None),
         ("!!요약좀 31일", None),
     ],
 )

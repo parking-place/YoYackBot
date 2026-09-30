@@ -30,7 +30,7 @@ class ActiveJob:
     """The first admitted request's fixed scope; later requests only read it."""
 
     scope: RangeScope | None
-    mode: SummaryMode = SummaryMode.NORMAL
+    mode: SummaryMode = SummaryMode.SHORT
     announced: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
 
 
@@ -60,7 +60,7 @@ class ChannelStates:
 
     async def admit(
         self, guild_id: int, channel_id: int, *,
-        scope: RangeScope | None = None, mode: SummaryMode = SummaryMode.NORMAL,
+        scope: RangeScope | None = None, mode: SummaryMode = SummaryMode.SHORT,
     ) -> Admission:
         """Admit one job per channel; BUSY returns the running job's scope, never the new one."""
         key = guild_id, channel_id

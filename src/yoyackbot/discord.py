@@ -41,8 +41,8 @@ from yoyackbot.parser import (
     CommandSyntaxError,
     RouteKind,
     help_text,
+    parse_summary_command,
     route_trigger,
-    split_mode,
 )
 from yoyackbot.range_request import resolve_range
 from yoyackbot.scope import RangeScope, describe_range
@@ -535,7 +535,8 @@ class YoYackClient(discord.Client):
                         await send_notice(NOT_READY_NOTICE)
                         return
                 try:
-                    range_text, mode = split_mode(route.options)
+                    command = parse_summary_command(route.options)
+                    range_text, mode = command.range_text, command.mode
                     scope = describe_range(range_text, self.settings)
                     request = resolve_range(
                         range_text,
@@ -546,7 +547,9 @@ class YoYackClient(discord.Client):
                 except (CommandSyntaxError, CommandLimitError) as exc:
                     await send_notice(str(exc))
                     return
-                await self.on_summary_request(message, request, lease, mode=mode, scope=scope)
+                await self.on_summary_request(
+                    message, request, lease, mode=mode, scope=scope, note=command.note,
+                )
 
             await self.watch_gate.request(
                 message.guild.id,
@@ -643,10 +646,14 @@ class YoYackClient(discord.Client):
 
     async def on_summary_request(
         self, message: discord.Message, request: RangeRequest, lease: ChannelLease,
-        *, mode: SummaryMode = SummaryMode.NORMAL, scope: RangeScope | None = None,
+        *, mode: SummaryMode = SummaryMode.SHORT, scope: RangeScope | None = None,
+        note: str | None = None,
     ) -> None:
         """Run the model path when the persistent runtime is configured."""
-        LOGGER.info("summary_request_parsed kind=%s mode=%s", request.kind.value, mode.value)
+        LOGGER.info(
+            "summary_request_parsed kind=%s mode=%s has_request=%s request_chars=%d",
+            request.kind.value, mode.value, note is not None, len(note or ""),
+        )
         if (
             self.summary_workflow is None
             and self.settings is not None
@@ -675,7 +682,8 @@ class YoYackClient(discord.Client):
 
         await self.summary_workflow.run(
             SummaryRequest(
-                message.guild.id, message.channel.id, message.author.id, request, mode, scope
+                message.guild.id, message.channel.id, message.author.id, request, mode, scope,
+                note,
             ),
             message.channel, lease, send_notice,
         )

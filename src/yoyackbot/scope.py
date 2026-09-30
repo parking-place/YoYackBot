@@ -7,7 +7,7 @@ from yoyackbot.domain import SummaryMode
 from yoyackbot.parser import OptionKind, parse_option, validate_option
 
 BUSY_SECOND_LINE = "참을성을 가져보시오."
-MODE_WORDS = {SummaryMode.NORMAL: "", SummaryMode.DETAILED: "자세히 ", SummaryMode.SHORT: "짧게 "}
+MODE_WORDS = {SummaryMode.SHORT: "", SummaryMode.LONG: "길게 ", SummaryMode.DETAILED: "자세히 "}
 UNITS = {
     OptionKind.MINUTES: "분", OptionKind.HOURS: "시간",
     OptionKind.DAYS: "일", OptionKind.WEEKS: "주",

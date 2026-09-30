@@ -85,7 +85,7 @@ def test_release_clears_scope_and_wakes_waiters(tmp_path: Path) -> None:
 def request(scope: RangeScope = TEN_DAYS) -> SummaryRequest:
     return SummaryRequest(1, 2, 3, RangeRequest(RequestKind.TIME, NOW,
                                                 start=NOW - timedelta(days=10)),
-                          SummaryMode.NORMAL, scope)
+                          SummaryMode.SHORT, scope)
 
 
 def channel() -> object:

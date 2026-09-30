@@ -13,9 +13,9 @@ if TYPE_CHECKING:
 class SummaryMode(Enum):
     """Trusted prompt density; it never changes the collected range."""
 
-    NORMAL = "normal"
-    DETAILED = "detailed"
     SHORT = "short"
+    LONG = "long"
+    DETAILED = "detailed"
 
 
 class RequestKind(Enum):
@@ -84,8 +84,9 @@ class SummaryRequest:
     channel_id: int
     user_id: int
     requested_range: RangeRequest
-    mode: SummaryMode = SummaryMode.NORMAL
+    mode: SummaryMode = SummaryMode.SHORT
     scope: "RangeScope | None" = None
+    request_note: str | None = None
 
 
 @dataclass(frozen=True)
