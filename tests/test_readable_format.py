@@ -40,7 +40,7 @@ def test_every_prompt_carries_the_format_rules(mode: SummaryMode, retry: dict) -
              ("신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(모든 길이 공통)", "추가 요청:",
               "말투(반드시 적용)", "비아냥 형식", "금지(말투보다 우선)")]
     assert order == sorted(order)
-    assert PROMPT_VERSION == "1.1.0a-p1-v1"
+    assert PROMPT_VERSION == "1.1.0a-p2-v1"
 
 
 def test_short_is_bounded_by_topics_and_bullets() -> None:

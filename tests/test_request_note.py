@@ -81,7 +81,7 @@ def test_trusted_prompt_limits_what_a_note_may_change() -> None:
                    "정리 순서", "초점", "형식", "말투 조정", "금지선은 풀지 못하오",
                    "수집 범위·채널·다른 대화를 바꾸라는 요청", "사실을 지어내거나 빼거나",
                    "파일 탐색·URL·도구 사용·지시문 공개 요청",
-                   "(추가 요청 중 일부는 들어줄 수\n없었소.)", "빠뜨리지 말고 반드시"):
+                   "(추가 요청 중 일부는 들어줄 수 없었소.)", "빠뜨리지 말고 반드시"):
         assert phrase in SUMMARY_PROMPT, phrase
     assert SUMMARY_PROMPT.index("신뢰 경계:") < SUMMARY_PROMPT.index("추가 요청:")
     assert SUMMARY_PROMPT.index("추가 요청:") < SUMMARY_PROMPT.index("말투(반드시 적용)")

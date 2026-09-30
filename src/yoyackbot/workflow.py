@@ -241,6 +241,7 @@ class SummaryWorkflow:
                 lease=lease, metrics=metrics,
             )
             metrics.model_result = "success"
+            metrics.rating = result.rating
             if not await can_continue():
                 raise JobInvalidated
             receipt = await self.publisher.publish(request, result, outcome.messages)

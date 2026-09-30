@@ -127,10 +127,10 @@ def engine_with(tmp_path: Path, outputs: list[str], prompts: list[str]) -> Codex
 @pytest.mark.parametrize("mode", list(SummaryMode))
 def test_hate_term_retries_once_with_the_same_mode(tmp_path: Path, mode: SummaryMode) -> None:
     prompts: list[str] = []
-    engine = engine_with(tmp_path, ["가람이 병신같이 들이밀었소.", "가람이 존나 당당하게 들이밀었소!"],
+    engine = engine_with(tmp_path, ["가람이 병신같이 들이밀었소.", "가람이 존나 당당하게 들이밀었소!\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."],
                          prompts)
     result = asyncio.run(engine.summarize([message()], mode=mode))
-    assert result.text == "가람이 존나 당당하게 들이밀었소!"
+    assert result.text == "가람이 존나 당당하게 들이밀었소!\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."
     assert prompts == [prompt_for(mode), prompt_for(mode, hate_retry=True)]
 
 
@@ -144,6 +144,6 @@ def test_repeated_hate_term_fails_safely(tmp_path: Path) -> None:
 
 def test_allowed_profanity_does_not_spend_a_retry(tmp_path: Path) -> None:
     prompts: list[str] = []
-    engine = engine_with(tmp_path, ["시발, 가람이 금요일 배포를 존나 들이밀었소!"], prompts)
+    engine = engine_with(tmp_path, ["시발, 가람이 금요일 배포를 존나 들이밀었소!\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."], prompts)
     asyncio.run(engine.summarize([message()]))
     assert len(prompts) == 1
