@@ -8,8 +8,8 @@
 | `T102c-P1-B` | [P1](01-cooldown.md) | LXC 격리 DB | 5분 기록의 남은 시간 60초 상한·재시작 후 동일·schema 불변 | PASS — [증거](../evidence/1.0.2c-P1.md) |
 | `T102c-P2-A` | [P2](02-tone-prompt.md) | LXC 합성 | 세 모드·재시도 프롬프트의 말투·금지선·우선순위, 안내 문구 불변 | PASS — [증거](../evidence/1.0.2c-P2.md) |
 | `T102c-P2-B` | [P2](02-tone-prompt.md) | LXC 합성 | 혐오 비하어 탐지 재시도·안전 실패, 허용 비속어·인용 오탐 없음, 쿨타임·상태 유지 | PASS — [증거](../evidence/1.0.2c-P2.md) |
-| `T102c-P3-A` | [P3](03-tone-evaluation.md) | LXC 실제 모델 | 필수 사실·금지 사실·화자 귀속·지어낸 인용·둔갑 0 | NOT_RUN |
-| `T102c-P3-B` | [P3](03-tone-evaluation.md) | LXC 실제 모델 | 비속어 섞인 몸통·하오체 말끝, 사람 성적 묘사·혐오 비하어·인신공격 0, 짧게 줄 수, 사용자 확인 | NOT_RUN |
+| `T102c-P3-A` | [P3](03-tone-evaluation.md) | LXC 실제 모델 | 필수 사실·금지 사실·화자 귀속·지어낸 인용·둔갑 0 | PASS(9건) — [증거](../evidence/1.0.2c-P3.md) |
+| `T102c-P3-B` | [P3](03-tone-evaluation.md) | LXC 실제 모델 | 비속어 섞인 몸통·하오체 말끝, 사람 성적 묘사·혐오 비하어·인신공격 0, 짧게 줄 수, 사용자 확인 | FAIL(모델 순화, 결정 대기) — [증거](../evidence/1.0.2c-P3.md) |
 | `T102c-P4-A` | [P4](04-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
 | `T102c-P4-B` | [P4](04-release.md) | LXC/시험 Discord | 배포·복귀, 사용자 확인+로그 대조, P1~P3 원격 증거, 병합 후 `main` CI | NOT_RUN |
 
