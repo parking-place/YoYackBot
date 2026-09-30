@@ -6,8 +6,8 @@
 |---|---|---|---|---|
 | `T110a-P1-A` | [P1](01-format.md) | LXC 합성 | 형식 규칙·비아냥 분리·인용 금지 포함, 옛 문구 제거, 순서 유지 | NOT_RUN |
 | `T110a-P1-B` | [P1](01-format.md) | LXC 합성 | 새 형식 출력의 검사 오탐 없음, `↳` 비하어 탐지, 줄 단위 분할 | NOT_RUN |
-| `T110a-P2-A` | [P2](02-rating-line.md) | LXC 합성 | 평가 줄 지시 포함, 형식 검사 7종 판정 | NOT_RUN |
-| `T110a-P2-B` | [P2](02-rating-line.md) | LXC 합성 | 누락 1회 재생성·반복 시 평가 없이 게시·로그, 재생성 1회 상한, 분할 | NOT_RUN |
+| `T110a-P2-A` | [P2](02-rating-line.md) | LXC 합성 | 평가 줄·평가 전용 프롬프트, 형식 검사 8종(굵게 교정·여러 줄 포함) 판정 | NOT_RUN |
+| `T110a-P2-B` | [P2](02-rating-line.md) | LXC 합성 | 누락 시 평가만 1회 재생성·실패 시 평가 없이 게시·로그, 호출 최대 3번, 분할 | NOT_RUN |
 | `T110a-P3-A` | [P3](03-evaluation.md) | LXC 실제 모델 | 사실·귀속·지어낸 인용·미해결점 0, 주입 무시·안내 | NOT_RUN |
 | `T110a-P3-B` | [P3](03-evaluation.md) | LXC 실제 모델 | 형식 준수, 짧게 불릿 ≤8, 모든 출력 평가 줄, 신랄한 하오체, 금지선 0, 사용자 확인 | NOT_RUN |
 | `T110a-P4-A` | [P4](04-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
