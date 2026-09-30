@@ -163,7 +163,8 @@ def test_gateway_carries_the_note_and_logs_only_its_length(caplog) -> None:
 def test_help_explains_lengths_and_request_notes() -> None:
     from yoyackbot.parser import HELP_TEXT
 
-    for phrase in ("`!!요약좀` — 최근 1시간의 대화를 짧게(본문 4~6줄) 요약하오.",
+    for phrase in ("`!!요약좀` — 최근 1시간의 대화를 주제별로 짧게 요약하오.",
+                   "모든 요약 끝에는 **요약창섭의 떡밥 한줄 평가**가 붙소.",
                    "기본은 짧게 요약하오.", "`!!요약좀 [범위] 길게`", "`!!요약좀 [범위] 자세히`",
                    "아주 길고 촘촘하게", "`짧게`를 붙여도 기본과 같소.",
                    "`!!요약좀 2분 길게 시간순으로 해줘`", "추가 요청은 200자까지이며",
