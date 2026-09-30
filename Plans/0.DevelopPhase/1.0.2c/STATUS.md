@@ -5,7 +5,7 @@
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
 | [1.0.2c-P1](01-cooldown.md) | 성공 쿨타임 1분 | DONE | [C `e263189`](https://github.com/parking-place/YoYackBot/commit/e263189f6bd97e7177e412dd36003360164c3d08) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36678371868) / [E `4494fdd`](https://github.com/parking-place/YoYackBot/commit/4494fdd453ec13d916f26b28ac5b5eb89ad29a80) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36678464455) / [증거](../evidence/1.0.2c-P1.md); 원격 확인 | P1-A/B PASS |
-| [1.0.2c-P2](02-tone-prompt.md) | 말투 프롬프트·금지선 검사 | IN_PROGRESS | 이전 C `61aee79`(v1) / E `cf332b1` / D `e81867b` | 재개: 사용자가 현재 수준 수용, 탐색에서 효과 있던 강화 프롬프트를 v2로 반영 중 |
+| [1.0.2c-P2](02-tone-prompt.md) | 말투 프롬프트·금지선 검사 | PUSH_PENDING | C `fd16dbc` / [증거](../evidence/1.0.2c-P2.md) | P2-A/B PASS(프롬프트 v2로 재검증) |
 | [1.0.2c-P3](03-tone-evaluation.md) | 실제 모델 말투·사실성 평가 | BLOCKED | 대상 C `61aee79` / [증거](../evidence/1.0.2c-P3.md) | 사실성 PASS, 말투 FAIL(모델이 비속어를 순화). 사용자 결정 대기 |
 | [1.0.2c-P4](04-release.md) | 통합·배포·출시 | PLANNED | — | P1~P3 원격 증거 선행 |
 
