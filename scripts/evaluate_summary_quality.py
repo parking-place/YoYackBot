@@ -43,7 +43,7 @@ async def evaluate(
                 records(fixture), channel_name="합성 평가 채널", mode=mode, request_note=note,
             )
             outcome = {"id": fixture["id"], "prompt": PROMPT_VERSION, "mode": mode.value,
-                       "note": note,
+                       "note": note, "rating": result.rating,
                        "model": result.model, "text": result.text}
         except Exception as exc:  # noqa: BLE001 - keep diagnostics free of prompt/auth contents
             outcome = {"id": fixture["id"], "prompt": PROMPT_VERSION,
