@@ -1,6 +1,6 @@
 # 1.0.2b — 주시 채널 목록 명령
 
-- 상태: **IN_PROGRESS** (P1~P2 완료, P3 진행 중)
+- 상태: **DONE** (3단계 완료, [v1.0.2b 출시](https://github.com/parking-place/YoYackBot/releases/tag/v1.0.2b))
 - 단계 수: **3단계**
 - 선행 버전: 출시된 [1.0.2](../1.0.2/README.md)(`v1.0.2`, 2026-09-29)
 
@@ -25,9 +25,9 @@
 |---|---|---|---|
 | 1 | [P1 — 명령 라우팅·현재 서버 주시 채널 조회](01-channel-list.md) | `T102b-P1-A/B` | DONE |
 | 2 | [P2 — 응답 문구·분할·도움말](02-reply-help.md) | `T102b-P2-A/B` | DONE |
-| 3 | [P3 — 통합·배포·출시](03-release.md) | `T102b-P3-A/B` | IN_PROGRESS |
+| 3 | [P3 — 통합·배포·출시](03-release.md) | `T102b-P3-A/B` | DONE |
 
-[검증 목록](TEST_MATRIX.md)은 현재 전부 `NOT_RUN`이며 [상태](STATUS.md)는 전부 `PLANNED`이다. 각 단계는 구현·LXC 검증·증거 기록·**독립 commit → GitHub push → 원격 반영 및 필요한 CI 확인**을 마쳐야 DONE이다. 기존 [Git 완료 규칙](../GIT_WORKFLOW.md)의 C/E/D 절차를 따르며, 종료 커밋 D는 증거 커밋 E의 **CI 성공을 확인한 뒤에만** 만든다.
+[검증 목록](TEST_MATRIX.md)과 [상태](STATUS.md)에 각 단계의 실제 증거를 기록했다. 각 단계는 구현·LXC 검증·증거 기록·**독립 commit → GitHub push → 원격 반영 및 필요한 CI 확인**을 마쳐야 DONE이다. 기존 [Git 완료 규칙](../GIT_WORKFLOW.md)의 C/E/D 절차를 따르며, 종료 커밋 D는 증거 커밋 E의 **CI 성공을 확인한 뒤에만** 만든다.
 
 ## 검증 방침
 
