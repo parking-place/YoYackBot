@@ -40,12 +40,13 @@ from yoyackbot.workflow import (
 @pytest.mark.parametrize("retry", [{}, {"speaker_retry": True}, {"hate_retry": True}])
 def test_every_prompt_carries_the_tone_after_the_fact_rules(mode, retry) -> None:
     prompt = prompt_for(mode, **retry)
-    tone = prompt.index("말투: 위의 사실·화자 귀속·신뢰 경계 규칙을 모두 지킨 다음에만")
+    tone = prompt.index("말투(반드시 적용): 위의 사실·화자 귀속·신뢰 경계 규칙을 지키는 범위 안에서")
     assert prompt.index("원문에 없는 사실·동기·결론") < tone
     assert prompt.index("신뢰 경계:") < tone
-    for phrase in ("천박한 구어체", "하오체", "존나, 시발", "외설적인 속어",
-                   "하지 않은 욕설을 그 사람이 한 말처럼 쓰지 말고",
-                   "성적으로 묘사하거나", "집단을 비하하는 말", "인신공격"):
+    for phrase in ("천박한 입담", "하오체", "존나, 시발", "외설적인 속어", "거친 소제목",
+                   "금지(말투보다 우선)", "하지 않은 욕설을 그 사람이 한 말처럼 쓰지 말고",
+                   "성적으로 묘사하거나", "집단을 비하하는 말", "인신공격",
+                   "말투 때문에 사실을\n바꾸거나 보태지 마시오"):
         assert phrase in prompt
     assert "한국어 하오체로 자연스럽고 간결하게" not in prompt
     note = {SummaryMode.DETAILED: DETAILED_NOTE, SummaryMode.SHORT: SHORT_NOTE}.get(mode)
