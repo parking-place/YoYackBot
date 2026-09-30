@@ -10,6 +10,7 @@ from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode
+from yoyackbot.parser import clean_request_note
 from yoyackbot.summary_prompt import PROMPT_VERSION
 
 
@@ -28,7 +29,9 @@ def records(fixture: dict[str, object]) -> list[MessageRecord]:
     return items
 
 
-async def evaluate(first: int, count: int, fixture_name: str, mode: SummaryMode) -> None:
+async def evaluate(
+    first: int, count: int, fixture_name: str, mode: SummaryMode, note: str | None = None,
+) -> None:
     fixtures = json.loads(
         (Path(__file__).resolve().parents[1] / "tests/fixtures" / fixture_name).read_text()
     )
@@ -37,9 +40,10 @@ async def evaluate(first: int, count: int, fixture_name: str, mode: SummaryMode)
     for fixture in fixtures[first:first + count]:
         try:
             result = await engine.summarize(
-                records(fixture), channel_name="합성 평가 채널", mode=mode,
+                records(fixture), channel_name="합성 평가 채널", mode=mode, request_note=note,
             )
             outcome = {"id": fixture["id"], "prompt": PROMPT_VERSION, "mode": mode.value,
+                       "note": note,
                        "model": result.model, "text": result.text}
         except Exception as exc:  # noqa: BLE001 - keep diagnostics free of prompt/auth contents
             outcome = {"id": fixture["id"], "prompt": PROMPT_VERSION,
@@ -55,11 +59,13 @@ def main() -> None:
     parser.add_argument("--count", type=int, default=20)
     parser.add_argument("--fixtures", default="summary_quality.json",
                         choices=("summary_quality.json", "summary_modes.json"))
-    parser.add_argument("--mode", default="normal", choices=[mode.value for mode in SummaryMode])
+    parser.add_argument("--mode", default="short", choices=[mode.value for mode in SummaryMode])
+    parser.add_argument("--note", default=None, help="request note, cleaned like a Discord command")
     args = parser.parse_args()
     if args.first < 0 or args.count < 1:
         parser.error("--first must be nonnegative and --count positive")
-    asyncio.run(evaluate(args.first, args.count, args.fixtures, SummaryMode(args.mode)))
+    note = clean_request_note(args.note) if args.note else None
+    asyncio.run(evaluate(args.first, args.count, args.fixtures, SummaryMode(args.mode), note))
 
 
 if __name__ == "__main__":

@@ -16,12 +16,18 @@ from yoyackbot.config import Settings
 from yoyackbot.discord import YoYackClient
 from yoyackbot.domain import SummaryMode
 from yoyackbot.message_store import SQLiteMessageStore
-from yoyackbot.parser import CommandLimitError, OptionKind, split_mode
+from yoyackbot.parser import CommandLimitError, OptionKind, parse_summary_command
 from yoyackbot.scope import RangeScope, busy_notice, describe_range, start_notice
 from yoyackbot.watch_store import SQLiteWatchStore
 
 SETTINGS = Settings.from_environment({"DISCORD_BOT_TOKEN": "synthetic"})
 BUSY_TAIL = "\n참을성을 가져보시오."
+
+
+def split_mode(options: str):
+    command = parse_summary_command(options)
+    assert command.note is None
+    return command.range_text, command.mode
 
 
 @pytest.mark.parametrize(
@@ -37,10 +43,11 @@ BUSY_TAIL = "\n참을성을 가져보시오."
         ("오늘", "오늘 채팅을 요약해보겠소.", "현재 오늘 채팅을 요약중이오."),
         ("100개", "최근 100개 채팅을 요약해보겠소.", "현재 최근 100개 채팅을 요약중이오."),
         ("자세히", "1시간 채팅을 자세히 요약해보겠소.", "현재 1시간 분 채팅을 자세히 요약중이오."),
-        ("5시간 짧게", "5시간 채팅을 짧게 요약해보겠소.", "현재 5시간 분 채팅을 짧게 요약중이오."),
+        ("5시간 짧게", "5시간 채팅을 요약해보겠소.", "현재 5시간 분 채팅을 요약중이오."),
+        ("5시간 길게", "5시간 채팅을 길게 요약해보겠소.", "현재 5시간 분 채팅을 길게 요약중이오."),
         ("100개 자세히 부탁하오", "최근 100개 채팅을 자세히 요약해보겠소.",
          "현재 최근 100개 채팅을 자세히 요약중이오."),
-        ("30분 짧게", "30분 채팅을 짧게 요약해보겠소.", "현재 30분간의 채팅을 짧게 요약중이오."),
+        ("30분 길게", "30분 채팅을 길게 요약해보겠소.", "현재 30분간의 채팅을 길게 요약중이오."),
     ],
 )
 def test_contract_table_wording(options: str, start: str, busy: str) -> None:
@@ -75,7 +82,7 @@ def test_labels_hold_only_validated_values() -> None:
         RangeScope(OptionKind.TODAY, 3)
     with pytest.raises(ValueError):
         RangeScope(OptionKind.HOURS, 0)
-    assert "<@" not in start_notice(describe_range("2시간", SETTINGS), SummaryMode.NORMAL)
+    assert "<@" not in start_notice(describe_range("2시간", SETTINGS), SummaryMode.SHORT)
 
 
 def backfill_db(tmp_path: Path) -> tuple[Path, SQLiteBackfillStore]:

@@ -57,8 +57,9 @@ def test_help_examples_cover_all_supported_forms() -> None:
         "`!!요약좀 30일`",
         "`!!요약좀 1주`",
         "`/채널 설정`",
-        "`!!요약좀 오늘 자세히`",
-        "`!!요약좀 5시간 짧게`",
+        "`!!요약좀 오늘 길게`",
+        "`!!요약좀 3일 자세히`",
+        "`!!요약좀 2분 길게 시간순으로 해줘`",
         "`!!요약좀 사용량`",
         "`!!요약좀 상태`",
         "`!!요약좀 채널`",
@@ -221,9 +222,9 @@ def test_all_command_forms_reach_normalized_request_and_invalid_options_stop() -
         requests = []
 
         class SpyClient(YoYackClient):
-            async def on_summary_request(self, message, request, lease, *, mode, scope) -> None:
+            async def on_summary_request(self, message, request, lease, *, mode, scope, note=None) -> None:
                 assert lease.valid()
-                assert mode is SummaryMode.NORMAL
+                assert mode is SummaryMode.SHORT
                 requests.append(request)
 
         client = SpyClient(

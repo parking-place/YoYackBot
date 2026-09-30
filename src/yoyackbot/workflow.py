@@ -65,7 +65,7 @@ class SummaryWorkflow:
 
     async def _summarize_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
-        trigger_message_id: int | None, mode: SummaryMode,
+        trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
     ) -> SummaryResult:
         if self.queue is not None:
@@ -81,22 +81,24 @@ class SummaryWorkflow:
                     raise JobInvalidated
                 return await self._run_model_guarded(
                     messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
-                    mode=mode, channel=channel, lease=lease, metrics=metrics,
+                    mode=mode, request_note=request_note, channel=channel, lease=lease,
+                    metrics=metrics,
                 )
         return await self._run_model_guarded(
             messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
-            mode=mode, channel=channel, lease=lease, metrics=metrics,
+            mode=mode, request_note=request_note, channel=channel, lease=lease,
+                    metrics=metrics,
         )
 
     async def _run_model_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
-        trigger_message_id: int | None, mode: SummaryMode,
+        trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
     ) -> SummaryResult:
         model_started = time.monotonic()
         model = asyncio.create_task(self.engine.summarize(
             messages, channel_name=channel_name, range_label="선택한 대화",
-            trigger_message_id=trigger_message_id, mode=mode,
+            trigger_message_id=trigger_message_id, mode=mode, request_note=request_note,
             on_input_size=lambda size: setattr(metrics, "input_bytes", size),
         ))
         try:
@@ -235,7 +237,8 @@ class SummaryWorkflow:
             result = await self._summarize_guarded(
                 outcome.messages, channel_name=channel.name,
                 trigger_message_id=request.requested_range.trigger_message_id,
-                mode=request.mode, channel=channel, lease=lease, metrics=metrics,
+                mode=request.mode, request_note=request.request_note, channel=channel,
+                lease=lease, metrics=metrics,
             )
             metrics.model_result = "success"
             if not await can_continue():

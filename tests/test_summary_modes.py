@@ -26,7 +26,7 @@ from yoyackbot.domain import (
     SummaryResult,
 )
 from yoyackbot.input_files import InputWorkspace
-from yoyackbot.parser import USAGE_NOTICE, CommandSyntaxError, split_mode
+from yoyackbot.parser import USAGE_NOTICE, CommandSyntaxError, parse_summary_command
 from yoyackbot.range_request import resolve_range
 from yoyackbot.state import ChannelStates
 from yoyackbot.summary_prompt import DETAILED_NOTE, SHORT_NOTE, SUMMARY_PROMPT, prompt_for
@@ -36,17 +36,23 @@ SETTINGS = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
 ACCEPTED = datetime(2026, 9, 29, 12, tzinfo=UTC)
 
 
+def split_mode(options: str):
+    command = parse_summary_command(options)
+    assert command.note is None
+    return command.range_text, command.mode
+
+
 @pytest.mark.parametrize(
     ("options", "range_text", "mode"),
     [
-        ("", "", SummaryMode.NORMAL),
+        ("", "", SummaryMode.SHORT),
         ("자세히", "", SummaryMode.DETAILED),
         ("오늘 자세히", "오늘", SummaryMode.DETAILED),
         ("100개 자세히", "100개", SummaryMode.DETAILED),
         ("3일 자세히", "3일", SummaryMode.DETAILED),
         ("2시간 자세히 부탁하오", "2시간", SummaryMode.DETAILED),
         ("자세히 부탁하오", "", SummaryMode.DETAILED),
-        ("30분", "30분", SummaryMode.NORMAL),
+        ("30분", "30분", SummaryMode.SHORT),
         ("짧게", "", SummaryMode.SHORT),
         ("5시간 짧게", "5시간", SummaryMode.SHORT),
         ("100개 짧게 해주세요", "100개", SummaryMode.SHORT),
@@ -71,13 +77,14 @@ def test_misplaced_or_repeated_modes_are_rejected_without_guessing(options: str)
         split_mode(options)
 
 
-@pytest.mark.parametrize("word", ["자세히", "짧게"])
+@pytest.mark.parametrize("word", ["자세히", "짧게", "길게"])
 @pytest.mark.parametrize("range_text", ["", "3", "30분", "2시간", "100개", "오늘", "3일", "1주"])
 def test_mode_never_changes_the_frozen_range(range_text: str, word: str) -> None:
     plain = resolve_range(range_text, SETTINGS, ACCEPTED, trigger_message_id=500)
     text, mode = split_mode(f"{range_text} {word}".strip())
     moded = resolve_range(text, SETTINGS, ACCEPTED, trigger_message_id=500)
-    assert mode is not SummaryMode.NORMAL
+    assert mode is {"자세히": SummaryMode.DETAILED, "짧게": SummaryMode.SHORT,
+                    "길게": SummaryMode.LONG}[word]
     assert moded == plain
 
 
@@ -104,7 +111,7 @@ def test_gateway_passes_mode_with_the_same_request() -> None:
         seen: list[tuple[RangeRequest, SummaryMode]] = []
 
         class SpyClient(YoYackClient):
-            async def on_summary_request(self, message, request, lease, *, mode, scope) -> None:
+            async def on_summary_request(self, message, request, lease, *, mode, scope, note=None) -> None:
                 seen.append((request, mode))
 
         client = SpyClient(watch_store=store, settings=SETTINGS, clock=lambda: ACCEPTED)
@@ -119,7 +126,7 @@ def test_gateway_passes_mode_with_the_same_request() -> None:
         finally:
             await client.close()
         assert [mode for _request, mode in seen] == [
-            SummaryMode.NORMAL, SummaryMode.DETAILED, SummaryMode.DETAILED,
+            SummaryMode.SHORT, SummaryMode.DETAILED, SummaryMode.DETAILED,
             SummaryMode.SHORT, SummaryMode.SHORT,
         ]
         assert seen[0][0] == seen[1][0] == seen[3][0]
@@ -141,7 +148,7 @@ def engine_settings(tmp_path: Path) -> Settings:
 
 
 def test_prompt_notes_are_trusted_constants() -> None:
-    assert prompt_for(SummaryMode.NORMAL) == SUMMARY_PROMPT
+    assert prompt_for(SummaryMode.LONG) == SUMMARY_PROMPT
     assert prompt_for(SummaryMode.DETAILED) == SUMMARY_PROMPT + DETAILED_NOTE
     assert prompt_for(SummaryMode.SHORT) == SUMMARY_PROMPT + SHORT_NOTE
     assert "4~6줄" in SHORT_NOTE and "4~6줄" not in DETAILED_NOTE
@@ -223,7 +230,7 @@ def test_modes_share_collection_busy_and_cooldown(
         )
         while not modes:
             await asyncio.sleep(0)
-        await workflow.run(mode_request(SummaryMode.NORMAL), channel, lease, notice)
+        await workflow.run(mode_request(SummaryMode.SHORT), channel, lease, notice)
         await workflow.run(mode_request(SummaryMode.SHORT), channel, lease, notice)
         assert notices == [BUSY_NOTICE, BUSY_NOTICE]
         notices.clear()
@@ -232,7 +239,7 @@ def test_modes_share_collection_busy_and_cooldown(
         await workflow.run(mode_request(SummaryMode.SHORT), channel, lease, notice)
         assert notices == ["아직은 때가 아니오. 05분 00초 뒤에 오시오."]
         assert modes == [SummaryMode.DETAILED]
-        assert collected == [mode_request(SummaryMode.NORMAL).requested_range]
+        assert collected == [mode_request(SummaryMode.SHORT).requested_range]
 
     asyncio.run(scenario())
 

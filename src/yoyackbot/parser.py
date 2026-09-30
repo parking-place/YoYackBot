@@ -15,7 +15,7 @@ HELP_WORD = re.compile(r"(?<!\S)도움(?:말)?(?=\s|$)")
 
 HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
 
-`!!요약좀` — 최근 1시간의 대화를 요약하오.
+`!!요약좀` — 최근 1시간의 대화를 짧게(본문 4~6줄) 요약하오.
 `!!요약좀 3` — 최근 3시간의 대화를 요약하오.
 `!!요약좀 30분` — 최근 30분의 대화를 요약하오.
 `!!요약좀 2시간` — 최근 2시간의 대화를 요약하오.
@@ -28,9 +28,13 @@ HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
 숫자만 적으면 시간 단위로 알아듣겠소.
 {limit_notice}
 
-범위 뒤에 `자세히`나 `짧게`를 한 번 붙이면 같은 범위를 다른 밀도로 요약하오. 범위를 생략하면 최근 1시간이오.
-`!!요약좀 오늘 자세히` — 화자별 의견·결정·남은 점을 촘촘히 요약하오.
-`!!요약좀 5시간 짧게` — 본문 5줄 안팎으로 줄여 요약하오.
+기본은 짧게 요약하오. 범위 뒤에 길이를 한 번 붙이면 같은 범위를 더 길게 요약하오. 범위를 생략하면 최근 1시간이오.
+`!!요약좀 [범위] 길게` — 화자별 흐름과 결정·남은 점까지 요약하오. 예: `!!요약좀 오늘 길게`
+`!!요약좀 [범위] 자세히` — 아주 길고 촘촘하게 요약하오. 예: `!!요약좀 3일 자세히`
+`짧게`를 붙여도 기본과 같소.
+
+범위·길이 뒤에 하고 싶은 말을 적으면 요약할 때 참고하오. 예: `!!요약좀 2분 길게 시간순으로 해줘`
+(추가 요청은 200자까지이며, 범위를 바꾸거나 없는 사실을 만들어 달라는 말은 듣지 않소.)
 
 `!!요약좀 사용량` — 요약봇 Codex 계정의 남은 한도를 알려주오.
 `!!요약좀 상태` — 이 서버의 주시 채널·캐시 건수·DB 크기(모든 서버가 함께 쓰는 파일)·마지막 요약을 알려주오.
@@ -127,27 +131,66 @@ def route_trigger(content: str) -> TriggerRoute:
     return TriggerRoute(RouteKind.SUMMARY, options=options, repeated=repeated)
 
 
-MODE_WORDS = {"자세히": SummaryMode.DETAILED, "짧게": SummaryMode.SHORT}
+MODE_WORDS = {"짧게": SummaryMode.SHORT, "길게": SummaryMode.LONG, "자세히": SummaryMode.DETAILED}
+RESERVED_WORDS = (USAGE_WORD, STATUS_WORD, CHANNELS_WORD)
+MAX_REQUEST_NOTE = 200
+REQUEST_TOO_LONG_NOTICE = f"추가 요청은 {MAX_REQUEST_NOTE}자까지만 알아듣겠소."
+_RANGE_UNITS = {"개", "분", "시간", "일", "주"}
+_MENTION = re.compile(r"<@[!&]?\d+>|<#\d+>|@everyone|@here")
+_CONTROL = re.compile(r"[\x00-\x1f\x7f\u200b-\u200f\u2028\u2029\ufeff]")
 
 
-def _without_polite_ending(text: str) -> str:
-    for ending in POLITE_ENDINGS:
-        if text == ending:
-            return ""
-        if text.endswith(" " + ending):
-            return text[: -len(ending)].strip()
-    return text
+@dataclass(frozen=True)
+class SummaryCommand:
+    """`[range] [length] [request note...]`, read in that order only."""
+
+    range_text: str
+    mode: SummaryMode
+    note: str | None
 
 
-def split_mode(options: str) -> tuple[str, SummaryMode]:
-    """Accept one density word only after the range; never reorder or merge modes."""
-    words = _without_polite_ending(options.strip()).split()
-    mode = SummaryMode.NORMAL
-    if words and words[-1] in MODE_WORDS:
-        mode = MODE_WORDS[words.pop()]
-    if any(word in MODE_WORDS for word in words):
-        raise CommandSyntaxError(USAGE_NOTICE)
-    return " ".join(words), mode
+def _looks_like_range(text: str) -> bool:
+    try:
+        parse_option(text)
+    except CommandSyntaxError:
+        return False
+    return bool(text.strip())
+
+
+def clean_request_note(text: str) -> str | None:
+    """Drop mentions and control characters, collapse spaces; empty means no request."""
+    cleaned = " ".join(_CONTROL.sub(" ", _MENTION.sub(" ", text)).split())
+    if not cleaned or cleaned in POLITE_ENDINGS:
+        return None
+    if len(cleaned) > MAX_REQUEST_NOTE:
+        raise CommandLimitError(REQUEST_TOO_LONG_NOTICE)
+    return cleaned
+
+
+def parse_summary_command(options: str) -> SummaryCommand:
+    """Never reorder parts: a request that looks like a range, length, or command is refused."""
+    words = options.split()
+    range_text = ""
+    for size in (2, 1):
+        if len(words) >= size and (size == 1 or words[1] in _RANGE_UNITS):
+            candidate = " ".join(words[:size])
+            if _looks_like_range(candidate):
+                range_text, words = candidate, words[size:]
+                break
+    mode = SummaryMode.SHORT
+    if words and words[0] in MODE_WORDS:
+        mode = MODE_WORDS[words.pop(0)]
+    if words:
+        first = words[0]
+        if (
+            _looks_like_range(first)
+            or first[:1].isdigit()
+            or (len(words) > 1 and words[1] in _RANGE_UNITS and _looks_like_range(" ".join(words[:2])))
+            or any(word.startswith(tuple(MODE_WORDS)) for word in words)
+            or first.startswith(RESERVED_WORDS)
+        ):
+            raise CommandSyntaxError(USAGE_NOTICE)
+    return SummaryCommand(range_text, mode, clean_request_note(" ".join(words)))
 
 
 def parse_option(options: str) -> ParsedOption:
