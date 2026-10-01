@@ -1,6 +1,6 @@
 # 1.1.1a — 결론 안 난 이야기는 진행 중으로
 
-- 상태: **IN_PROGRESS** (P1~P3 완료, P4 진행 중)
+- 상태: **DONE** (4단계 완료, [v1.1.1a 출시](https://github.com/parking-place/YoYackBot/releases/tag/v1.1.1a))
 - 단계 수: **4단계**
 - 선행 버전: 출시된 [1.1.1](../1.1.1/README.md)(`v1.1.1`, 2026-10-01)
 
@@ -19,9 +19,9 @@
 | 1 | [P1 — 진행 중 원칙·표시 이름·비꼼 소재 프롬프트](01-ongoing-prompt.md) | `T111a-P1-A/B` | DONE |
 | 2 | [P2 — 미결 조롱 표현 검사와 1회 재생성](02-ongoing-check.md) | `T111a-P2-A/B` | DONE |
 | 3 | [P3 — 실제 모델 평가](03-evaluation.md) | `T111a-P3-A/B` | DONE |
-| 4 | [P4 — 도움말·통합·배포·출시](04-release.md) | `T111a-P4-A/B` | IN_PROGRESS |
+| 4 | [P4 — 도움말·통합·배포·출시](04-release.md) | `T111a-P4-A/B` | DONE |
 
-[검증 목록](TEST_MATRIX.md)은 현재 전부 `NOT_RUN`이며 [상태](STATUS.md)는 전부 `PLANNED`이다. 각 단계는 구현·LXC 검증·증거 기록·**독립 commit → GitHub push → 원격 반영 및 필요한 CI 확인**을 마쳐야 DONE이다. [Git 완료 규칙](../GIT_WORKFLOW.md)의 C/E/D 절차를 따르며, 종료 커밋 D는 증거 커밋 E의 **CI 성공을 확인한 뒤에만** 만든다.
+[검증 목록](TEST_MATRIX.md)과 [상태](STATUS.md)에 각 단계의 실제 증거를 기록했다. 각 단계는 구현·LXC 검증·증거 기록·**독립 commit → GitHub push → 원격 반영 및 필요한 CI 확인**을 마쳐야 DONE이다. [Git 완료 규칙](../GIT_WORKFLOW.md)의 C/E/D 절차를 따르며, 종료 커밋 D는 증거 커밋 E의 **CI 성공을 확인한 뒤에만** 만든다.
 
 ## 검증 방침
 
