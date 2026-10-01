@@ -5,7 +5,7 @@
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
 | [1.1.2a-P1](01-command-permission.md) | 슬래시 명령어 권한 | DONE | [C `4f4c3d7`](https://github.com/parking-place/YoYackBot/commit/4f4c3d7d8d8c798cff44206d335c7bbcf7ef0ec4) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36829381007) / [E `2ed8518`](https://github.com/parking-place/YoYackBot/commit/2ed8518b187cdf308236d56e55d24df93bc125d1) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36829490186) / [증거](../evidence/1.1.2a-P1.md); 원격 확인 | P1-A/B PASS |
-| [1.1.2a-P2](02-markdown-prompt.md) | 마크다운·인용 비평·닉네임 밑줄 프롬프트 | IN_PROGRESS | — | P1 원격 완료 |
+| [1.1.2a-P2](02-markdown-prompt.md) | 마크다운·인용 비평·닉네임 밑줄 프롬프트 | PUSH_PENDING | C `86fe206` / [증거](../evidence/1.1.2a-P2.md) | P2-A/B PASS |
 | [1.1.2a-P3](03-output-checks.md) | 새 형식에 맞춘 검사·지표 | PLANNED | — | P2 원격 완료 |
 | [1.1.2a-P4](04-help-evaluation.md) | 짧은 도움말·실제 모델 확인 | PLANNED | — | P3 원격 완료, 계정 한도 확인 |
 | [1.1.2a-P5](05-release.md) | 통합·배포·출시 | PLANNED | — | P1~P4 원격 증거 선행 |
