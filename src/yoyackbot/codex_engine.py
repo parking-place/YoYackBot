@@ -15,6 +15,7 @@ from yoyackbot.input_files import InputWorkspace, serialize_conversation
 from yoyackbot.output_quality import (
     OutputIssue,
     inspect_output,
+    name_underline,
     narrator_mocks_ongoing,
     narrator_uses_hate_term,
     split_rating,
@@ -22,6 +23,7 @@ from yoyackbot.output_quality import (
     topic_critique,
 )
 from yoyackbot.parser import wants_no_emoji, wants_no_rating, wants_refusal_notice
+from yoyackbot.speaker_names import speaker_labels
 from yoyackbot.summary_prompt import REFUSAL_NOTICE, prompt_for, rating_prompt
 
 
@@ -115,8 +117,10 @@ class CodexSummaryEngine:
             text = strip_emoji(text)
         if narrator_mocks_ongoing(text):
             ongoing = "retried_left"
+        names = list(speaker_labels(included).values())
         return SummaryResult(
             text, self.runner.contract.model, len(included), status, ongoing, topic_critique(text),
+            name_underline(text, names),
         )
 
     async def _rating_only(
