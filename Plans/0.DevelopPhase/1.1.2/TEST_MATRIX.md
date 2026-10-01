@@ -10,7 +10,7 @@
 | `T112-P2-B` | [P2](02-format-check.md) | LXC 합성 | 이모지 섞인 출력 분할·멘션 차단·평가 줄 위치, 조롱·비하어 검사 회귀 | PASS — [증거](../evidence/1.1.2-P2.md) |
 | `T112-P3-A` | [P3](03-evaluation.md) | LXC 실제 모델 | 16건 사실·화자·분류 오류 0, 미결 조롱 0, 금지선 0, 이모지가 사실 대신 0 | PASS(사용자 수용 2건) — [증거](../evidence/1.1.2-P3.md) |
 | `T112-P3-B` | [P3](03-evaluation.md) | LXC 실제 모델 | 짧게 2줄 이하 80%+, 주제 비평 90%+, 소제목 이모지 100%, 추가 요청 4건 반영, 사용자 확인 | PASS — [증거](../evidence/1.1.2-P3.md) |
-| `T112-P4-A` | [P4](04-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
-| `T112-P4-B` | [P4](04-release.md) | LXC/시험 Discord | 배포·복귀, 사용자 확인+로그, P1~P3 원격 증거, 병합 후 `main` CI | NOT_RUN |
+| `T112-P4-A` | [P4](04-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | PASS — [증거](../evidence/1.1.2-P4.md) |
+| `T112-P4-B` | [P4](04-release.md) | LXC/시험 Discord | 배포·복귀, 사용자 확인+로그, P1~P3 원격 증거, 병합 후 `main` CI | PASS(사용자 확인+로그, 복귀는 격리; 길게·이모지 빼고 실제 채널 NOT_RUN) — [증거](../evidence/1.1.2-P4.md) |
 
 각 단계의 A/B 결과와 구현 C·증거 E·종료 D의 GitHub 반영, 필요한 CI 성공이 확인돼야 [상태 문서](STATUS.md)를 DONE으로 바꾼다. 8시간·24시간 연속 관측은 필수 검사가 아니다.
