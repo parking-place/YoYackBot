@@ -65,10 +65,10 @@ def test_bot_notices_keep_their_released_wording() -> None:
     assert INPUT_TOO_LARGE_NOTICE.startswith("요약할 대화가 너무 많소.")
     assert NOT_READY_NOTICE == "참을성을 기르시오 아직 준비가 되지 않았소."
     assert EMPTY_NOTICE and USER_MESSAGES
-    assert USAGE_EXHAUSTED_NOTICE == "요약봇 사용량이 정상화되었소.\n초기화의 가호가 함께하길..."
-    assert USAGE_UNAVAILABLE_NOTICE.startswith("Codex 사용량을 지금 확인할 수 없소.")
-    assert (LIST_HEADER, LIST_FOOTER) == ("지금 본인이 보고 있는 채널을 알려주겠소", "이상이오.")
-    assert CHANNEL_EMPTY_NOTICE.startswith("지금 보고 있는 채널이 없소.")
+    assert USAGE_EXHAUSTED_NOTICE == "🪫 요약봇 사용량이 정상화되었소. 😵\n🙏 초기화의 가호가 함께하길... ✨"
+    assert USAGE_UNAVAILABLE_NOTICE.startswith("🌫️ Codex 사용량을 지금 확인할 수 없소.")
+    assert (LIST_HEADER, LIST_FOOTER) == ("📡👀 지금 본인이 보고 있는 채널을 알려주겠소", "✅ 이상이오. 🫡")
+    assert CHANNEL_EMPTY_NOTICE.startswith("🫥 지금 보고 있는 채널이 없소.")
     for text in (BUSY_NOTICE, FAILED_NOTICE, NOT_READY_NOTICE, LIST_HEADER):
         assert "시발" not in text and "존나" not in text
 

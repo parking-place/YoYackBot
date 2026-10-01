@@ -22,8 +22,8 @@ WARNING_PERCENT = 10
 DEFAULT_TIMEOUT_SECONDS = 15.0
 MAX_OUTPUT_BYTES = 256 * 1024
 CLIENT_NAME = "yoyackbot"
-USAGE_UNAVAILABLE_NOTICE = "Codex 사용량을 지금 확인할 수 없소. 잠시 후 다시 시도하시오."
-USAGE_EXHAUSTED_NOTICE = "요약봇 사용량이 정상화되었소.\n초기화의 가호가 함께하길..."
+USAGE_UNAVAILABLE_NOTICE = "🌫️ Codex 사용량을 지금 확인할 수 없소. 잠시 후 다시 시도하시오. 🙏"
+USAGE_EXHAUSTED_NOTICE = "🪫 요약봇 사용량이 정상화되었소. 😵\n🙏 초기화의 가호가 함께하길... ✨"
 
 
 class UsageUnavailable(RuntimeError):
@@ -252,14 +252,14 @@ async def read_account_usage(
 
 def usage_message(snapshot: UsageSnapshot) -> str:
     """Show only the windows the account reports; warn when any shown window is at 10% or less."""
-    lines = ["Codex의 기운을 살펴보았소.", ""]
+    lines = ["🔮✨ Codex의 기운을 살펴보았소. 👀", ""]
     if snapshot.five_hour_remaining is not None:
-        lines.append(f"5시간 한도는 {snapshot.five_hour_remaining}% 남았소.")
+        lines.append(f"⏱️ 5시간 한도는 {snapshot.five_hour_remaining}% 남았소. 🔋")
     if snapshot.weekly_remaining is not None:
-        lines.append(f"주간 한도는 {snapshot.weekly_remaining}% 남았소.")
+        lines.append(f"📅 주간 한도는 {snapshot.weekly_remaining}% 남았소. 🗓️")
     lines.append("")
     lines.append(
-        "요약 정상화가 버겁기 시작했소." if snapshot.warning
-        else "아직 요약을 정상화하기엔 넉넉하오."
+        "🟠⚠️ 요약 정상화가 버겁기 시작했소. 😰" if snapshot.warning
+        else "🟢💪 아직 요약을 정상화하기엔 넉넉하오. 😎"
     )
     return "\n".join(lines)

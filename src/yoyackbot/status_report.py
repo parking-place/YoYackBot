@@ -128,12 +128,12 @@ def status_message(report: StatusReport, now: datetime) -> str:
         last = _ago(report.last_success, now)
     size = report.database_bytes
     return "\n".join([
-        "📜 현재 형편을 살펴보았소.",
+        "📜🔍 현재 형편을 살펴보았소. 🧐",
         "",
-        "상태: " + ("평온하오." if report.healthy else "점검이 필요하오."),
-        "주시 채널: " + value(report.watched_channels, f"{report.watched_channels}곳이오."),
-        "캐시된 대화: " + value(report.cached_messages, f"{report.cached_messages or 0:,}건이오."),
-        "DB 크기: " + value(size, f"{(size or 0) / 1_000_000:.1f} MB이오."),
-        "Codex: " + (report.model or UNKNOWN),
-        "마지막 요약: " + last,
+        "🩺 상태: " + ("평온하오. 😌" if report.healthy else "점검이 필요하오. 🚨"),
+        "📡 주시 채널: " + value(report.watched_channels, f"{report.watched_channels}곳이오."),
+        "💬 캐시된 대화: " + value(report.cached_messages, f"{report.cached_messages or 0:,}건이오."),
+        "💾 DB 크기: " + value(size, f"{(size or 0) / 1_000_000:.1f} MB이오."),
+        "🤖 Codex: " + (report.model or UNKNOWN),
+        "🕒 마지막 요약: " + last,
     ])

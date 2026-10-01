@@ -119,7 +119,7 @@ def test_watched_channel_gets_only_this_guilds_visible_list(caplog) -> None:
     here = text_channel(11, "잡담", 0)
     channels = [channel for channel in CHANNELS if channel.id != 11] + [here]
     texts = run_command(store, here, guild(1, channels), Requester(hidden={13}))
-    assert texts == ["지금 본인이 보고 있는 채널을 알려주겠소\n - 잡담\n - 개발\n - 기획\n이상이오."]
+    assert texts == ["📡👀 지금 본인이 보고 있는 채널을 알려주겠소\n - 💬 잡담\n - 💬 개발\n - 💬 기획\n✅ 이상이오. 🫡"]
     assert "channel_list_request count=3" in caplog.text
     assert "잡담" not in caplog.text and "비밀" not in caplog.text
 
@@ -175,7 +175,7 @@ def test_reply_while_a_summary_is_running() -> None:
         finally:
             await client.close()
         workflow.run.assert_not_awaited()
-        assert here.send.await_args.args[0].endswith(" - 잡담\n이상이오.")
+        assert here.send.await_args.args[0].endswith(" - 💬 잡담\n✅ 이상이오. 🫡")
         assert (await states.active(1, 11)) is not None
 
     asyncio.run(scenario())
@@ -203,8 +203,8 @@ def test_gateway_sends_split_parts_in_order_without_mentions() -> None:
         assert len(calls) > 1 and all(len(call.args[0]) <= 400 for call in calls)
         assert all(call.kwargs["allowed_mentions"].to_dict()["parse"] == [] for call in calls)
         lines = "\n".join(call.args[0] for call in calls).splitlines()
-        assert lines[0] == "지금 본인이 보고 있는 채널을 알려주겠소" and lines[-1] == "이상이오."
-        assert lines[1:-1] == [f" - {name}" for name in names]
+        assert lines[0] == "📡👀 지금 본인이 보고 있는 채널을 알려주겠소" and lines[-1] == "✅ 이상이오. 🫡"
+        assert lines[1:-1] == [f" - 💬 {name}" for name in names]
         return calls
 
     asyncio.run(scenario())
