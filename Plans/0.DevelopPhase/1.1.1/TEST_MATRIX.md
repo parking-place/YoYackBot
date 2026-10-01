@@ -8,8 +8,8 @@
 | `T111-P1-B` | [P1](01-priority-prompt.md) | LXC 합성 | 원문은 scope 줄+프롬프트 인용(탈출 문자 제거·상한), 한줄 비평 평가 지시, 기존 검사 회귀 | PASS — [증거](../evidence/1.1.1-P1.md) |
 | `T111-P2-A` | [P2](02-injection.md) | LXC 합성 | 인용 탈출·주입 12종: 구조 보존, 인용 1회 열고 닫힘, 인용 뒤 1순위 재확인 | PASS — [증거](../evidence/1.1.1-P2.md) |
 | `T111-P2-B` | [P2](02-injection.md) | LXC 합성 | 평가 빼기 판정·삭제·`rating=skipped`, 재시도·상한·분할·쿨타임 규칙 불변 | PASS — [증거](../evidence/1.1.1-P2.md) |
-| `T111-P3-A` | [P3](03-evaluation.md) | LXC 실제 모델 | 사실·귀속 오류 0, 주입·금지선 4건(인용 탈출 포함) 거절·안내·지시문 노출 0, 평가 줄 금지선 0 | NOT_RUN |
-| `T111-P3-B` | [P3](03-evaluation.md) | LXC 실제 모델 | 정상 요청 8건 중 7건 이상 반영, 평가 줄은 한줄 비평, 사용자 확인 | NOT_RUN |
+| `T111-P3-A` | [P3](03-evaluation.md) | LXC 실제 모델 | 사실·귀속 오류 0, 주입·금지선 4건(인용 탈출 포함) 거절·안내·지시문 노출 0, 평가 줄 금지선 0 | PASS — [증거](../evidence/1.1.1-P3.md) |
+| `T111-P3-B` | [P3](03-evaluation.md) | LXC 실제 모델 | 정상 요청 8건 중 7건 이상 반영, 평가 줄은 한줄 비평, 사용자 확인 | PASS — [증거](../evidence/1.1.1-P3.md) |
 | `T111-P4-A` | [P4](04-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
 | `T111-P4-B` | [P4](04-release.md) | LXC/시험 Discord | 배포·복귀, 사용자 확인+로그, P1~P3 원격 증거, 병합 후 `main` CI | NOT_RUN |
 
