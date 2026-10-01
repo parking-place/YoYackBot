@@ -1,16 +1,20 @@
-"""Guild-scoped watched-channel selection with callback permission checks."""
+"""Guild-scoped watched-channel selection; Discord decides who may run slash commands."""
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from datetime import UTC, datetime
 from typing import Protocol
 
 import discord
 from discord import app_commands
 
 LOGGER = logging.getLogger(__name__)
-DENIED = "이 설정은 관리할 권한이 있는 자만 바꿀 수 있소."
+DENIED = "이 설정 화면은 연 사람만 쓸 수 있소. `/채널 설정`을 직접 여시오."
+GUILD_ONLY = "서버 안에서만 쓸 수 있소."
+# Every slash command (now and later): anyone Discord lets use application commands, from the start.
+SLASH_PERMISSIONS = discord.Permissions(use_application_commands=True)
 INVALID = "봇이 접근할 수 있는 서버의 텍스트 채널만 고르시오."
 
 
@@ -73,9 +77,18 @@ class MemoryWatchStore:
         self._versions.pop(guild_id, None)
 
 
-def can_manage(member: discord.Member | discord.User) -> bool:
-    permissions = getattr(member, "guild_permissions", None)
-    return bool(permissions and (permissions.administrator or permissions.manage_channels))
+def member_group(name: str, description: str) -> app_commands.Group:
+    """A slash command group open to everyone with Use Application Commands, in servers only."""
+    return app_commands.Group(
+        name=name, description=description, guild_only=True, default_permissions=SLASH_PERMISSIONS,
+    )
+
+
+def member_command[T: Callable[..., object]](function: T) -> T:
+    """The same rule for a top-level slash command; server admins may still narrow it."""
+    return app_commands.guild_only()(
+        app_commands.default_permissions(use_application_commands=True)(function)
+    )
 
 
 def valid_channel(guild: discord.Guild, channel_id: int) -> bool:
@@ -187,13 +200,16 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
                 view.guild_id, frozenset(view.draft), expected_version=view.original_version
             )
         except ConcurrentUpdate:
-            await reject(interaction, "다른 관리자가 설정을 바꾸었소. 명령을 다시 열어 확인하시오.")
+            await reject(interaction, "다른 사람이 설정을 바꾸었소. 명령을 다시 열어 확인하시오.")
             return
         except Exception:  # noqa: BLE001
             LOGGER.warning("watched_channel_save_failed")
             await reject(interaction, "설정을 저장하지 못했소. 잠시 후 다시 시도하시오.")
             return
-        LOGGER.info("watched_channel_saved count=%d", len(view.draft))
+        LOGGER.info(
+            "watched_channels_saved at=%s count=%d",
+            datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), len(view.draft),
+        )
         view.stop()
         for item in view.children:
             item.disabled = True
@@ -240,26 +256,20 @@ class ChannelSettingsView(discord.ui.View):
                 LOGGER.warning("watched_channel_view_expired_edit_failed")
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if (
-            interaction.guild_id != self.guild_id
-            or interaction.user.id != self.owner_id
-            or not can_manage(interaction.user)
-        ):
+        if interaction.guild_id != self.guild_id or interaction.user.id != self.owner_id:
             await reject(interaction, DENIED)
             return False
         return True
 
 
 def install_channel_commands(tree: app_commands.CommandTree, store: WatchStore) -> None:
-    group = app_commands.Group(name="채널", description="주시 채널 관리")
+    group = member_group("채널", "주시 채널 관리")
 
     @group.command(name="설정", description="요약봇이 주시할 텍스트 채널을 고르오")
-    @app_commands.guild_only()
-    @app_commands.default_permissions(manage_channels=True)
     async def configure(interaction: discord.Interaction) -> None:
         guild = interaction.guild
-        if guild is None or not can_manage(interaction.user):
-            await reject(interaction, DENIED)
+        if guild is None:
+            await reject(interaction, GUILD_ONLY)
             return
         try:
             view = ChannelSettingsView(store, guild.id, interaction.user.id)
