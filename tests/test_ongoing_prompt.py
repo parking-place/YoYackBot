@@ -34,7 +34,7 @@ def test_every_prompt_treats_unfinished_talk_as_ongoing(prompt: str) -> None:
                    "아직 진행 중이라는 사실 자체는 비꼬지 마시오",
                    "아직 진행 중이라는 점은 비아냥 소재로 쓰지 마시오.",
                    "결론이 안 났다·미뤘다·제자리다·끝맺음이 없다는 식으로 평가하지 마시오.",
-                   "`**진행 중인 거**`"):
+                   "`**⏳ 진행 중인 거**`"):
         assert phrase in text, phrase
     for phrase in OLD_PHRASES:
         assert phrase not in prompt, phrase
@@ -42,8 +42,8 @@ def test_every_prompt_treats_unfinished_talk_as_ongoing(prompt: str) -> None:
 
 def test_short_marks_ongoing_inline() -> None:
     text = flat(prompt_for(SummaryMode.SHORT))
-    assert "`결정 난 거`·`진행 중인 거` 묶음을 따로 만들지 말고" in text
-    assert "진행 중인 것은 `**진행 중**:`으로 표시하시오." in text
+    assert "`결정 난 거`· `진행 중인 거` 묶음은 따로 만들지 마시오." in text
+    assert "진행 중인 것은 `⏳ **진행 중**:`으로 내용 줄 안에 짧게 표시하고" in text
 
 
 def test_rating_prompt_does_not_mock_unfinished_talk() -> None:
