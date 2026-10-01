@@ -1,6 +1,6 @@
 # 1.1.2-P4 — 도움말·통합·배포·출시
 
-- 상태: **PUSH_PENDING** · 검사: `T112-P4-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **DONE** · 검사: `T112-P4-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 선행 조건·작업
 
