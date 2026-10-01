@@ -1,6 +1,6 @@
 # 1.1.2a — 짧은 도움말·마크다운 요약·닉네임 밑줄·슬래시 명령어 권한
 
-- 상태: **IN_PROGRESS** (P1 진행 중)
+- 상태: **IN_PROGRESS** (P1 완료, P2 진행 중)
 - 단계 수: **5단계**
 - 선행 버전: 출시된 [1.1.2](../1.1.2/README.md)(`v1.1.2`, 2026-10-01)
 
@@ -16,8 +16,8 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 슬래시 명령어 권한](01-command-permission.md) | `T112a-P1-A/B` | PLANNED |
-| 2 | [P2 — 마크다운·인용 비평·닉네임 밑줄 프롬프트](02-markdown-prompt.md) | `T112a-P2-A/B` | PLANNED |
+| 1 | [P1 — 슬래시 명령어 권한](01-command-permission.md) | `T112a-P1-A/B` | DONE |
+| 2 | [P2 — 마크다운·인용 비평·닉네임 밑줄 프롬프트](02-markdown-prompt.md) | `T112a-P2-A/B` | IN_PROGRESS |
 | 3 | [P3 — 새 형식에 맞춘 검사·지표](03-output-checks.md) | `T112a-P3-A/B` | PLANNED |
 | 4 | [P4 — 짧은 도움말·실제 모델 확인](04-help-evaluation.md) | `T112a-P4-A/B` | PLANNED |
 | 5 | [P5 — 통합·배포·출시](05-release.md) | `T112a-P5-A/B` | PLANNED |
