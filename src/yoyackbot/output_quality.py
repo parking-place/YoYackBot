@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from enum import Enum
 
 
@@ -121,3 +122,53 @@ def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | Non
     if uses_internal_speaker_as_attribution(clean):
         return OutputIssue.SPEAKER_KEY
     return None
+
+
+# A topic heading is a bold-only line, optionally bulleted, with nothing but emoji or marks after it.
+_TOPIC_HEADING = re.compile(r"^\s*(?:[-*•]\s+)?\*\*([^*]+)\*\*[^\w]*$")
+_GROUP_HEADINGS = ("결정 난 거", "진행 중인 거", "아직 안 정해진 거")
+
+
+@dataclass(frozen=True)
+class TopicSection:
+    content_lines: int
+    critiques: int
+
+
+def topic_sections(text: str) -> list[TopicSection]:
+    """Split narration into topics; decision/ongoing groups and the rating line are not topics."""
+    sections: list[list[int]] = []
+    current: list[int] | None = None
+    in_code = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code = not in_code
+            continue
+        if in_code or not stripped:
+            continue
+        if _RATING_LINE.match(line):
+            current = None
+            continue
+        heading = _TOPIC_HEADING.match(line)
+        if heading:
+            if any(group in heading.group(1) for group in _GROUP_HEADINGS):
+                current = None
+            else:
+                current = [0, 0]
+                sections.append(current)
+            continue
+        if current is not None:
+            current[1 if stripped.startswith("↳") else 0] += 1
+    return [TopicSection(content, critiques) for content, critiques in sections]
+
+
+def topic_critique(text: str) -> str:
+    """all/partial/none: how many topics end with a critique line; na when there are no topics."""
+    sections = topic_sections(text)
+    if not sections:
+        return "na"
+    covered = sum(section.critiques > 0 for section in sections)
+    if covered == len(sections):
+        return "all"
+    return "none" if covered == 0 else "partial"
