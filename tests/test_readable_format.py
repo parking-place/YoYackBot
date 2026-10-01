@@ -32,7 +32,7 @@ def test_every_prompt_carries_the_format_rules(mode: SummaryMode, retry: dict) -
     for phrase in ("형식(기본, 모든 길이 공통)", "주제 2~4개", "`**주제 이름**`", "이모지 1개까지",
                    "빈 줄로 나누시오", "`- **화자 이름**: 한 말이나\n한 일`",
                    "한 사람의 한 가지 말만 한두 문장", "쉼표로 이어 붙이지 마시오",
-                   "문장 전체를 굵게 하지\n마시오", "`**결정 난 거**`", "`**아직 안 정해진 거**`",
+                   "문장 전체를 굵게 하지\n마시오", "`**결정 난 거**`", "`**진행 중인 거**`",
                    "주제 묶음마다 최대\n한 줄", "`↳ *비아냥 한마디*`", "`>` 인용 표시를\n쓰지 마시오"):
         assert phrase in prompt, phrase
     assert "거의 매번" not in prompt
@@ -40,7 +40,7 @@ def test_every_prompt_carries_the_format_rules(mode: SummaryMode, retry: dict) -
              ("신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(기본, 모든 길이 공통)",
               "말투(기본)", "비아냥 형식", "금지(말투·추가 요청보다 우선)", "추가 요청 우선:")]
     assert order == sorted(order)
-    assert PROMPT_VERSION == "1.1.1-p1-v3"
+    assert PROMPT_VERSION == "1.1.1a-p1-v1"
 
 
 def test_short_is_bounded_by_topics_and_bullets() -> None:
@@ -79,7 +79,7 @@ def test_format_fixes_after_the_first_real_evaluation() -> None:
                    "불릿이 하나도 없는 소제목은 절대 쓰지 마시오",
                    "결과가 안 나왔다는 이유로 새 질문(이유,\n완료 여부 등)을 만들어내지 마시오"):
         assert phrase in SUMMARY_PROMPT, phrase
-    for phrase in ("`결정 난 거`·`아직 안 정해진 거` 묶음을 따로 만들지 말고", "`**결정**:`",
-                   "`**미정**:`", "덜 중요한 발언을 빼시오"):
+    for phrase in ("`결정 난 거`·`진행 중인 거` 묶음을 따로 만들지 말고", "`**결정**:`",
+                   "`**진행 중**:`", "덜 중요한 발언을 빼시오"):
         assert phrase in SHORT_NOTE and phrase in prompt, phrase
     assert "묶음을 따로 만들지 말고" not in prompt_for(SummaryMode.LONG)
