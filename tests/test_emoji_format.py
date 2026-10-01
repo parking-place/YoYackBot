@@ -112,3 +112,12 @@ def test_v3_prompt_pushes_bullet_emoji_and_bans_ongoing_critiques() -> None:
     assert "길게·자세히의 화자 불릿도 줄마다 끝에 이모지를 하나 이상 붙이시오." in text
     assert "진행 중인 주제의 비평은 참여자가 한 질문·제안·농담·말바꿈 자체만 소재로 하고" in text
     assert "비평 줄에는 '아직'이라는 말도 쓰지 마시오." in text
+
+
+def test_help_describes_the_new_short_layout() -> None:
+    from yoyackbot.parser import HELP_TEXT
+
+    for phrase in ("주제마다 1~2줄로 짧게 요약하고, 주제마다 한줄 비평을 붙이오.",
+                   "주제별로 화자별 흐름과 결정·진행 중인 이야기까지", "`!!요약좀 이모지 빼고`"):
+        assert phrase in HELP_TEXT, phrase
+    assert len(HELP_TEXT) < 2000

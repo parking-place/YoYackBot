@@ -69,5 +69,5 @@ def test_snark_targets_actual_words_and_deeds() -> None:
 def test_help_calls_unfinished_talk_ongoing() -> None:
     from yoyackbot.parser import HELP_TEXT
 
-    assert "화자별 흐름과 결정·진행 중인 이야기까지 요약하오." in HELP_TEXT
+    assert "주제별로 화자별 흐름과 결정·진행 중인 이야기까지 요약하오." in HELP_TEXT
     assert "남은 점" not in HELP_TEXT and len(HELP_TEXT) < 2000
