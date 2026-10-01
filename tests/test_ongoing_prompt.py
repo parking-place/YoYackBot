@@ -42,7 +42,7 @@ def test_every_prompt_treats_unfinished_talk_as_ongoing(prompt: str) -> None:
 
 def test_short_marks_ongoing_inline() -> None:
     text = flat(prompt_for(SummaryMode.SHORT))
-    assert "`결정 난 거`· `진행 중인 거` 묶음은 따로 만들지 마시오." in text
+    assert "`결정 난 거`· `진행 중인 거` 묶음은 따로 만들지 마시오(" in text
     assert "진행 중인 것은 `⏳ **진행 중**:`으로 내용 줄 안에 짧게 표시하고" in text
 
 

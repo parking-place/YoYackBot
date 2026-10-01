@@ -26,9 +26,11 @@ def flat(text: str) -> str:
 @pytest.mark.parametrize("variant", VARIANTS)
 def test_every_prompt_has_emoji_and_topic_critique_rules(mode: SummaryMode, variant: dict) -> None:
     text = flat(prompt_for(mode, **variant))
-    for phrase in ("이모지(기본): 이모지를 제한 없이 마음껏 써서 읽기 쉽고 재미있게 하시오.",
+    for phrase in ("이모지(기본): 이모지를 제한 없이 마음껏, 적극적으로 써서 읽기 쉽고 재미있게 하시오.",
                    "주제 소제목은 반드시 이모지로 시작하고",
-                   "개수와 위치에 상관없이 써도 되오",
+                   "내용 줄·불릿·주제 한줄 비평·떡밥 한줄 평가에도 줄마다 하나 이상 섞으시오.",
+                   "개수와 위치에는 제한이 없소.",
+                   "계획·일정이 아직 안 잡혔다는 점은 비평 소재로도 쓰지 마시오",
                    "화자 이름· 숫자·시간·금액 글자 사이에 끼워 넣지 말고",
                    "찬성·반대·결정 같은 사실을 이모지로 대신하지 말고 글로 쓰며",
                    "주제 묶음마다 **정확히 한 줄**을 그 묶음 맨 끝에 `↳ *한줄 비평*` 형태로 따로 쓰시오.",
@@ -59,6 +61,7 @@ def test_short_layout_details() -> None:
                    "주제당 내용 2줄을 넘기지 마시오.",
                    "↳ *면 하나 고르는 데 청문회를 차렸구려* 🙄🔥"):
         assert phrase in text, phrase
+    assert "`⏳ 진행 중` 같은 소제목을 절대 쓰지 말고, 결정·진행 중은 해당 주제의 내용 줄 안에만 표시하시오" in text
     assert "1~2줄" not in DETAILED_NOTE and "불릿 수에 제한은 없소" in DETAILED_NOTE
     # The format example must not itself mock unfinished talk.
     assert not narrator_mocks_ongoing(SHORT_NOTE)
@@ -72,6 +75,7 @@ def test_requests_can_drop_emoji_or_topic_critiques_but_not_the_rating_by_accide
     for note in ("비평 빼줘", "비아냥 빼줘", "이모지 빼고"):
         assert not wants_no_rating(note), note
     assert wants_no_rating("평가 빼줘")
+    assert ("표현 요청뿐이면 이 안내 줄을 절대 붙이지 마시오." in text)
 
 
 @pytest.mark.parametrize("rating", ["🔥 달력 한 장에 요란 떨 일이오? 🙄🤦‍♂️", "요란하오 👏🏽👏🏽"])
