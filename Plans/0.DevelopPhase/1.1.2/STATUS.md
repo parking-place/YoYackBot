@@ -1,12 +1,12 @@
 # 1.1.2 진행 상태
 
-기준일: 2026-10-01. **계획 4단계 / 구현 완료 1단계, P2 진행 중.** 현재 출시 코드는 [`v1.1.1a`](../1.1.1a/STATUS.md)다. 이 문서의 GitHub 게시는 1.1.2 구현·검증의 완료가 아니다.
+기준일: 2026-10-01. **계획 4단계 / 구현 완료 2단계, P3 진행 중.** 현재 출시 코드는 [`v1.1.1a`](../1.1.1a/STATUS.md)다. 이 문서의 GitHub 게시는 1.1.2 구현·검증의 완료가 아니다.
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
 | [1.1.2-P1](01-format-prompt.md) | 이모지·주제 한줄 비평·짧게 형식 프롬프트 | DONE | [C `6214cee`](https://github.com/parking-place/YoYackBot/commit/6214ceedc47652dbcbc4b39b502d8398332667a8) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36819614641) / [E `6842579`](https://github.com/parking-place/YoYackBot/commit/684257991cedd405de6aed7b3e5c09a0f23e4995) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36820029322) / [증거](../evidence/1.1.2-P1.md); 원격 확인 | P1-A/B PASS(LXC 일시 실패 1회, 재실행 13/13 통과) |
-| [1.1.2-P2](02-format-check.md) | 주제 비평 지표와 형식 회귀 | PUSH_PENDING | C `dab2a4f` / [증거](../evidence/1.1.2-P2.md) | P2-A/B PASS |
-| [1.1.2-P3](03-evaluation.md) | 실제 모델 평가 | PLANNED | — | P2 원격 완료, 계정 한도 확인 |
+| [1.1.2-P2](02-format-check.md) | 주제 비평 지표와 형식 회귀 | DONE | [C `dab2a4f`](https://github.com/parking-place/YoYackBot/commit/dab2a4f152c62f20083219a976e2502749fff5fa) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36820338103) / [E `3a1f62a`](https://github.com/parking-place/YoYackBot/commit/3a1f62ae4cf7143893739406c601c326d5aad6b9) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36820429168) / [증거](../evidence/1.1.2-P2.md); 원격 확인 | P2-A/B PASS |
+| [1.1.2-P3](03-evaluation.md) | 실제 모델 평가 | IN_PROGRESS | — | P2 원격 완료, 계정 한도 확인 |
 | [1.1.2-P4](04-release.md) | 도움말·통합·배포·출시 | PLANNED | — | P1~P3 원격 증거 선행 |
 
 실행 시 [검증 목록](TEST_MATRIX.md)의 결과와 대상 SHA·환경·원격 URL·남은 공백을 단계마다 기록한다. 구현 C·증거 E·종료 D가 모두 원격에서 확인되고 E의 CI가 성공한 뒤에만 DONE으로 바꾼다.
