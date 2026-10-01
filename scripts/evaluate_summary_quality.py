@@ -46,6 +46,7 @@ async def evaluate(
             outcome = {"id": fixture["id"], "prompt": PROMPT_VERSION, "mode": mode.value,
                        "note": note, "rating": result.rating, "ongoing": result.ongoing_jab,
                        "topic_critique": result.topic_critique,
+                       "name_underline": result.name_underline,
                        "topic_lines": [part.content_lines for part in topic_sections(result.text)],
                        "model": result.model, "text": result.text}
         except Exception as exc:  # noqa: BLE001 - keep diagnostics free of prompt/auth contents

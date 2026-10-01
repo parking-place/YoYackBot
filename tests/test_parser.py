@@ -46,29 +46,27 @@ def test_help_has_priority_even_with_repeated_trigger() -> None:
 
 
 def test_help_examples_cover_all_supported_forms() -> None:
-    for example in (
-        "`!!요약좀`",
-        "`!!요약좀 3`",
-        "`!!요약좀 30분`",
-        "`!!요약좀 2시간`",
-        "`!!요약좀 100개`",
-        "`!!요약좀 오늘`",
-        "`!!요약좀 2일`",
-        "`!!요약좀 30일`",
-        "`!!요약좀 1주`",
-        "`/채널 설정`",
-        "`!!요약좀 오늘 길게`",
-        "`!!요약좀 3일 자세히`",
-        "`!!요약좀 2분 길게 시간순으로 해줘`",
-        "`!!요약좀 사용량`",
-        "`!!요약좀 상태`",
-        "`!!요약좀 채널`",
-    ):
-        assert example in HELP_TEXT
-    assert "요약을 시작하면 범위를 먼저 알려주고" in HELP_TEXT and "준비 중이라고 답하오" in HELP_TEXT
-    assert "범위를 생략하면 최근 1시간" in HELP_TEXT and "모든 서버가 함께 쓰는 파일" in HELP_TEXT
-    assert len(HELP_TEXT) < 2000
-    assert "기간 요약은 최대 30일까지 가능하오." in HELP_TEXT
+    lines = [
+        "📜 **요약 사용법**",
+        "",
+        "`!!요약좀` → 최근 1시간  ",
+        "`3` → 3시간 / `30분` `2시간` `100개` `오늘` `2일` `1주` `30일` 지원  ",
+        "※ 숫자만 쓰면 시간, 최대 30일",
+        "",
+        "🔍 `길게` → 흐름·결정 포함  ",
+        "🔎 `자세히` → 가장 상세  ",
+        "✏️ 뒤에 요청 추가 가능: `시간순으로`, `욕 빼고`, `평가 빼줘` 등  ",
+        "※ 추가 요청 200자, 범위 변경·허위 생성 불가",
+        "",
+        "⚙️ `사용량` → Codex 한도  ",
+        "📊 `상태` → 채널·캐시·DB·마지막 요약  ",
+        "📡 `채널` → 주시 채널",
+        "",
+        "진행 중엔 현재 범위, 수집 중엔 준비 중이라고 답하오.  ",
+        "주시 채널은 `/채널 설정`에서 정하시오.",
+    ]
+    assert HELP_TEXT == "\n".join(lines)
+    assert len(HELP_TEXT) < 2000 and "관리자" not in HELP_TEXT
 
 
 def test_help_uses_effective_day_limit_when_operator_lowers_it() -> None:
@@ -76,9 +74,10 @@ def test_help_uses_effective_day_limit_when_operator_lowers_it() -> None:
         "DISCORD_BOT_TOKEN": "test-token", "YOYACK_MAX_DAYS": "7",
     })
     text = help_text(settings)
-    assert "`!!요약좀 7일`" in text
-    assert "`!!요약좀 30일`" not in text
-    assert "일 단위 요청은 최대 7일까지 가능하오." in text
+    assert "`오늘` `2일` `1주` `7일` 지원" in text and "최대 7일" in text
+    assert "30일" not in text
+    one_day = help_text(Settings.from_environment({"DISCORD_BOT_TOKEN": "x", "YOYACK_MAX_DAYS": "1"}))
+    assert "`오늘` `1주` `1일` 지원" in one_day and "`2일`" not in one_day and "최대 1일" in one_day
     assert validate_option(parse_option("7일"), settings).value == 7
     with pytest.raises(CommandLimitError):
         validate_option(parse_option("8일"), settings)

@@ -30,7 +30,7 @@ def main() -> None:
     version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     package = (REPO / "src/yoyackbot/__init__.py").read_text(encoding="utf-8")
-    assert version == project["project"]["version"] == "1.1.2"
+    assert version == project["project"]["version"] == "1.1.2.1"
     assert f'__version__ = "{version}"' in package
 
     matrix = (PLAN / "TEST_MATRIX.md").read_text()
@@ -164,6 +164,19 @@ def main() -> None:
     assert len(lively_rows) == 4
     lively_done = sum("| DONE |" in row for row in lively_rows)
 
+    markdown = PLAN / "1.1.2a"
+    assert len(sorted(markdown.glob("0[1-5]-*.md"))) == 5, "1.1.2a: expected five phase documents"
+    markdown_checks = re.findall(
+        r"^\| `(T112a-P[1-5]-[AB])` \|", (markdown / "TEST_MATRIX.md").read_text(), re.MULTILINE
+    )
+    assert len(markdown_checks) == len(set(markdown_checks)) == 10
+    markdown_rows = [
+        line for line in (markdown / "STATUS.md").read_text().splitlines()
+        if re.match(r"^\| \[1\.1\.2a-P[1-5]\]", line)
+    ]
+    assert len(markdown_rows) == 5
+    markdown_done = sum("| DONE |" in row for row in markdown_rows)
+
     for document in [REPO / "README.md", *PLAN.rglob("*.md")]:
         text = document.read_text()
         assert text.count("```") % 2 == 0, f"unclosed fence: {document}"
@@ -188,7 +201,8 @@ def main() -> None:
         f"1.1.0a {readable_done}/4 phases, {len(readable_checks)} checks; "
         f"1.1.1 {priority_done}/4 phases, {len(priority_checks)} checks; "
         f"1.1.1a {ongoing_done}/4 phases, {len(ongoing_checks)} checks; "
-        f"1.1.2 {lively_done}/4 phases, {len(lively_checks)} checks"
+        f"1.1.2 {lively_done}/4 phases, {len(lively_checks)} checks; "
+        f"1.1.2a {markdown_done}/5 phases, {len(markdown_checks)} checks"
     )
 
 

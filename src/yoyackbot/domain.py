@@ -97,6 +97,7 @@ class SummaryResult:
     rating: str = "none"
     ongoing_jab: str = "none"
     topic_critique: str = "na"
+    name_underline: str = "na"
 
 
 @dataclass(frozen=True)

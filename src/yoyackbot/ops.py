@@ -34,6 +34,7 @@ class RequestMetrics:
     rating: str = "none"
     ongoing_jab: str = "none"
     topic_critique: str = "na"
+    name_underline: str = "na"
 
     def emit(self) -> None:
         allowed_outcomes = {
@@ -75,6 +76,9 @@ class RequestMetrics:
                 "none", "retried", "retried_left"
             } else "none",
             "topic_critique": self.topic_critique if self.topic_critique in {
+                "all", "partial", "none", "na"
+            } else "na",
+            "name_underline": self.name_underline if self.name_underline in {
                 "all", "partial", "none", "na"
             } else "na",
             "failure_detail": self.failure_detail if self.failure_detail in {

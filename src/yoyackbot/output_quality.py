@@ -58,8 +58,16 @@ ONGOING_JAB_TERMS = (
 )
 
 
+# A topic critique: "↳ …" or, since 1.1.2a, the blockquote form "> ↳ _…_".
+_CRITIQUE = re.compile(r"^\s*(?:>\s*)?↳")
+
+
+def is_critique(line: str) -> bool:
+    return bool(_CRITIQUE.match(line))
+
+
 def _narration_pairs(text: str) -> list[tuple[str, str]]:
-    """(raw, cleaned) narrator lines: quotes, block quotes and code may report what was said."""
+    """(raw, cleaned) narrator lines: quotes and code may report what was said, critiques may not."""
     lines: list[tuple[str, str]] = []
     in_code = False
     for line in text.splitlines():
@@ -67,7 +75,7 @@ def _narration_pairs(text: str) -> list[tuple[str, str]]:
         if stripped.startswith("```"):
             in_code = not in_code
             continue
-        if in_code or stripped.startswith(">"):
+        if in_code or (stripped.startswith(">") and not is_critique(line)):
             continue
         lines.append((line, _FILLER.sub("", _QUOTED.sub("", line))))
     return lines
@@ -90,7 +98,7 @@ def narrator_mocks_ongoing(text: str) -> bool:
     for raw, line in _narration_pairs(text):
         if any(term in line for term in ONGOING_JAB_TERMS):
             return True
-        if (raw.lstrip().startswith("↳") or _RATING_LINE.match(raw)) and any(
+        if (is_critique(raw) or _RATING_LINE.match(raw)) and any(
             term in line for term in CRITIQUE_JAB_TERMS
         ):
             return True
@@ -163,8 +171,8 @@ def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | Non
     return None
 
 
-# A topic heading is a bold-only line, optionally bulleted, with nothing but emoji or marks after it.
-_TOPIC_HEADING = re.compile(r"^\s*(?:[-*•]\s+)?\*\*([^*]+)\*\*[^\w]*$")
+# A topic heading is a markdown title (### …) or, as before, a bold-only line with only emoji after it.
+_TOPIC_HEADING = re.compile(r"^\s*(?:#{1,3}\s+(.+?)\s*|(?:[-*•]\s+)?\*\*([^*]+)\*\*[^\w]*)$")
 # Not topics: decision/ongoing groups and a bolded refusal notice.
 _GROUP_HEADINGS = frozenset({
     "결정 난 거", "진행 중인 거", "아직 안 정해진 거", "결정", "진행 중", "미정",
@@ -196,14 +204,15 @@ def topic_sections(text: str) -> list[TopicSection]:
             continue
         heading = _TOPIC_HEADING.match(line)
         if heading:
-            if " ".join(_NOT_WORD.sub("", heading.group(1)).split()) in _GROUP_HEADINGS:
+            title = heading.group(1) or heading.group(2)
+            if " ".join(_NOT_WORD.sub("", title).split()) in _GROUP_HEADINGS:
                 current = None
             else:
                 current = [0, 0]
                 sections.append(current)
             continue
         if current is not None:
-            current[1 if stripped.startswith("↳") else 0] += 1
+            current[1 if is_critique(line) else 0] += 1
     return [TopicSection(content, critiques) for content, critiques in sections]
 
 
@@ -216,3 +225,36 @@ def topic_critique(text: str) -> str:
     if covered == len(sections):
         return "all"
     return "none" if covered == 0 else "partial"
+
+
+_UNDERLINED = re.compile(r"__([^_\n]+?)__")
+
+
+def name_underline(text: str, names: Sequence[str]) -> str:
+    """all/partial/none: are speaker names in the body underlined? na when no name appears.
+
+    Critique and rating lines, quotes and code are skipped; one-letter names are too short to
+    tell apart from ordinary words and are not counted.
+    """
+    candidates = sorted({name for name in names if len(name) >= 2}, key=len, reverse=True)
+    underlined = plain = 0
+    in_code = False
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("```"):
+            in_code = not in_code
+            continue
+        if in_code or stripped.startswith(">") or is_critique(line) or _RATING_LINE.match(line):
+            continue
+        line = _QUOTED.sub("", re.sub(r"`[^`\n]*`", "", line))
+        for match in _UNDERLINED.finditer(line):
+            underlined += any(match.group(1).strip("*").startswith(name) for name in candidates)
+        rest = _UNDERLINED.sub(" ", line)
+        for name in candidates:
+            plain += rest.count(name)
+            rest = rest.replace(name, " ")
+    if underlined + plain == 0:
+        return "na"
+    if plain == 0:
+        return "all"
+    return "none" if underlined == 0 else "partial"

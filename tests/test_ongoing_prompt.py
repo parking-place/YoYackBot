@@ -34,7 +34,7 @@ def test_every_prompt_treats_unfinished_talk_as_ongoing(prompt: str) -> None:
                    "아직 진행 중이라는 사실 자체는 비꼬지 마시오",
                    "아직 진행 중이라는 점은 비아냥 소재로 쓰지 마시오.",
                    "결론이 안 났다·미뤘다·제자리다·끝맺음이 없다는 식으로 평가하지 마시오.",
-                   "`**⏳ 진행 중인 거**`"):
+                   "`### ⏳ 진행 중인 거`"):
         assert phrase in text, phrase
     for phrase in OLD_PHRASES:
         assert phrase not in prompt, phrase
@@ -69,5 +69,5 @@ def test_snark_targets_actual_words_and_deeds() -> None:
 def test_help_calls_unfinished_talk_ongoing() -> None:
     from yoyackbot.parser import HELP_TEXT
 
-    assert "주제별로 화자별 흐름과 결정·진행 중인 이야기까지 요약하오." in HELP_TEXT
+    assert "🔍 `길게` → 흐름·결정 포함" in HELP_TEXT
     assert "남은 점" not in HELP_TEXT and len(HELP_TEXT) < 2000
