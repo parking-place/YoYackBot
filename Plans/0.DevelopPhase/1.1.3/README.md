@@ -1,6 +1,6 @@
 # 1.1.3 — 슬래시 명령어 관리자 기본값과 `/관리권한 설정`
 
-- 상태: **IN_PROGRESS** (P1 진행 중)
+- 상태: **IN_PROGRESS** (P1 완료, P2 진행 중)
 - 단계 수: **3단계**
 - 선행 버전: 출시된 [1.1.2a](../1.1.2a/README.md)(`v1.1.2a`, 2026-10-01)
 
@@ -15,8 +15,8 @@ Discord 제약(봇 토큰으로는 명령어별 역할 허용을 바꿀 수 없�
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 관리 역할 저장과 실행 시 판정](01-manager-roles.md) | `T113-P1-A/B` | PLANNED |
-| 2 | [P2 — `/관리권한 설정` 명령](02-role-command.md) | `T113-P2-A/B` | PLANNED |
+| 1 | [P1 — 관리 역할 저장과 실행 시 판정](01-manager-roles.md) | `T113-P1-A/B` | DONE |
+| 2 | [P2 — `/관리권한 설정` 명령](02-role-command.md) | `T113-P2-A/B` | IN_PROGRESS |
 | 3 | [P3 — 문서·통합·배포·출시](03-release.md) | `T113-P3-A/B` | PLANNED |
 
 [검증 목록](TEST_MATRIX.md)은 현재 전부 `NOT_RUN`이며 [상태](STATUS.md)는 전부 `PLANNED`이다. 각 단계는 구현·LXC 검증·증거 기록·**독립 commit → GitHub push → 원격 반영 및 필요한 CI 확인**을 마쳐야 DONE이다. [Git 완료 규칙](../GIT_WORKFLOW.md)의 C/E/D 절차를 따르며, 종료 커밋 D는 증거 커밋 E의 **CI 성공을 확인한 뒤에만** 만든다.
