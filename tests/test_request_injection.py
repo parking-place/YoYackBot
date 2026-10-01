@@ -178,4 +178,4 @@ def test_decision_only_must_not_hide_real_decisions() -> None:
 
     flat = " ".join(REQUEST_PRIORITY_NOTE.split())
     assert "합의된 결정을 빠짐없이 모두 적고" in flat
-    assert "결정이 하나라도 있으면 '결정 난 게 없소.'라고 쓰면 안 되고" in flat
+    assert "결정이 하나라도 있으면 '아직 매듭지어진 건 없고, 다들 얘기 중이오.'라고 쓰면 안 되고" in flat

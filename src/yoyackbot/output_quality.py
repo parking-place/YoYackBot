@@ -50,8 +50,16 @@ def split_rating(text: str) -> tuple[str, str | None]:
     return body, RATING_LABEL + content
 
 
-def narrator_uses_hate_term(text: str) -> bool:
-    """Look only at narration: quoted source words and block quotes may be reported as said."""
+# Mocking unfinished talk (1.1.1a): channel talk keeps going, so delay is not a flaw.
+ONGOING_JAB_TERMS = (
+    "질질", "미루", "미뤄", "미뤘", "미룬", "제자리걸음", "헛바퀴", "흐지부지", "용두사미",
+    "숙제로 남", "끝맺음", "마무리는", "결론도 없", "아무것도 안 정", "정한 게 없", "싱겁",
+)
+
+
+def _narration(text: str) -> list[str]:
+    """Narrator lines only: quoted source words, block quotes and code may report what was said."""
+    lines: list[str] = []
     in_code = False
     for line in text.splitlines():
         stripped = line.lstrip()
@@ -60,10 +68,17 @@ def narrator_uses_hate_term(text: str) -> bool:
             continue
         if in_code or stripped.startswith(">"):
             continue
-        narration = _FILLER.sub("", _QUOTED.sub("", line))
-        if any(term in narration for term in HATE_TERMS):
-            return True
-    return False
+        lines.append(_FILLER.sub("", _QUOTED.sub("", line)))
+    return lines
+
+
+def narrator_uses_hate_term(text: str) -> bool:
+    return any(term in line for line in _narration(text) for term in HATE_TERMS)
+
+
+def narrator_mocks_ongoing(text: str) -> bool:
+    """True when narration treats unfinished, still-running talk as something to sneer at."""
+    return any(term in line for line in _narration(text) for term in ONGOING_JAB_TERMS)
 
 
 _SPEAKER_HEADING = re.compile(

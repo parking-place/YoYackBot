@@ -38,7 +38,7 @@ def test_priority_and_quote_come_after_the_length_note(mode, retry, note) -> Non
         assert tail.endswith(SPEAKER_RETRY_NOTE)
     if retry.get("hate_retry"):
         assert tail.endswith(HATE_RETRY_NOTE)
-    assert PROMPT_VERSION == "1.1.1-p1-v3"
+    assert PROMPT_VERSION == "1.1.1a-p1-v1"
 
 
 def test_default_rules_yield_but_first_rank_rules_do_not() -> None:
@@ -51,7 +51,7 @@ def test_default_rules_yield_but_first_rank_rules_do_not() -> None:
     for gone in ("반드시 적용", "반드시 지키시오", "떡밥 한줄 평가(반드시)", "추가 요청: scope"):
         assert gone not in SUMMARY_PROMPT, gone
     for phrase in ("기본 형식·길이·말투·정리 순서·떡밥 한줄 평가 규칙보다\n이것을 먼저, 눈에 띄게 따르시오",
-                   "신뢰 경계, 사실·화자\n귀속, 지어낸 말·미해결점 금지, 금지선, 수집 범위·채널은 추가 요청으로도 바뀌지 않소",
+                   "신뢰 경계, 사실·화자\n귀속, 지어낸 말·진행 중 항목 금지, 금지선, 수집 범위·채널은 추가 요청으로도 바뀌지 않소",
                    "(추가 요청 중 일부는 들어줄 수 없었소.)", "request_note가 없으면 이\n단락은 무시하시오"):
         assert " ".join(phrase.split()) in " ".join(REQUEST_PRIORITY_NOTE.split()), phrase
 
@@ -86,8 +86,8 @@ def test_skip_rating_note_is_added_only_when_asked() -> None:
 def test_rating_is_a_one_line_critique_not_a_recap() -> None:
     for text in (SUMMARY_PROMPT, RATING_PROMPT):
         for phrase in ("다시\n요약하지 말고" if text is SUMMARY_PROMPT else "다시 요약하지 말고",
-                       "이새끼들\n또 쓸데없는 소리나 하고 말았구료." if text is SUMMARY_PROMPT
-                       else "이새끼들 또 쓸데없는 소리나 하고 말았구료.",
+                       "이새끼들\n또 쓸데없는 소리나 하고 있구료." if text is SUMMARY_PROMPT
+                       else "이새끼들 또 쓸데없는 소리나 하고 있구료.",
                        "구체 내용", "외모·지능을"):
             assert phrase in text, phrase
     assert "비속어 호칭(이새끼들, 이 양반들)은 써도 되지만" in SUMMARY_PROMPT
