@@ -4,8 +4,8 @@
 
 | 검사 ID | 단계 | 환경 | 통과 기준 | 결과 |
 |---|---|---|---|---|
-| `T112a-P1-A` | [P1](01-command-permission.md) | LXC 합성 | 권한 플래그 없는 사용자도 열기·저장, DM 거절, 모든 명령어가 서버 전용·기본 권한 `use_application_commands` | NOT_RUN |
-| `T112a-P1-B` | [P1](01-command-permission.md) | LXC 합성 | 다른 사람·다른 서버 조작 거절, 저장 검증·동시 수정·제한 시간 유지, 지표는 시각·채널 수만, 회귀 | NOT_RUN |
+| `T112a-P1-A` | [P1](01-command-permission.md) | LXC 합성 | 권한 플래그 없는 사용자도 열기·저장, DM 거절, 모든 명령어가 서버 전용·기본 권한 `use_application_commands` | PASS — [증거](../evidence/1.1.2a-P1.md) |
+| `T112a-P1-B` | [P1](01-command-permission.md) | LXC 합성 | 다른 사람·다른 서버 조작 거절, 저장 검증·동시 수정·제한 시간 유지, 지표는 시각·채널 수만, 회귀 | PASS — [증거](../evidence/1.1.2a-P1.md) |
 | `T112a-P2-A` | [P2](02-markdown-prompt.md) | LXC 합성 | `###` 제목·인용 비평 `> ↳ _…_`·`__이름__`·굵게·취소선 규칙, 옛 형식 지시 없음, 합성 형식 예 | NOT_RUN |
 | `T112a-P2-B` | [P2](02-markdown-prompt.md) | LXC 합성 | 1순위·추가 요청·진행 중·평가 줄·이모지 규칙 회귀 | NOT_RUN |
 | `T112a-P3-A` | [P3](03-output-checks.md) | LXC 합성 | `> ↳` 비평 줄 검사, `###`·`> ↳` 주제 지표, `name_underline` 판정 | NOT_RUN |
