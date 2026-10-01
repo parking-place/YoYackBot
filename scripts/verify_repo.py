@@ -30,7 +30,7 @@ def main() -> None:
     version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     package = (REPO / "src/yoyackbot/__init__.py").read_text(encoding="utf-8")
-    assert version == project["project"]["version"] == "1.1.3"
+    assert version == project["project"]["version"] == "1.1.3.1"
     assert f'__version__ = "{version}"' in package
 
     matrix = (PLAN / "TEST_MATRIX.md").read_text()
@@ -190,6 +190,19 @@ def main() -> None:
     assert len(manager_rows) == 3
     manager_done = sum("| DONE |" in row for row in manager_rows)
 
+    notices = PLAN / "1.1.3a"
+    assert len(sorted(notices.glob("0[1-3]-*.md"))) == 3, "1.1.3a: expected three phase documents"
+    notice_emoji_checks = re.findall(
+        r"^\| `(T113a-P[1-3]-[AB])` \|", (notices / "TEST_MATRIX.md").read_text(), re.MULTILINE
+    )
+    assert len(notice_emoji_checks) == len(set(notice_emoji_checks)) == 6
+    notice_emoji_rows = [
+        line for line in (notices / "STATUS.md").read_text().splitlines()
+        if re.match(r"^\| \[1\.1\.3a-P[1-3]\]", line)
+    ]
+    assert len(notice_emoji_rows) == 3
+    notice_emoji_done = sum("| DONE |" in row for row in notice_emoji_rows)
+
     for document in [REPO / "README.md", *PLAN.rglob("*.md")]:
         text = document.read_text()
         assert text.count("```") % 2 == 0, f"unclosed fence: {document}"
@@ -216,7 +229,8 @@ def main() -> None:
         f"1.1.1a {ongoing_done}/4 phases, {len(ongoing_checks)} checks; "
         f"1.1.2 {lively_done}/4 phases, {len(lively_checks)} checks; "
         f"1.1.2a {markdown_done}/5 phases, {len(markdown_checks)} checks; "
-        f"1.1.3 {manager_done}/3 phases, {len(manager_checks)} checks"
+        f"1.1.3 {manager_done}/3 phases, {len(manager_checks)} checks; "
+        f"1.1.3a {notice_emoji_done}/3 phases, {len(notice_emoji_checks)} checks"
     )
 
 
