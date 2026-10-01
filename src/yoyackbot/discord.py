@@ -50,6 +50,7 @@ from yoyackbot.parser import (
     route_trigger,
 )
 from yoyackbot.range_request import resolve_range
+from yoyackbot.role_config import install_role_commands
 from yoyackbot.scope import RangeScope, describe_range
 from yoyackbot.status_report import StatusReport, collect_status, status_message
 from yoyackbot.usage import (
@@ -163,6 +164,7 @@ class YoYackClient(discord.Client):
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
+        install_role_commands(self.tree, self.manager_roles)
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
