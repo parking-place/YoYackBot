@@ -57,18 +57,18 @@ def test_every_prompt_carries_the_tone_after_the_fact_rules(mode, retry) -> None
 
 
 def test_bot_notices_keep_their_released_wording() -> None:
-    assert BUSY_NOTICE == "요약중이오. 좀 기다리시오."
-    assert FAILED_NOTICE == "요약을 마치지 못했소. 잠시 후 다시 시도하시오."
-    assert INVALIDATED_NOTICE == "채널 주시나 권한이 바뀌어 요약을 멈추었소."
-    assert QUEUE_FULL_NOTICE == "요약 요청이 몰렸소. 잠시 후 다시 시도하시오."
-    assert QUEUE_CLOSED_NOTICE == "봇이 종료 중이오. 잠시 후 다시 시도하시오."
-    assert INPUT_TOO_LARGE_NOTICE.startswith("요약할 대화가 너무 많소.")
-    assert NOT_READY_NOTICE == "참을성을 기르시오 아직 준비가 되지 않았소."
+    assert BUSY_NOTICE == "⏳ 요약중이오. 좀 기다리시오. 🙏"
+    assert FAILED_NOTICE == "⚠️ 요약을 마치지 못했소. 잠시 후 다시 시도하시오. 😵"
+    assert INVALIDATED_NOTICE == "🛑 채널 주시나 권한이 바뀌어 요약을 멈추었소. 🔒"
+    assert QUEUE_FULL_NOTICE == "🚦 요약 요청이 몰렸소. 잠시 후 다시 시도하시오. 🙏"
+    assert QUEUE_CLOSED_NOTICE == "🔌 봇이 종료 중이오. 잠시 후 다시 시도하시오. 💤"
+    assert INPUT_TOO_LARGE_NOTICE.startswith("📚 요약할 대화가 너무 많소.")
+    assert NOT_READY_NOTICE == "⏳ 참을성을 기르시오 아직 준비가 되지 않았소. 🧘"
     assert EMPTY_NOTICE and USER_MESSAGES
-    assert USAGE_EXHAUSTED_NOTICE == "요약봇 사용량이 정상화되었소.\n초기화의 가호가 함께하길..."
-    assert USAGE_UNAVAILABLE_NOTICE.startswith("Codex 사용량을 지금 확인할 수 없소.")
-    assert (LIST_HEADER, LIST_FOOTER) == ("지금 본인이 보고 있는 채널을 알려주겠소", "이상이오.")
-    assert CHANNEL_EMPTY_NOTICE.startswith("지금 보고 있는 채널이 없소.")
+    assert USAGE_EXHAUSTED_NOTICE == "🪫 요약봇 사용량이 정상화되었소. 😵\n🙏 초기화의 가호가 함께하길... ✨"
+    assert USAGE_UNAVAILABLE_NOTICE.startswith("🌫️ Codex 사용량을 지금 확인할 수 없소.")
+    assert (LIST_HEADER, LIST_FOOTER) == ("📡👀 지금 본인이 보고 있는 채널을 알려주겠소", "✅ 이상이오. 🫡")
+    assert CHANNEL_EMPTY_NOTICE.startswith("🫥 지금 보고 있는 채널이 없소.")
     for text in (BUSY_NOTICE, FAILED_NOTICE, NOT_READY_NOTICE, LIST_HEADER):
         assert "시발" not in text and "존나" not in text
 

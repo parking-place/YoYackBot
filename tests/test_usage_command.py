@@ -49,10 +49,10 @@ def channel() -> object:
                            guild=SimpleNamespace(id=1), name="합성")
 
 
-PLENTY = "Codex의 기운을 살펴보았소.\n\n5시간 한도는 74% 남았소.\n주간 한도는 82% 남았소.\n\n" \
-    "아직 요약을 정상화하기엔 넉넉하오."
-STRAINED = "Codex의 기운을 살펴보았소.\n\n5시간 한도는 74% 남았소.\n주간 한도는 9% 남았소.\n\n" \
-    "요약 정상화가 버겁기 시작했소."
+PLENTY = "🔮✨ Codex의 기운을 살펴보았소. 👀\n\n⏱️ 5시간 한도는 74% 남았소. 🔋\n📅 주간 한도는 82% 남았소. 🗓️\n\n" \
+    "🟢💪 아직 요약을 정상화하기엔 넉넉하오. 😎"
+STRAINED = "🔮✨ Codex의 기운을 살펴보았소. 👀\n\n⏱️ 5시간 한도는 74% 남았소. 🔋\n📅 주간 한도는 9% 남았소. 🗓️\n\n" \
+    "🟠⚠️ 요약 정상화가 버겁기 시작했소. 😰"
 
 
 @pytest.mark.parametrize(
@@ -80,10 +80,10 @@ def test_usage_is_one_exact_word_and_help_keeps_priority(content: str, kind: Rou
         (UsageSnapshot(10, 100), STRAINED.replace("74", "10").replace("9%", "100%")),
         (UsageSnapshot(0, 100), STRAINED.replace("74", "0").replace("9%", "100%")),
         (UsageSnapshot(11, 11), PLENTY.replace("74", "11").replace("82", "11")),
-        (UsageSnapshot(None, 82), ("Codex의 기운을 살펴보았소.\n\n주간 한도는 82% 남았소.\n\n"
-                                   "아직 요약을 정상화하기엔 넉넉하오.")),
-        (UsageSnapshot(None, 6), ("Codex의 기운을 살펴보았소.\n\n주간 한도는 6% 남았소.\n\n"
-                                  "요약 정상화가 버겁기 시작했소.")),
+        (UsageSnapshot(None, 82), ("🔮✨ Codex의 기운을 살펴보았소. 👀\n\n📅 주간 한도는 82% 남았소. 🗓️\n\n"
+                                   "🟢💪 아직 요약을 정상화하기엔 넉넉하오. 😎")),
+        (UsageSnapshot(None, 6), ("🔮✨ Codex의 기운을 살펴보았소. 👀\n\n📅 주간 한도는 6% 남았소. 🗓️\n\n"
+                                  "🟠⚠️ 요약 정상화가 버겁기 시작했소. 😰")),
     ],
 )
 def test_usage_wording_and_warning_boundary(snapshot: UsageSnapshot, expected: str) -> None:

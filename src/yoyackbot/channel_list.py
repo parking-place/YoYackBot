@@ -6,9 +6,9 @@ from typing import Any
 
 import discord
 
-LIST_HEADER = "지금 본인이 보고 있는 채널을 알려주겠소"
-LIST_FOOTER = "이상이오."
-EMPTY_NOTICE = "지금 보고 있는 채널이 없소. `/채널 설정`으로 정하시오."
+LIST_HEADER = "📡👀 지금 본인이 보고 있는 채널을 알려주겠소"
+LIST_FOOTER = "✅ 이상이오. 🫡"
+EMPTY_NOTICE = "🫥 지금 보고 있는 채널이 없소. `/채널 설정`으로 정하시오. 🛠️"
 DEFAULT_LIMIT = 1900
 _MARKDOWN = re.compile(r"([\\*_~`|>#\[\]])")
 
@@ -45,7 +45,7 @@ def channel_list_messages(names: list[str], *, limit: int = DEFAULT_LIMIT) -> li
     """Split only between whole lines; the header opens the first part and the footer ends the last."""
     if not names:
         return [EMPTY_NOTICE]
-    lines = [LIST_HEADER, *(f" - {escape_name(name)}" for name in names),
+    lines = [LIST_HEADER, *(f" - 💬 {escape_name(name)}" for name in names),
              LIST_FOOTER]
     parts: list[str] = []
     current = ""

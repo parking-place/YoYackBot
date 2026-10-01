@@ -19,7 +19,7 @@ from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore, cooldown_notice
 from yoyackbot.count_collection import CountError
 from yoyackbot.domain import MessageRecord, SummaryMode, SummaryRequest, SummaryResult
-from yoyackbot.errors import FailureKind, message_for
+from yoyackbot.errors import BUSY_NOTICE, FailureKind, message_for
 from yoyackbot.history import HistoryError
 from yoyackbot.input_files import ConversationTooLarge, InputFileError
 from yoyackbot.job_queue import QueueClosed, QueueFull, QueueWaitExpired, SummaryJobQueue
@@ -35,13 +35,12 @@ from yoyackbot.watch_gate import ChannelLease
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 
 LOGGER = logging.getLogger(__name__)
-BUSY_NOTICE = "요약중이오. 좀 기다리시오."
-FAILED_NOTICE = "요약을 마치지 못했소. 잠시 후 다시 시도하시오."
-INVALIDATED_NOTICE = "채널 주시나 권한이 바뀌어 요약을 멈추었소."
-QUEUE_FULL_NOTICE = "요약 요청이 몰렸소. 잠시 후 다시 시도하시오."
-QUEUE_TIMEOUT_NOTICE = "요약 대기 시간이 지났소. 다시 시도하시오."
-QUEUE_CLOSED_NOTICE = "봇이 종료 중이오. 잠시 후 다시 시도하시오."
-INPUT_TOO_LARGE_NOTICE = "요약할 대화가 너무 많소. 기간이나 메시지 개수를 줄여 다시 명하시오."
+FAILED_NOTICE = "⚠️ 요약을 마치지 못했소. 잠시 후 다시 시도하시오. 😵"
+INVALIDATED_NOTICE = "🛑 채널 주시나 권한이 바뀌어 요약을 멈추었소. 🔒"
+QUEUE_FULL_NOTICE = "🚦 요약 요청이 몰렸소. 잠시 후 다시 시도하시오. 🙏"
+QUEUE_TIMEOUT_NOTICE = "⌛ 요약 대기 시간이 지났소. 다시 시도하시오. 🔁"
+QUEUE_CLOSED_NOTICE = "🔌 봇이 종료 중이오. 잠시 후 다시 시도하시오. 💤"
+INPUT_TOO_LARGE_NOTICE = "📚 요약할 대화가 너무 많소. 기간이나 메시지 개수를 줄여 다시 명하시오. ✂️"
 
 
 class JobInvalidated(RuntimeError):

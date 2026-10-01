@@ -55,9 +55,9 @@ def range_header(
         label = f"{year}{local_start.month}월 {local_start.day}일 {_clock(local_start)}"
     else:
         label = _clock(local_start)
-    header = f"{label}부터 지금까지의 요약이오."
+    header = f"🗓️ {label}부터 지금까지의 요약이오."
     if posted_at is not None and (posted_at - request.accepted_at).total_seconds() >= 60:
-        header += f" (기준: {_clock(local_end)} KST)"
+        header += f" (⏰ 기준: {_clock(local_end)} KST)"
     return header
 
 

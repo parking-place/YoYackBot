@@ -31,7 +31,7 @@ def test_300_second_boundary_is_persisted_and_scoped(tmp_path) -> None:
     store.record_success(1, 2, NOW)
     assert store.remaining(1, 2, NOW) == 300
     assert store.remaining(1, 2, NOW + timedelta(seconds=95)) == 205
-    assert cooldown_notice(205) == "아직은 때가 아니오. 03분 25초 뒤에 오시오."
+    assert cooldown_notice(205) == "🧊 아직은 때가 아니오. 03분 25초 뒤에 오시오. ⏰"
     assert store.remaining(1, 2, NOW + timedelta(seconds=299)) == 1
     assert store.remaining(1, 2, NOW + timedelta(seconds=300)) == 0
     assert store.remaining(1, 2, NOW + timedelta(days=1)) == 0
@@ -121,7 +121,7 @@ def test_success_is_stored_only_after_publication_and_failure_can_retry(
         assert await states.status(1, 2) is ChannelStatus.COOLDOWN
 
         await workflow.run(request, channel, lease, notice)  # type: ignore[arg-type]
-        assert notices[-1] == "아직은 때가 아니오. 05분 00초 뒤에 오시오."
+        assert notices[-1] == "🧊 아직은 때가 아니오. 05분 00초 뒤에 오시오. ⏰"
         assert collector.calls == engine.calls == publisher.calls == 2
 
     asyncio.run(scenario())

@@ -71,32 +71,32 @@ def test_current_guild_values_only(tmp_path: Path) -> None:
     size = database_bytes(path)
     assert size is not None
     assert report_for(path) == "\n".join([
-        "📜 현재 형편을 살펴보았소.",
+        "📜🔍 현재 형편을 살펴보았소. 🧐",
         "",
-        "상태: 평온하오.",
-        "주시 채널: 2곳이오.",
-        "캐시된 대화: 3건이오.",
-        f"DB 크기: {size / 1_000_000:.1f} MB이오.",
-        "Codex: gpt-6-luna / low",
-        "마지막 요약: 23분 전이오.",
+        "🩺 상태: 평온하오. 😌",
+        "📡 주시 채널: 2곳이오.",
+        "💬 캐시된 대화: 3건이오.",
+        f"💾 DB 크기: {size / 1_000_000:.1f} MB이오.",
+        "🤖 Codex: gpt-6-luna / low",
+        "🕒 마지막 요약: 23분 전이오.",
     ])
     other = report_for(path, 2)
-    assert "주시 채널: 3곳이오." in other and "캐시된 대화: 4건이오." in other
-    assert "마지막 요약: 1분 전이오." in other
+    assert "📡 주시 채널: 3곳이오." in other and "💬 캐시된 대화: 4건이오." in other
+    assert "🕒 마지막 요약: 1분 전이오." in other
 
 
 def test_unwatched_channel_success_is_not_the_last_summary(tmp_path: Path) -> None:
     path = seeded(tmp_path)
     SQLiteCooldownStore(path).record_success(1, 99, NOW - timedelta(seconds=5))
-    assert "마지막 요약: 23분 전이오." in report_for(path)
+    assert "🕒 마지막 요약: 23분 전이오." in report_for(path)
 
 
 def test_no_success_and_restart_use_persisted_records(tmp_path: Path) -> None:
     path = seeded(tmp_path, success=False)
-    assert "마지막 요약: 기록이 없소." in report_for(path)
-    assert "상태: 평온하오." in report_for(path)
+    assert "🕒 마지막 요약: 기록이 없소." in report_for(path)
+    assert "🩺 상태: 평온하오. 😌" in report_for(path)
     SQLiteCooldownStore(path).record_success(1, 10, NOW - timedelta(hours=2, minutes=5))
-    assert "마지막 요약: 2시간 전이오." in report_for(path)
+    assert "🕒 마지막 요약: 2시간 전이오." in report_for(path)
 
 
 @pytest.mark.parametrize(
@@ -113,13 +113,13 @@ def test_no_success_and_restart_use_persisted_records(tmp_path: Path) -> None:
 )
 def test_elapsed_boundaries(age: timedelta, text: str) -> None:
     report = StatusReport(True, 1, 1, 1, READY_MODEL, NOW - age, True)
-    assert status_message(report, NOW).endswith("마지막 요약: " + text)
+    assert status_message(report, NOW).endswith("🕒 마지막 요약: " + text)
 
 
 def test_large_counts_and_size_are_formatted_from_real_values() -> None:
     report = StatusReport(True, 4, 12_481, 18_400_000, READY_MODEL, None, True)
     text = status_message(report, NOW)
-    assert "캐시된 대화: 12,481건이오." in text and "DB 크기: 18.4 MB이오." in text
+    assert "💬 캐시된 대화: 12,481건이오." in text and "💾 DB 크기: 18.4 MB이오." in text
 
 
 def test_size_counts_wal_but_not_shm(tmp_path: Path) -> None:
@@ -140,18 +140,18 @@ def unhealthy_lines(text: str) -> list[str]:
 
 def test_gateway_not_ready_is_never_calm(tmp_path: Path) -> None:
     text = report_for(seeded(tmp_path), gateway=False)
-    assert "상태: 점검이 필요하오." in text and "평온" not in text
+    assert "🩺 상태: 점검이 필요하오. 🚨" in text and "평온" not in text
 
 
 def test_model_auth_failure_is_reported(tmp_path: Path) -> None:
     text = report_for(seeded(tmp_path), model=lambda _settings: None)
-    assert "상태: 점검이 필요하오." in text
-    assert unhealthy_lines(text) == ["Codex: 확인할 수 없소."]
+    assert "🩺 상태: 점검이 필요하오. 🚨" in text
+    assert unhealthy_lines(text) == ["🤖 Codex: 확인할 수 없소."]
 
 
 def test_missing_database_invents_no_numbers(tmp_path: Path) -> None:
     text = report_for(tmp_path / "missing.db")
-    assert "상태: 점검이 필요하오." in text
+    assert "🩺 상태: 점검이 필요하오. 🚨" in text
     assert len(unhealthy_lines(text)) == 4
     assert not (tmp_path / "missing.db").exists()
 
@@ -165,8 +165,8 @@ def test_locked_database_invents_no_numbers(tmp_path: Path) -> None:
     finally:
         holder.rollback()
         holder.close()
-    assert "상태: 점검이 필요하오." in text
-    assert "주시 채널: 확인할 수 없소." in text and "마지막 요약: 확인할 수 없소." in text
+    assert "🩺 상태: 점검이 필요하오. 🚨" in text
+    assert "📡 주시 채널: 확인할 수 없소." in text and "🕒 마지막 요약: 확인할 수 없소." in text
 
 
 def test_status_read_does_not_write(tmp_path: Path) -> None:
@@ -227,8 +227,8 @@ def test_gateway_answers_status_only_in_watched_channels(tmp_path: Path, watched
         text = channel.send.await_args.args[0]
         assert channel.send.await_args.kwargs["allowed_mentions"].to_dict()["parse"] == []
         if watched:
-            assert text.startswith("📜 현재 형편을 살펴보았소.")
-            assert "주시 채널: 2곳이오." in text and "캐시된 대화: 3건이오." in text
+            assert text.startswith("📜🔍 현재 형편을 살펴보았소. 🧐")
+            assert "📡 주시 채널: 2곳이오." in text and "💬 캐시된 대화: 3건이오." in text
             assert str(path) not in text and "20" not in text.split("DB 크기")[0]
         else:
             assert text == UNWATCHED_NOTICE

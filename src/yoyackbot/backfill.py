@@ -30,9 +30,9 @@ class BackfillError(RuntimeError):
         self.kind = kind
 
 
-START_NOTICE = "안녕하시오. 요약을 위해 데이터 수집중이오."
-READY_NOTICE = "이제부터 요약을 해줄 수 있을 것 같소."
-NOT_READY_NOTICE = "참을성을 기르시오 아직 준비가 되지 않았소."
+START_NOTICE = "👋📥 안녕하시오. 요약을 위해 데이터 수집중이오. ⏳"
+READY_NOTICE = "✅🎉 이제부터 요약을 해줄 수 있을 것 같소. 📝"
+NOT_READY_NOTICE = "⏳ 참을성을 기르시오 아직 준비가 되지 않았소. 🧘"
 
 
 class BackfillPageScheduler:

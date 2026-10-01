@@ -87,7 +87,7 @@ class CommandLimitError(ValueError):
     """A syntactically valid option exceeds the configured range."""
 
 
-USAGE_NOTICE = "그 명은 알아듣기 어렵소. `!!요약좀 도움`에서 사용법을 살펴보시오."
+USAGE_NOTICE = "🤔 그 명은 알아듣기 어렵소. `!!요약좀 도움`에서 사용법을 살펴보시오. 📜"
 POLITE_ENDINGS = ("부탁하오", "부탁해요", "해주세요")
 OPTION_PATTERN = re.compile(r"([0-9]+)\s*(개|분|시간|일|주)?\Z")
 UNIT_KIND = {
@@ -120,7 +120,7 @@ def route_trigger(content: str) -> TriggerRoute:
 MODE_WORDS = {"짧게": SummaryMode.SHORT, "길게": SummaryMode.LONG, "자세히": SummaryMode.DETAILED}
 RESERVED_WORDS = (USAGE_WORD, STATUS_WORD, CHANNELS_WORD)
 MAX_REQUEST_NOTE = 200
-REQUEST_TOO_LONG_NOTICE = f"추가 요청은 {MAX_REQUEST_NOTE}자까지만 알아듣겠소."
+REQUEST_TOO_LONG_NOTICE = f"✂️ 추가 요청은 {MAX_REQUEST_NOTE}자까지만 알아듣겠소. 📏"
 _RANGE_UNITS = {"개", "분", "시간", "일", "주"}
 _MENTION = re.compile(r"<@[!&]?\d+>|<#\d+>|@everyone|@here")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f\u200b-\u200f\u2028\u2029\ufeff]")
@@ -247,6 +247,6 @@ def validate_option(option: ParsedOption, settings: Settings) -> ParsedOption:
     maximum, unit = limits[option.kind]
     if option.value is None or not 1 <= option.value <= maximum:
         raise CommandLimitError(
-            f"{unit} 단위는 1부터 {maximum}까지 고르시오. `!!요약좀 도움`에서 사용법을 살펴보시오."
+            f"📏 {unit} 단위는 1부터 {maximum}까지 고르시오. `!!요약좀 도움`에서 사용법을 살펴보시오. 📜"
         )
     return option

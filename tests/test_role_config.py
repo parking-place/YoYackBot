@@ -10,8 +10,8 @@ import discord
 import pytest
 from discord import app_commands
 
+from yoyackbot.channel_config import DENIED as CHANNEL_DENIED
 from yoyackbot.channel_config import (
-    DENIED,
     GUILD_ONLY,
     NOT_ALLOWED,
     MemoryWatchStore,
@@ -19,6 +19,7 @@ from yoyackbot.channel_config import (
 )
 from yoyackbot.manager_roles import MemoryManagerRoleStore
 from yoyackbot.role_config import (
+    DENIED,
     INVALID_ROLE,
     AddRoles,
     ClearRoles,
@@ -92,7 +93,7 @@ def test_admin_grants_a_role_and_that_role_can_then_use_slash_commands(caplog) -
         await roles.callback(admin)
         view = admin.response.send_message.await_args.kwargs["view"]
         assert admin.response.send_message.await_args.kwargs["ephemeral"] is True
-        assert "현재 봇 관리 역할 0개: 없음(관리자만 사용)" in admin.response.send_message.await_args.args[0]
+        assert "🛡️ 현재 봇 관리 역할 0개: 없음(관리자만 사용)" in admin.response.send_message.await_args.args[0]
         add = item(view, AddRoles)
         add._values = [ROLES[ROLE]]
         await add.callback(interaction(home=home, admin=True))
@@ -181,5 +182,10 @@ def test_view_checks_opener_server_role_and_concurrent_edits() -> None:
 
 
 def test_summary_lists_roles() -> None:
-    assert role_summary(guild(), {ROLE, OTHER}) == "현재 봇 관리 역할 2개: <@&55>, <@&56>"
-    assert role_summary(guild(), {404}) == "현재 봇 관리 역할 1개: 삭제된 역할"
+    assert role_summary(guild(), {ROLE, OTHER}) == "🛡️ 현재 봇 관리 역할 2개: <@&55>, <@&56>"
+    assert role_summary(guild(), {404}) == "🛡️ 현재 봇 관리 역할 1개: 삭제된 역할"
+
+
+def test_role_view_refusal_points_at_its_own_command() -> None:
+    assert "`/관리권한 설정`" in DENIED and "`/채널 설정`" not in DENIED
+    assert "`/채널 설정`" in CHANNEL_DENIED and DENIED != CHANNEL_DENIED

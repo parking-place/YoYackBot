@@ -12,8 +12,8 @@ from typing import TypeVar
 from yoyackbot.channel_config import WatchStore
 
 LOGGER = logging.getLogger(__name__)
-UNWATCHED_NOTICE = "이 채널은 아직 살피고 있지 않소. `/채널 설정`으로 먼저 정하시오."
-UNAVAILABLE_NOTICE = "채널 설정을 확인하지 못했소. 잠시 후 다시 시도하시오."
+UNWATCHED_NOTICE = "👀 이 채널은 아직 살피고 있지 않소. `/채널 설정`으로 먼저 정하시오. 🛠️"
+UNAVAILABLE_NOTICE = "⚠️ 채널 설정을 확인하지 못했소. 잠시 후 다시 시도하시오. 🔧"
 T = TypeVar("T")
 
 

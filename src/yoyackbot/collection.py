@@ -20,7 +20,7 @@ class CollectionUnavailable(RuntimeError):
     """Watched-channel settings cannot be trusted for this request."""
 
 
-EMPTY_NOTICE = "해당 범위에 요약할 일반 사용자 대화가 없소."
+EMPTY_NOTICE = "🍃 해당 범위에 요약할 일반 사용자 대화가 없소. 🤷"
 
 
 @dataclass(frozen=True)

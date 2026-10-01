@@ -14,17 +14,17 @@ from yoyackbot.parser import HELP_TEXT, help_text
 
 def test_user_example_matches_character_for_character() -> None:
     assert channel_list_messages(["ㄴㄴㄴ", "ㅇㅇㅇ", "ㅎㅎㅎ"]) == [
-        "지금 본인이 보고 있는 채널을 알려주겠소\n - ㄴㄴㄴ\n - ㅇㅇㅇ\n - ㅎㅎㅎ\n이상이오."
+        "📡👀 지금 본인이 보고 있는 채널을 알려주겠소\n - 💬 ㄴㄴㄴ\n - 💬 ㅇㅇㅇ\n - 💬 ㅎㅎㅎ\n✅ 이상이오. 🫡"
     ]
 
 
 def test_single_channel() -> None:
-    assert channel_list_messages(["잡담"]) == [f"{LIST_HEADER}\n - 잡담\n{LIST_FOOTER}"]
+    assert channel_list_messages(["잡담"]) == [f"{LIST_HEADER}\n - 💬 잡담\n{LIST_FOOTER}"]
 
 
 def test_no_visible_channel_uses_the_empty_notice() -> None:
     assert channel_list_messages([]) == [EMPTY_NOTICE]
-    assert EMPTY_NOTICE == "지금 보고 있는 채널이 없소. `/채널 설정`으로 정하시오."
+    assert EMPTY_NOTICE == "🫥 지금 보고 있는 채널이 없소. `/채널 설정`으로 정하시오. 🛠️"
 
 
 @pytest.mark.parametrize(
@@ -41,7 +41,7 @@ def test_no_visible_channel_uses_the_empty_notice() -> None:
 )
 def test_names_are_shown_literally(name: str, shown: str) -> None:
     assert escape_name(name) == shown
-    assert channel_list_messages([name])[0].splitlines()[1] == f" - {shown}"
+    assert channel_list_messages([name])[0].splitlines()[1] == f" - 💬 {shown}"
 
 
 def test_long_lists_split_between_whole_lines_in_order() -> None:
@@ -54,7 +54,7 @@ def test_long_lists_split_between_whole_lines_in_order() -> None:
     assert sum(part.count(LIST_HEADER) for part in parts) == 1
     assert sum(part.count(LIST_FOOTER) for part in parts) == 1
     lines = "\n".join(parts).splitlines()
-    assert lines == [LIST_HEADER, *(f" - {name}" for name in names), LIST_FOOTER]
+    assert lines == [LIST_HEADER, *(f" - 💬 {name}" for name in names), LIST_FOOTER]
 
 
 def test_default_limit_keeps_small_lists_in_one_message() -> None:

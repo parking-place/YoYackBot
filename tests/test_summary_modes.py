@@ -239,7 +239,7 @@ def test_modes_share_collection_busy_and_cooldown(
         release.set()
         await first
         await workflow.run(mode_request(SummaryMode.SHORT), channel, lease, notice)
-        assert notices == ["아직은 때가 아니오. 05분 00초 뒤에 오시오."]
+        assert notices == ["🧊 아직은 때가 아니오. 05분 00초 뒤에 오시오. ⏰"]
         assert modes == [SummaryMode.DETAILED]
         assert collected == [mode_request(SummaryMode.SHORT).requested_range]
 

@@ -10,7 +10,6 @@ import discord
 from discord import app_commands
 
 from yoyackbot.channel_config import (
-    DENIED,
     ConcurrentUpdate,
     allowed,
     command_group,
@@ -20,7 +19,9 @@ from yoyackbot.channel_config import (
 from yoyackbot.manager_roles import ManagerRoleStore
 
 LOGGER = logging.getLogger(__name__)
-INVALID_ROLE = "고를 수 없는 역할이 있소. @everyone과 봇·연동이 관리하는 역할은 고를 수 없소."
+INVALID_ROLE = "⚠️ 고를 수 없는 역할이 있소. @everyone과 봇·연동이 관리하는 역할은 고를 수 없소. 🙅"
+# Its own wording: the shared /채널 설정 text pointed people at the wrong command (fixed in 1.1.3a).
+DENIED = "🚫 이 설정 화면은 연 사람만 쓸 수 있소. `/관리권한 설정`을 직접 여시오. 🙅"
 
 
 def valid_role(guild: discord.Guild, role_id: int) -> bool:
@@ -37,7 +38,7 @@ def role_summary(guild: discord.Guild, role_ids: Iterable[int]) -> str:
     shown = [getattr(guild.get_role(role_id), "mention", "삭제된 역할") for role_id in chosen[:20]]
     suffix = f" 외 {len(chosen) - 20}개" if len(chosen) > 20 else ""
     listing = ", ".join(shown) + suffix if shown else "없음(관리자만 사용)"
-    return f"현재 봇 관리 역할 {len(chosen)}개: {listing}"
+    return f"🛡️ 현재 봇 관리 역할 {len(chosen)}개: {listing}"
 
 
 def _view(item: discord.ui.Item[RoleSettingsView]) -> RoleSettingsView:
@@ -48,7 +49,7 @@ def _view(item: discord.ui.Item[RoleSettingsView]) -> RoleSettingsView:
 
 class AddRoles(discord.ui.RoleSelect["RoleSettingsView"]):
     def __init__(self) -> None:
-        super().__init__(placeholder="봇 관리 역할 추가 (한 번에 최대 25개)", min_values=1, max_values=25)
+        super().__init__(placeholder="➕ 봇 관리 역할 추가 (한 번에 최대 25개)", min_values=1, max_values=25)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view, guild = _view(self), interaction.guild
@@ -58,13 +59,13 @@ class AddRoles(discord.ui.RoleSelect["RoleSettingsView"]):
             return
         view.draft.update(chosen)
         await interaction.response.send_message(
-            f"{role_summary(guild, view.draft)}\n저장을 눌러 확정하시오.", ephemeral=True,
+            f"{role_summary(guild, view.draft)}\n💾 저장을 눌러 확정하시오. 👇", ephemeral=True,
         )
 
 
 class RemoveRoles(discord.ui.RoleSelect["RoleSettingsView"]):
     def __init__(self) -> None:
-        super().__init__(placeholder="봇 관리 역할에서 제거", min_values=1, max_values=25)
+        super().__init__(placeholder="➖ 봇 관리 역할에서 제거", min_values=1, max_values=25)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view, guild = _view(self), interaction.guild
@@ -73,7 +74,7 @@ class RemoveRoles(discord.ui.RoleSelect["RoleSettingsView"]):
             return
         view.draft.difference_update(role.id for role in self.values)
         await interaction.response.send_message(
-            f"{role_summary(guild, view.draft)}\n저장을 눌러 확정하시오.", ephemeral=True,
+            f"{role_summary(guild, view.draft)}\n💾 저장을 눌러 확정하시오. 👇", ephemeral=True,
         )
 
 
@@ -84,7 +85,7 @@ class ClearRoles(discord.ui.Button["RoleSettingsView"]):
     async def callback(self, interaction: discord.Interaction) -> None:
         _view(self).draft.clear()
         await interaction.response.send_message(
-            "목록을 비웠소(관리자만 쓰게 됨). 저장을 눌러 확정하시오.", ephemeral=True,
+            "🧹 목록을 비웠소(관리자만 쓰게 됨). 저장을 눌러 확정하시오. 👇", ephemeral=True,
         )
 
 
@@ -102,11 +103,11 @@ class SaveRoles(discord.ui.Button["RoleSettingsView"]):
                 view.guild_id, frozenset(view.draft), expected_version=view.original_version
             )
         except ConcurrentUpdate:
-            await reject(interaction, "다른 사람이 설정을 바꾸었소. 명령을 다시 열어 확인하시오.")
+            await reject(interaction, "🔄 다른 사람이 설정을 바꾸었소. 명령을 다시 열어 확인하시오. 👀")
             return
         except Exception:  # noqa: BLE001
             LOGGER.warning("manager_roles_save_failed")
-            await reject(interaction, "설정을 저장하지 못했소. 잠시 후 다시 시도하시오.")
+            await reject(interaction, "⚠️ 설정을 저장하지 못했소. 잠시 후 다시 시도하시오. 🔧")
             return
         LOGGER.info(
             "manager_roles_saved at=%s count=%d",
@@ -116,7 +117,7 @@ class SaveRoles(discord.ui.Button["RoleSettingsView"]):
         for item in view.children:
             item.disabled = True  # type: ignore[attr-defined]
         await interaction.response.edit_message(
-            content=f"봇 관리 역할 {len(view.draft)}개를 저장했소.\n{role_summary(guild, view.draft)}",
+            content=f"💾✅ 봇 관리 역할 {len(view.draft)}개를 저장했소. 🎉\n{role_summary(guild, view.draft)}",
             view=view,
         )
 
@@ -130,7 +131,7 @@ class CancelRoles(discord.ui.Button["RoleSettingsView"]):
         view.stop()
         for item in view.children:
             item.disabled = True  # type: ignore[attr-defined]
-        await interaction.response.edit_message(content="설정 변경을 취소했소.", view=view)
+        await interaction.response.edit_message(content="↩️ 설정 변경을 취소했소. 🙆", view=view)
 
 
 class RoleSettingsView(discord.ui.View):
@@ -150,7 +151,7 @@ class RoleSettingsView(discord.ui.View):
             item.disabled = True  # type: ignore[attr-defined]
         if self.message is not None:
             try:
-                await self.message.edit(content="설정 시간이 지났소. 명령을 다시 여시오.", view=self)
+                await self.message.edit(content="⌛ 설정 시간이 지났소. 명령을 다시 여시오. 🔁", view=self)
             except discord.HTTPException:
                 LOGGER.warning("manager_roles_view_expired_edit_failed")
 
@@ -173,11 +174,11 @@ def install_role_commands(tree: app_commands.CommandTree, roles: ManagerRoleStor
             view = RoleSettingsView(roles, guild.id, interaction.user.id)
         except Exception:  # noqa: BLE001
             LOGGER.warning("manager_roles_read_failed")
-            await reject(interaction, "설정을 읽지 못했소. 잠시 후 다시 시도하시오.")
+            await reject(interaction, "⚠️ 설정을 읽지 못했소. 잠시 후 다시 시도하시오. 🔧")
             return
         await interaction.response.send_message(
-            f"{role_summary(guild, view.draft)}\n추가·제거 후 저장하거나 전체 해제를 고르시오. "
-            "관리자는 언제나 쓸 수 있소.",
+            f"{role_summary(guild, view.draft)}\n🛠️ 추가·제거 후 저장하거나 전체 해제를 고르시오. 👇\n"
+            "👑 관리자는 언제나 쓸 수 있소.",
             view=view,
             ephemeral=True,
         )
