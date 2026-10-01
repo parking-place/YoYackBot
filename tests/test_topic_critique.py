@@ -66,6 +66,10 @@ CHRONO = "- **가람**: 금요일을 제안했소.\n- **나래**: 반대했소."
         ("- **강릉 여행** 🌊\n  - **보람**: 가자고 했소.\n  ↳ *바다 냄새부터 풍기는구려*", "all",
          [TopicSection(1, 1)]),
         ("**결정 난 거**\n- 목요일.\n\n**아직 안 정해진 거**\n- 담당.", "na", []),
+        (f"{SHORT}\n\n**⏳ 진행 중**\n- 롤백 담당.\n\n**✅ 결정**\n- 목요일.", "all",
+         [TopicSection(1, 1), TopicSection(1, 1)]),
+        ("**📣 업데이트 안내는 아직 진행 중**\n안내 여부를 내일 보기로 했소.\n↳ *문구만 바쁘구려*", "all",
+         [TopicSection(1, 1)]),
     ],
 )
 def test_topic_critique_counts_topics_not_groups(text, expected, sections) -> None:

@@ -126,7 +126,8 @@ def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | Non
 
 # A topic heading is a bold-only line, optionally bulleted, with nothing but emoji or marks after it.
 _TOPIC_HEADING = re.compile(r"^\s*(?:[-*•]\s+)?\*\*([^*]+)\*\*[^\w]*$")
-_GROUP_HEADINGS = ("결정 난 거", "진행 중인 거", "아직 안 정해진 거")
+_GROUP_HEADINGS = frozenset({"결정 난 거", "진행 중인 거", "아직 안 정해진 거", "결정", "진행 중", "미정"})
+_NOT_WORD = re.compile(r"[^\w\s]")
 
 
 @dataclass(frozen=True)
@@ -152,7 +153,7 @@ def topic_sections(text: str) -> list[TopicSection]:
             continue
         heading = _TOPIC_HEADING.match(line)
         if heading:
-            if any(group in heading.group(1) for group in _GROUP_HEADINGS):
+            if " ".join(_NOT_WORD.sub("", heading.group(1)).split()) in _GROUP_HEADINGS:
                 current = None
             else:
                 current = [0, 0]
