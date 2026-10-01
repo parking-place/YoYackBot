@@ -161,3 +161,20 @@ def test_emoji_do_not_hide_or_invent_jabs() -> None:
     assert not narrator_mocks_ongoing("⏳ **진행 중**: 롤백 담당 🕐")
     assert narrator_uses_hate_term("↳ *병신 🤡 같은 소리였소*")
     assert not narrator_uses_hate_term("↳ *요란하오* 🤡🔥")
+
+
+def test_engine_strips_emoji_when_asked(tmp_path: Path) -> None:
+    class Runner:
+        contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
+
+        async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            workspace.close()
+            return f"{SHORT}\n\n{RATING}"
+
+    engine = CodexSummaryEngine(settings(tmp_path), Runner())  # type: ignore[arg-type]
+    plain = asyncio.run(engine.summarize(ROWS, request_note="이모지 빼고"))
+    kept = asyncio.run(engine.summarize(ROWS, request_note="시간순으로 해줘"))
+    assert "✅" not in plain.text and "⏳" not in plain.text and "🚀" not in plain.text
+    assert plain.text.startswith("**배포 날짜**\n") and "**결정**: 목요일 오후 2시" in plain.text
+    assert plain.topic_critique == "all" and plain.rating == "present"
+    assert kept.text == f"{SHORT}\n\n{RATING}"

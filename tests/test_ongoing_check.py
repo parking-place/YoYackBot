@@ -14,7 +14,12 @@ from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord
 from yoyackbot.input_files import InputWorkspace
 from yoyackbot.ops import RequestMetrics
-from yoyackbot.output_quality import ONGOING_JAB_TERMS, inspect_output, narrator_mocks_ongoing
+from yoyackbot.output_quality import (
+    CRITIQUE_JAB_TERMS,
+    ONGOING_JAB_TERMS,
+    inspect_output,
+    narrator_mocks_ongoing,
+)
 from yoyackbot.summary_prompt import (
     ONGOING_RATING_RETRY_NOTE,
     ONGOING_RETRY_NOTE,
@@ -33,10 +38,15 @@ JABS = [
     "용두사미가 따로 없소.", "숙제로 남겼구려.", "끝맺음이 영 시원찮소.", "마무리는 늘 그 모양이오.",
     "결론도 없이 떠들었소.", "역시 아무것도 안 정했단 말이오!", "정한 게 없구려.", "판이 참 싱겁구려.",
     "↳ *또 질질 끄는구려.*", JAB_RATING,
+    "↳ *담당을 묻자 다음 회의 얘기부터 꺼내는군* 🙄", "↳ *숙소 얘긴 감으로도 못 박았구려!*",
+    "↳ *답은 아직 안개 속이구려* 🤔", "↳ *문구부터 쓰고 나중에 보자니 제멋대로구려*",
+    RATING_LABEL + "아직도 정한 건 감감하구려.",
 ]
 CALM = [
     "- **민준**: 안내 여부는 다음 날 다시 보자고 했소.", "**진행 중**: 투표는 아직 열리지 않았소.",
     "**진행 중인 거**", "- 아직 얘기 중이오.", "- **가람**: 금요일 대신 목요일로 정정했소.",
+    "- **가람**: 다음 회의에서 이야기하자고 했소.", "⏳ **진행 중**: 숙소 위치는 아직 미정이오.",
+    "↳ *숙소 질문에 돌아온 건 모른다 한마디뿐이오* 🤷",
 ]
 QUOTED = [
     '- **나래**: "또 질질 끄네"라고 했소.', "> 결국 미뤘네", "```\n흐지부지\n```",
@@ -48,6 +58,9 @@ def test_every_listed_term_is_caught() -> None:
     assert len(ONGOING_JAB_TERMS) == len(set(ONGOING_JAB_TERMS)) == 16
     for term in ONGOING_JAB_TERMS:
         assert narrator_mocks_ongoing(f"- 서술자가 {term} 했소."), term
+    for term in CRITIQUE_JAB_TERMS:
+        assert narrator_mocks_ongoing(f"↳ *{term} 그 꼴이오*"), term
+        assert not narrator_mocks_ongoing(f"- **가람**: {term} 얘기했소."), term
 
 
 @pytest.mark.parametrize("text", JABS)

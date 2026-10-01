@@ -171,6 +171,11 @@ _NO_RATING = re.compile(
     r"평가\S{0,2}\s*(?:좀\s*|는\s*|도\s*)?(?:빼|없이|생략|지워|지우|말고|안\s*해|하지\s*마)"
 )
 _KEEP_RATING = re.compile(r"빼지\s*말|지우지\s*말|생략하지\s*말")
+_NO_EMOJI = re.compile(
+    r"(?:이모지|이모티콘|emoji)\S{0,2}\s*(?:좀\s*|는\s*|도\s*)?"
+    r"(?:빼|없이|생략|지워|지우|말고|안\s*(?:써|쓰|해)|쓰지\s*마|금지)",
+    re.IGNORECASE,
+)
 
 
 _UNSAFE_REQUEST = re.compile(
@@ -191,6 +196,10 @@ def wants_refusal_notice(note: str) -> bool:
 def wants_no_rating(note: str) -> bool:
     """A request that explicitly drops the closing rating, decided in code not by the model."""
     return bool(_NO_RATING.search(note)) and not _KEEP_RATING.search(note)
+
+
+def wants_no_emoji(note: str) -> bool:
+    return bool(_NO_EMOJI.search(note)) and not _KEEP_RATING.search(note)
 
 
 def parse_summary_command(options: str) -> SummaryCommand:

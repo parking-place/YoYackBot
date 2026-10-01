@@ -3,8 +3,8 @@
 import pytest
 
 from yoyackbot.domain import SummaryMode
-from yoyackbot.output_quality import RATING_LABEL, narrator_mocks_ongoing, split_rating
-from yoyackbot.parser import wants_no_rating
+from yoyackbot.output_quality import RATING_LABEL, narrator_mocks_ongoing, split_rating, strip_emoji
+from yoyackbot.parser import wants_no_emoji, wants_no_rating
 from yoyackbot.summary_prompt import (
     DETAILED_NOTE,
     RATING_PROMPT,
@@ -83,3 +83,32 @@ def test_emoji_rating_line_still_splits(rating: str) -> None:
     body = "**🚀 배포 날짜** 🗓️\n목요일로 정했소. ✅ **결정**: 목요일 🎉\n↳ *요일 퀴즈였소* 🤡"
     assert split_rating(f"{body}\n\n{RATING_LABEL}{rating}") == (body, RATING_LABEL + rating)
     assert "이모지를 마음껏" in RATING_PROMPT
+
+
+@pytest.mark.parametrize(
+    ("note", "expected"),
+    [("이모지 빼고", True), ("이모지 없이 해줘", True), ("이모티콘 좀 빼줘", True), ("이모지 쓰지 마", True),
+     ("emoji 금지", True), ("이모지 안 써도 돼", True), ("이모지 많이", False), ("이모지 빼지 말고", False),
+     ("평가 빼줘", False), ("시간순으로 해줘", False)],
+)
+def test_no_emoji_request_is_detected(note: str, expected: bool) -> None:
+    assert wants_no_emoji(note) is expected
+
+
+def test_strip_emoji_keeps_layout_and_markers_readable() -> None:
+    text = ("**🚀 배포 날짜** 🗓️\n목요일 오후 2시 🎉 로 정했소. ✅ **결정**: 목요일 👨‍👩‍👧‍👦👍🏽\n"
+            "↳ *요일 퀴즈였소* 🤡🏳️‍🌈\n  - **가람**: 1️⃣ 번 안을 냈소. ❤️\n\n"
+            f"{RATING_LABEL}🔥 요란하오 🙄")
+    assert strip_emoji(text) == (
+        "**배포 날짜**\n목요일 오후 2시 로 정했소. **결정**: 목요일\n"
+        "↳ *요일 퀴즈였소*\n  - **가람**: 1 번 안을 냈소.\n\n"
+        f"{RATING_LABEL}요란하오"
+    )
+    assert strip_emoji("이모지 없는 줄은 그대로  둔다") == "이모지 없는 줄은 그대로  둔다"
+
+
+def test_v3_prompt_pushes_bullet_emoji_and_bans_ongoing_critiques() -> None:
+    text = flat(SUMMARY_PROMPT)
+    assert "길게·자세히의 화자 불릿도 줄마다 끝에 이모지를 하나 이상 붙이시오." in text
+    assert "진행 중인 주제의 비평은 참여자가 한 질문·제안·농담·말바꿈 자체만 소재로 하고" in text
+    assert "비평 줄에는 '아직'이라는 말도 쓰지 마시오." in text

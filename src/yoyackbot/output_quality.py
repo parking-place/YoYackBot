@@ -58,9 +58,9 @@ ONGOING_JAB_TERMS = (
 )
 
 
-def _narration(text: str) -> list[str]:
-    """Narrator lines only: quoted source words, block quotes and code may report what was said."""
-    lines: list[str] = []
+def _narration_pairs(text: str) -> list[tuple[str, str]]:
+    """(raw, cleaned) narrator lines: quotes, block quotes and code may report what was said."""
+    lines: list[tuple[str, str]] = []
     in_code = False
     for line in text.splitlines():
         stripped = line.lstrip()
@@ -69,17 +69,56 @@ def _narration(text: str) -> list[str]:
             continue
         if in_code or stripped.startswith(">"):
             continue
-        lines.append(_FILLER.sub("", _QUOTED.sub("", line)))
+        lines.append((line, _FILLER.sub("", _QUOTED.sub("", line))))
     return lines
+
+
+def _narration(text: str) -> list[str]:
+    return [cleaned for _raw, cleaned in _narration_pairs(text)]
 
 
 def narrator_uses_hate_term(text: str) -> bool:
     return any(term in line for line in _narration(text) for term in HATE_TERMS)
 
 
+# Inside critique and rating lines these phrases mean "still not settled" is the joke (1.1.2).
+CRITIQUE_JAB_TERMS = ("아직", "다음 회의", "나중에", "못 박", "미정", "안 잡", "안개 속", "감감")
+
+
 def narrator_mocks_ongoing(text: str) -> bool:
     """True when narration treats unfinished, still-running talk as something to sneer at."""
-    return any(term in line for line in _narration(text) for term in ONGOING_JAB_TERMS)
+    for raw, line in _narration_pairs(text):
+        if any(term in line for term in ONGOING_JAB_TERMS):
+            return True
+        if (raw.lstrip().startswith("↳") or _RATING_LINE.match(raw)) and any(
+            term in line for term in CRITIQUE_JAB_TERMS
+        ):
+            return True
+    return False
+
+
+# Pictographs, dingbats, flags, joiners, selectors and skin tones; arrows such as ↳ are kept.
+_EMOJI = re.compile(
+    "[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF"
+    "\u200D\uFE0E\uFE0F\u20E3\U000E0020-\U000E007F]"
+)
+
+
+def strip_emoji(text: str) -> str:
+    """Remove emoji for '이모지 빼고' and tidy the spaces they leave behind."""
+    lines = []
+    for line in text.splitlines():
+        if not _EMOJI.search(line):
+            lines.append(line)
+            continue
+        cleaned = _EMOJI.sub("", line)
+        if cleaned.lstrip().startswith("**"):
+            cleaned = re.sub(r"^(\s*)\*\*\s+", r"\1**", cleaned)
+        cleaned = re.sub(r"(?<=\S) {2,}", " ", cleaned).rstrip()
+        if not line[:1].isspace():
+            cleaned = cleaned.lstrip()
+        lines.append(cleaned)
+    return "\n".join(lines)
 
 
 _SPEAKER_HEADING = re.compile(
