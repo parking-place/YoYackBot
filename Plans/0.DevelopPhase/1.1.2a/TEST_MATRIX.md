@@ -12,7 +12,7 @@
 | `T112a-P3-B` | [P3](03-output-checks.md) | LXC 합성 | 이모지 제거·평가 줄·거절 안내·분할이 마크다운을 깨지 않음, 지표 원문 비기록, 회귀 | PASS — [증거](../evidence/1.1.2a-P3.md) |
 | `T112a-P4-A` | [P4](04-help-evaluation.md) | LXC/CI | 도움말이 문안과 같음(설정값별), 2,000자 미만, 도움말·빈 목록 안내에 “관리자” 문구 없음, 문서 갱신 | PASS — [증거](../evidence/1.1.2a-P4.md) |
 | `T112a-P4-B` | [P4](04-help-evaluation.md) | LXC 실제 모델 | 6건 사실 오류 0, `###` 제목, 인용 비평, 이름 밑줄, 깨진 마크다운 0, 1.1.2 형식 유지, 사용자 확인 | PASS(사실 문제 2건 사용자 수용) — [증거](../evidence/1.1.2a-P4.md) |
-| `T112a-P5-A` | [P5](05-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
-| `T112a-P5-B` | [P5](05-release.md) | LXC/시험 Discord | 배포·복귀, 비관리자 `/채널 설정` 사용 확인, 마크다운·밑줄·도움말 확인, 로그, 병합 후 `main` CI | NOT_RUN |
+| `T112a-P5-A` | [P5](05-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | PASS — [증거](../evidence/1.1.2a-P5.md) |
+| `T112a-P5-B` | [P5](05-release.md) | LXC/시험 Discord | 배포·복귀, 비관리자 `/채널 설정` 사용 확인, 마크다운·밑줄·도움말 확인, 로그, 병합 후 `main` CI | PASS(사용자 확인, 복귀는 격리; 요약·저장 실제 채널 로그 NOT_RUN) — [증거](../evidence/1.1.2a-P5.md) |
 
 각 단계의 A/B 결과와 구현 C·증거 E·종료 D의 GitHub 반영, 필요한 CI 성공이 확인돼야 [상태 문서](STATUS.md)를 DONE으로 바꾼다.

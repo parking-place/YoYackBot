@@ -1,6 +1,6 @@
 # 1.1.2a-P5 — 통합·배포·출시
 
-- 상태: **IN_PROGRESS** · 검사: `T112a-P5-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **PUSH_PENDING** · 검사: `T112a-P5-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 선행 조건·작업
 
