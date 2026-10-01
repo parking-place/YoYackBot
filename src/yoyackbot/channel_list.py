@@ -8,7 +8,7 @@ import discord
 
 LIST_HEADER = "지금 본인이 보고 있는 채널을 알려주겠소"
 LIST_FOOTER = "이상이오."
-EMPTY_NOTICE = "지금 보고 있는 채널이 없소. 관리자가 `/채널 설정`으로 정하시오."
+EMPTY_NOTICE = "지금 보고 있는 채널이 없소. `/채널 설정`으로 정하시오."
 DEFAULT_LIMIT = 1900
 _MARKDOWN = re.compile(r"([\\*_~`|>#\[\]])")
 

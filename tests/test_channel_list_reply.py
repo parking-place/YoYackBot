@@ -24,7 +24,7 @@ def test_single_channel() -> None:
 
 def test_no_visible_channel_uses_the_empty_notice() -> None:
     assert channel_list_messages([]) == [EMPTY_NOTICE]
-    assert EMPTY_NOTICE == "지금 보고 있는 채널이 없소. 관리자가 `/채널 설정`으로 정하시오."
+    assert EMPTY_NOTICE == "지금 보고 있는 채널이 없소. `/채널 설정`으로 정하시오."
 
 
 @pytest.mark.parametrize(
@@ -61,7 +61,6 @@ def test_default_limit_keeps_small_lists_in_one_message() -> None:
     assert len(channel_list_messages([f"채널{index}" for index in range(25)])) == 1
 
 
-def test_help_mentions_the_channel_command_and_its_boundary() -> None:
-    assert "`!!요약좀 채널` — 이 서버에서 봇이 살피고 있는 채널 가운데 그대에게 보이는 채널을 알려주오." in HELP_TEXT
-    assert "사용량·상태·채널은 주시 채널에서만 답하며" in HELP_TEXT
+def test_help_mentions_the_channel_command() -> None:
+    assert "📡 `채널` → 주시 채널" in HELP_TEXT
     assert len(HELP_TEXT) < 2000 and len(help_text()) < 2000

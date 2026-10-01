@@ -13,49 +13,34 @@ STATUS_WORD = "상태"
 CHANNELS_WORD = "채널"
 HELP_WORD = re.compile(r"(?<!\S)도움(?:말)?(?=\s|$)")
 
-HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
-
-`!!요약좀` — 최근 1시간의 대화를 주제마다 1~2줄로 짧게 요약하고, 주제마다 한줄 비평을 붙이오. 🎯
-`!!요약좀 3` — 최근 3시간의 대화를 요약하오.
-`!!요약좀 30분` — 최근 30분의 대화를 요약하오.
-`!!요약좀 2시간` — 최근 2시간의 대화를 요약하오.
-`!!요약좀 100개` — 최근 일반 사용자 메시지 100개를 요약하오.
-`!!요약좀 오늘` — 오늘 00시부터 지금까지의 대화를 요약하오.
-`!!요약좀 {example_days}일` — 최근 {example_days}일간의 대화를 요약하오.
-`!!요약좀 {max_days}일` — 최근 {max_days}일간의 대화를 요약하오.
-`!!요약좀 1주` — 최근 1주간의 대화를 요약하오.
-
-숫자만 적으면 시간 단위로 알아듣겠소.
-{limit_notice}
-
-기본은 짧게 요약하오. 범위 뒤에 길이를 한 번 붙이면 같은 범위를 더 길게 요약하오. 범위를 생략하면 최근 1시간이오.
-`!!요약좀 [범위] 길게` — 주제별로 화자별 흐름과 결정·진행 중인 이야기까지 요약하오. 예: `!!요약좀 오늘 길게`
-`!!요약좀 [범위] 자세히` — 아주 길고 촘촘하게 요약하오. 예: `!!요약좀 3일 자세히`
-`짧게`를 붙여도 기본과 같소. 모든 요약 끝에는 **요약창섭의 떡밥 한줄 평가**로 한줄 비평이 붙소.
-
-범위·길이 뒤에 하고 싶은 말을 적으면 형식·길이·말투·순서는 기본보다 그 말을 먼저 따르오. 예: `!!요약좀 2분 길게 시간순으로 해줘`, `!!요약좀 욕 빼고`, `!!요약좀 이모지 빼고`, `!!요약좀 평가 빼줘`
-(추가 요청은 200자까지이며, 범위를 바꾸거나 없는 사실을 만들어 달라는 말은 듣지 않소.)
-
-`!!요약좀 사용량` — 요약봇 Codex 계정의 남은 한도를 알려주오.
-`!!요약좀 상태` — 이 서버의 주시 채널·캐시 건수·DB 크기(모든 서버가 함께 쓰는 파일)·마지막 요약을 알려주오.
-`!!요약좀 채널` — 이 서버에서 봇이 살피고 있는 채널 가운데 그대에게 보이는 채널을 알려주오.
-사용량·상태·채널은 주시 채널에서만 답하며, 요약이 아니므로 대기 시간을 쓰지 않소.
-
-요약을 시작하면 범위를 먼저 알려주고, 요약 중에 다시 부르면 진행 중인 범위를 알려주오.
-채널이 처음 대화를 모으거나 빠진 대화를 확인하는 동안에는 준비 중이라고 답하오.
-주시할 채널은 관리자가 `/채널 설정`에서 정하시오."""
+# The user's short help text (1.1.2a). "  " before a newline is a Discord line break; the day
+# limit comes from settings and the 2-day example is hidden when the limit is shorter.
+_HELP_LINES = (
+    "📜 **요약 사용법**",
+    "",
+    "`!!요약좀` → 최근 1시간  ",
+    "`3` → 3시간 / `30분` `2시간` `100개` `오늘`{two_days} `1주` `{max_days}일` 지원  ",
+    "※ 숫자만 쓰면 시간, 최대 {max_days}일",
+    "",
+    "🔍 `길게` → 흐름·결정 포함  ",
+    "🔎 `자세히` → 가장 상세  ",
+    "✏️ 뒤에 요청 추가 가능: `시간순으로`, `욕 빼고`, `평가 빼줘` 등  ",
+    "※ 추가 요청 200자, 범위 변경·허위 생성 불가",
+    "",
+    "⚙️ `사용량` → Codex 한도  ",
+    "📊 `상태` → 채널·캐시·DB·마지막 요약  ",
+    "📡 `채널` → 주시 채널",
+    "",
+    "진행 중엔 현재 범위, 수집 중엔 준비 중이라고 답하오.  ",
+    "주시 채널은 `/채널 설정`에서 정하시오.",
+)
+HELP_TEMPLATE = "\n".join(_HELP_LINES)
 
 
 def help_text(settings: Settings | None = None) -> str:
-    """Explain the effective day limit without advertising a rejected example."""
+    """The short help with the effective day limit, never advertising a rejected example."""
     days = 30 if settings is None else settings.max_days
-    notice = (
-        "기간 요약은 최대 30일까지 가능하오." if days == 30
-        else f"일 단위 요청은 최대 {days}일까지 가능하오."
-    )
-    return HELP_TEMPLATE.format(
-        example_days=min(days, 2), max_days=days, limit_notice=notice
-    )
+    return HELP_TEMPLATE.format(two_days=" `2일`" if days >= 2 else "", max_days=days)
 
 
 HELP_TEXT = help_text()
