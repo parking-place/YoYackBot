@@ -67,7 +67,7 @@ class RequestMetrics:
                 "none", "history", "input", "model", "send", "queue", "permission", "unexpected"
             } else "unexpected",
             "rating": self.rating if self.rating in {
-                "none", "present", "retried", "missing"
+                "none", "present", "retried", "missing", "skipped"
             } else "none",
             "failure_detail": self.failure_detail if self.failure_detail in {
                 "none", "input_file", "input_size", "auth", "model", "limit", "usage_limit", "process",

@@ -148,9 +148,11 @@ def engine_settings(tmp_path: Path) -> Settings:
 
 
 def test_prompt_notes_are_trusted_constants() -> None:
-    assert prompt_for(SummaryMode.LONG) == SUMMARY_PROMPT
-    assert prompt_for(SummaryMode.DETAILED) == SUMMARY_PROMPT + DETAILED_NOTE
-    assert prompt_for(SummaryMode.SHORT) == SUMMARY_PROMPT + SHORT_NOTE
+    from yoyackbot.summary_prompt import REQUEST_PRIORITY_NOTE
+
+    assert prompt_for(SummaryMode.LONG) == SUMMARY_PROMPT + REQUEST_PRIORITY_NOTE
+    assert prompt_for(SummaryMode.DETAILED) == SUMMARY_PROMPT + DETAILED_NOTE + REQUEST_PRIORITY_NOTE
+    assert prompt_for(SummaryMode.SHORT) == SUMMARY_PROMPT + SHORT_NOTE + REQUEST_PRIORITY_NOTE
     assert "8개 이하" in SHORT_NOTE and "8개 이하" not in DETAILED_NOTE
     retry = prompt_for(SummaryMode.DETAILED, speaker_retry=True)
     assert retry.startswith(SUMMARY_PROMPT + DETAILED_NOTE) and "P1/P2" in retry

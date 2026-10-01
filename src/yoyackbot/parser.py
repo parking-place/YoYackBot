@@ -31,9 +31,9 @@ HELP_TEMPLATE = """📜 요약 사용법을 알려드리겠소.
 기본은 짧게 요약하오. 범위 뒤에 길이를 한 번 붙이면 같은 범위를 더 길게 요약하오. 범위를 생략하면 최근 1시간이오.
 `!!요약좀 [범위] 길게` — 화자별 흐름과 결정·남은 점까지 요약하오. 예: `!!요약좀 오늘 길게`
 `!!요약좀 [범위] 자세히` — 아주 길고 촘촘하게 요약하오. 예: `!!요약좀 3일 자세히`
-`짧게`를 붙여도 기본과 같소. 모든 요약 끝에는 **요약창섭의 떡밥 한줄 평가**가 붙소.
+`짧게`를 붙여도 기본과 같소. 모든 요약 끝에는 **요약창섭의 떡밥 한줄 평가**로 한줄 비평이 붙소.
 
-범위·길이 뒤에 하고 싶은 말을 적으면 요약할 때 참고하오. 예: `!!요약좀 2분 길게 시간순으로 해줘`
+범위·길이 뒤에 하고 싶은 말을 적으면 형식·길이·말투·순서는 기본보다 그 말을 먼저 따르오. 예: `!!요약좀 2분 길게 시간순으로 해줘`, `!!요약좀 욕 빼고`, `!!요약좀 평가 빼줘`
 (추가 요청은 200자까지이며, 범위를 바꾸거나 없는 사실을 만들어 달라는 말은 듣지 않소.)
 
 `!!요약좀 사용량` — 요약봇 Codex 계정의 남은 한도를 알려주오.
@@ -165,6 +165,32 @@ def clean_request_note(text: str) -> str | None:
     if len(cleaned) > MAX_REQUEST_NOTE:
         raise CommandLimitError(REQUEST_TOO_LONG_NOTICE)
     return cleaned
+
+
+_NO_RATING = re.compile(
+    r"평가\S{0,2}\s*(?:좀\s*|는\s*|도\s*)?(?:빼|없이|생략|지워|지우|말고|안\s*해|하지\s*마)"
+)
+_KEEP_RATING = re.compile(r"빼지\s*말|지우지\s*말|생략하지\s*말")
+
+
+_UNSAFE_REQUEST = re.compile(
+    r"지시문|프롬프트|시스템|규칙\S{0,2}\s*(?:무시|해제|없애|끝)|무시하고|무시해|"
+    r"\d+\s*일\s*(?:전체|치\s*(?:전부|다|모두))|전체\s*(?:기간|대화)|다른\s*채널|모든\s*채널|"
+    r"했다고\s*(?:써|적어|해)|라고\s*(?:써|적어)|화자\S{0,2}.{0,12}바꿔|"
+    r"비하어|병신|성적으로|야하게|auth|파일|https?://|URL|도구|«|»|"
+    r"신뢰\s*경계|인용이\s*끝|system|[{}<>]",
+    re.IGNORECASE,
+)
+
+
+def wants_refusal_notice(note: str) -> bool:
+    """Obvious out-of-bounds requests always get the refusal line, even if the model forgets."""
+    return bool(_UNSAFE_REQUEST.search(note))
+
+
+def wants_no_rating(note: str) -> bool:
+    """A request that explicitly drops the closing rating, decided in code not by the model."""
+    return bool(_NO_RATING.search(note)) and not _KEEP_RATING.search(note)
 
 
 def parse_summary_command(options: str) -> SummaryCommand:

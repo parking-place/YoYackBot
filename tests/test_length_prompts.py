@@ -18,8 +18,8 @@ from yoyackbot.summary_prompt import (
     prompt_for,
 )
 
-ORDER = ["신뢰 경계:", "원문에 없는 사실·동기·결론", "추가 요청:", "말투(반드시 적용)",
-         "금지(말투보다 우선)"]
+ORDER = ["신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(기본, 모든 길이 공통)", "말투(기본)",
+         "금지(말투·추가 요청보다 우선)", "떡밥 한줄 평가(기본)"]
 
 
 @pytest.mark.parametrize("mode", list(SummaryMode))
@@ -35,7 +35,7 @@ def test_prompt_order_and_length_notes(mode: SummaryMode, retry: dict) -> None:
         assert prompt.index(length_note) > positions[-1]
     assert (SPEAKER_RETRY_NOTE in prompt) is bool(retry.get("speaker_retry"))
     assert (HATE_RETRY_NOTE in prompt) is bool(retry.get("hate_retry"))
-    assert PROMPT_VERSION == "1.1.0a-p2-v2"
+    assert PROMPT_VERSION == "1.1.1-p1-v3"
 
 
 def test_each_length_has_its_own_instruction() -> None:
@@ -49,7 +49,7 @@ def test_each_length_has_its_own_instruction() -> None:
 def test_snark_is_aimed_at_actions_and_keeps_haoche() -> None:
     for phrase in ("띠껍고\n싸가지없는 태도", "비꼬고 빈정거리시오", "뭐 대단한 결정이라도 난 줄 알았소?",
                    "깔보는 태도", "하오체", "반말 어미로 문장을 끝내지 마시오",
-                   "비아냥 형식(반드시 지키시오)", "내용은 가져오지 말고 형식만 따르시오",
+                   "비아냥 형식(기본)", "내용은 가져오지 말고 형식만 따르시오",
                    "비아냥이 사실을 바꾸거나 없는 사실을 보태면 안 되고",
                    "주어(이름)를 분명히", "비꼬려고 새 미해결점을\n만들지 마시오",
                    "비꼼도\n행동·말·결과만 대상으로 하고 외모·지능 같은 인신공격으로 넘어가지 마시오"):

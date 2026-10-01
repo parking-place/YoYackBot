@@ -18,7 +18,8 @@ from yoyackbot.output_quality import (
     narrator_uses_hate_term,
     split_rating,
 )
-from yoyackbot.summary_prompt import RATING_PROMPT, prompt_for
+from yoyackbot.parser import wants_no_rating, wants_refusal_notice
+from yoyackbot.summary_prompt import REFUSAL_NOTICE, prompt_for, rating_prompt
 
 
 @dataclass(frozen=True)
@@ -61,33 +62,46 @@ class CodexSummaryEngine:
         root = self.settings.input_directory.absolute()
         async with self._slots:
             workspace = InputWorkspace.create(root, data)
-            result = await self.runner.execute(workspace, prompt_for(mode))
+            skip_rating = request_note is not None and wants_no_rating(request_note)
+            result = await self.runner.execute(
+                workspace, prompt_for(mode, note=request_note, skip_rating=skip_rating)
+            )
             source_bodies = [item.content for item in included]
             issue = inspect_output(result, source_bodies)
             if issue in (OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM):
                 retry_workspace = InputWorkspace.create(root, data)
                 result = await self.runner.execute(retry_workspace, prompt_for(
-                    mode, speaker_retry=issue is OutputIssue.SPEAKER_KEY,
+                    mode, note=request_note, skip_rating=skip_rating,
+                    speaker_retry=issue is OutputIssue.SPEAKER_KEY,
                     hate_retry=issue is OutputIssue.HATE_TERM,
                 ))
             if inspect_output(result, source_bodies) is not None:
                 raise CodexRunError(CodexFailure.OUTPUT_INVALID)
             body, rating = split_rating(result)
+            if (
+                request_note is not None and wants_refusal_notice(request_note)
+                and REFUSAL_NOTICE not in body
+            ):
+                body = f"{body}\n\n{REFUSAL_NOTICE}"
             status = "present"
-            if rating is None:
+            if skip_rating:
+                rating, status = None, "skipped"
+            elif rating is None:
                 status = "missing"
-                rating = await self._rating_only(root, data, body)
+                rating = await self._rating_only(root, data, body, request_note)
                 if rating is not None:
                     status = "retried"
         text = body if rating is None else f"{body}\n\n{rating}"
         return SummaryResult(text, self.runner.contract.model, len(included), status)
 
-    async def _rating_only(self, root: Path, data: bytes, body: str) -> str | None:
+    async def _rating_only(
+        self, root: Path, data: bytes, body: str, note: str | None = None,
+    ) -> str | None:
         """Ask once for the closing rating alone; a bad or failed answer leaves it out."""
         summary = json.dumps({"type": "summary", "body": body}, ensure_ascii=False).encode()
         workspace = InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + summary + b"\n")
         try:
-            answer = await self.runner.execute(workspace, RATING_PROMPT)
+            answer = await self.runner.execute(workspace, rating_prompt(note))
         except CodexRunError:
             return None
         _rest, rating = split_rating(answer)
