@@ -65,7 +65,7 @@ from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 from yoyackbot.workflow import SummaryWorkflow, build_workflow
 
 LOGGER = logging.getLogger(__name__)
-PREVIEW_NOTICE = "요약 요청을 해석했소. 실제 요약 기능은 아직 준비 중이오."
+PREVIEW_NOTICE = "🚧 요약 요청을 해석했소. 실제 요약 기능은 아직 준비 중이오. 🛠️"
 
 
 class MessageCandidate(Protocol):

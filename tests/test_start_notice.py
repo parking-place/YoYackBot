@@ -42,7 +42,7 @@ from yoyackbot.workflow import (
 
 NOW = datetime(2026, 9, 29, 12, tzinfo=UTC)
 TEN_DAYS = RangeScope(OptionKind.DAYS, 10)
-START = "10일 채팅을 요약해보겠소."
+START = "📝 10일 채팅을 요약해보겠소. ✍️"
 
 
 def request(scope: RangeScope | None = TEN_DAYS,
@@ -204,11 +204,11 @@ def test_no_start_notice_for_busy_cooldown_or_closing(
                                    readiness=readiness)
         lease = SimpleNamespace(valid=lambda: True)
         await workflow.run(request(), channel(), lease, recorder.notice)  # type: ignore[arg-type]
-        assert recorder.events == ["notice:아직은 때가 아니오. 05분 00초 뒤에 오시오."]
+        assert recorder.events == ["notice:🧊 아직은 때가 아니오. 05분 00초 뒤에 오시오. ⏰"]
         workflow.closing = True
         await workflow.run(request(), channel(), lease, recorder.notice)  # type: ignore[arg-type]
         assert recorder.events[-1] == f"notice:{QUEUE_CLOSED_NOTICE}"
-        assert not any(event.endswith("요약해보겠소.") for event in recorder.events)
+        assert not any(event.endswith("요약해보겠소. ✍️") for event in recorder.events)
 
     asyncio.run(scenario())
 
@@ -216,16 +216,16 @@ def test_no_start_notice_for_busy_cooldown_or_closing(
 @pytest.mark.parametrize(
     ("content", "expected"),
     [
-        ("!!요약좀", "1시간 채팅을 요약해보겠소."),
-        ("!!요약좀 3", "3시간 채팅을 요약해보겠소."),
-        ("!!요약좀 30분", "30분 채팅을 요약해보겠소."),
+        ("!!요약좀", "📝 1시간 채팅을 요약해보겠소. ✍️"),
+        ("!!요약좀 3", "📝 3시간 채팅을 요약해보겠소. ✍️"),
+        ("!!요약좀 30분", "📝 30분 채팅을 요약해보겠소. ✍️"),
         ("!!요약좀 10일", START),
-        ("!!요약좀 1주", "1주 채팅을 요약해보겠소."),
-        ("!!요약좀 오늘", "오늘 채팅을 요약해보겠소."),
-        ("!!요약좀 100개", "최근 100개 채팅을 요약해보겠소."),
-        ("!!요약좀 오늘 자세히", "오늘 채팅을 자세히 요약해보겠소."),
-        ("!!요약좀 5시간 짧게 부탁하오", "5시간 채팅을 요약해보겠소."),
-        ("!!요약좀 5시간 길게 시간순으로", "5시간 채팅을 길게 요약해보겠소."),
+        ("!!요약좀 1주", "📝 1주 채팅을 요약해보겠소. ✍️"),
+        ("!!요약좀 오늘", "📝 오늘 채팅을 요약해보겠소. ✍️"),
+        ("!!요약좀 100개", "📝 최근 100개 채팅을 요약해보겠소. ✍️"),
+        ("!!요약좀 오늘 자세히", "📝 오늘 채팅을 자세히 요약해보겠소. ✍️"),
+        ("!!요약좀 5시간 짧게 부탁하오", "📝 5시간 채팅을 요약해보겠소. ✍️"),
+        ("!!요약좀 5시간 길게 시간순으로", "📝 5시간 채팅을 길게 요약해보겠소. ✍️"),
         ("!!요약좀 10일 <@123>", START),
         ("!!요약좀 자세히 2시간", None),
         ("!!요약좀 31일", None),
@@ -263,7 +263,7 @@ def test_gateway_start_notice_uses_only_the_validated_scope(
         assert all(call.kwargs["allowed_mentions"].to_dict()["parse"] == []
                    for call in sent.await_args_list)
         if expected is None:
-            assert not any(text.endswith("요약해보겠소.") for text in texts)
+            assert not any(text.endswith("요약해보겠소. ✍️") for text in texts)
             assert "collect" not in recorder.events
         else:
             assert texts[0] == expected

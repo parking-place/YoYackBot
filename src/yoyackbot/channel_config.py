@@ -16,13 +16,13 @@ if TYPE_CHECKING:
     from yoyackbot.manager_roles import ManagerRoleStore
 
 LOGGER = logging.getLogger(__name__)
-DENIED = "이 설정 화면은 연 사람만 쓸 수 있소. `/채널 설정`을 직접 여시오."
-GUILD_ONLY = "서버 안에서만 쓸 수 있소."
-NOT_ALLOWED = "이 명령은 관리자나 봇 관리 역할만 쓸 수 있소."
+DENIED = "🚫 이 설정 화면은 연 사람만 쓸 수 있소. `/채널 설정`을 직접 여시오. 🙅"
+GUILD_ONLY = "🏠 서버 안에서만 쓸 수 있소. 🙅"
+NOT_ALLOWED = "🔒 이 명령은 관리자나 봇 관리 역할만 쓸 수 있소. 🛡️"
 # Bot tokens cannot grant command access per role, so every slash command stays visible to anyone
 # who may use application commands and the bot itself decides who may run it (1.1.3).
 SLASH_PERMISSIONS = discord.Permissions(use_application_commands=True)
-INVALID = "봇이 접근할 수 있는 서버의 텍스트 채널만 고르시오."
+INVALID = "⚠️ 봇이 접근할 수 있는 서버의 텍스트 채널만 고르시오. 📡"
 
 
 class WatchStore(Protocol):
@@ -164,7 +164,7 @@ def selection_summary(guild: discord.Guild, channel_ids: Iterable[int]) -> str:
         shown.append(getattr(channel, "mention", "삭제된 채널"))
     suffix = f" 외 {len(selected) - 20}개" if len(selected) > 20 else ""
     listing = ", ".join(shown) + suffix if shown else "없음"
-    return f"현재 주시 채널 {len(selected)}개: {listing}"
+    return f"📡 현재 주시 채널 {len(selected)}개: {listing}"
 
 
 async def reject(interaction: discord.Interaction, message: str) -> None:
@@ -177,7 +177,7 @@ async def reject(interaction: discord.Interaction, message: str) -> None:
 class AddChannels(discord.ui.ChannelSelect):
     def __init__(self) -> None:
         super().__init__(
-            placeholder="주시할 텍스트 채널 추가 (한 번에 최대 25개)",
+            placeholder="➕ 주시할 텍스트 채널 추가 (한 번에 최대 25개)",
             channel_types=[discord.ChannelType.text],
             min_values=1,
             max_values=25,
@@ -196,7 +196,7 @@ class AddChannels(discord.ui.ChannelSelect):
             return
         view.draft.update(chosen)
         await interaction.response.send_message(
-            f"{selection_summary(guild, view.draft)}\n저장을 눌러 확정하시오.",
+            f"{selection_summary(guild, view.draft)}\n💾 저장을 눌러 확정하시오. 👇",
             ephemeral=True,
         )
 
@@ -204,7 +204,7 @@ class AddChannels(discord.ui.ChannelSelect):
 class RemoveChannels(discord.ui.ChannelSelect):
     def __init__(self) -> None:
         super().__init__(
-            placeholder="주시 목록에서 텍스트 채널 제거",
+            placeholder="➖ 주시 목록에서 텍스트 채널 제거",
             channel_types=[discord.ChannelType.text],
             min_values=1,
             max_values=25,
@@ -219,7 +219,7 @@ class RemoveChannels(discord.ui.ChannelSelect):
             return
         view.draft.difference_update(channel.id for channel in self.values)
         await interaction.response.send_message(
-            f"{selection_summary(guild, view.draft)}\n저장을 눌러 확정하시오.",
+            f"{selection_summary(guild, view.draft)}\n💾 저장을 눌러 확정하시오. 👇",
             ephemeral=True,
         )
 
@@ -231,7 +231,7 @@ class ClearChannels(discord.ui.Button["ChannelSettingsView"]):
     async def callback(self, interaction: discord.Interaction) -> None:
         assert self.view is not None
         self.view.draft.clear()
-        await interaction.response.send_message("목록을 비웠소. 저장을 눌러 확정하시오.", ephemeral=True)
+        await interaction.response.send_message("🧹 목록을 비웠소. 저장을 눌러 확정하시오. 👇", ephemeral=True)
 
 
 class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
@@ -250,11 +250,11 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
                 view.guild_id, frozenset(view.draft), expected_version=view.original_version
             )
         except ConcurrentUpdate:
-            await reject(interaction, "다른 사람이 설정을 바꾸었소. 명령을 다시 열어 확인하시오.")
+            await reject(interaction, "🔄 다른 사람이 설정을 바꾸었소. 명령을 다시 열어 확인하시오. 👀")
             return
         except Exception:  # noqa: BLE001
             LOGGER.warning("watched_channel_save_failed")
-            await reject(interaction, "설정을 저장하지 못했소. 잠시 후 다시 시도하시오.")
+            await reject(interaction, "⚠️ 설정을 저장하지 못했소. 잠시 후 다시 시도하시오. 🔧")
             return
         LOGGER.info(
             "watched_channels_saved at=%s count=%d",
@@ -264,7 +264,7 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
         for item in view.children:
             item.disabled = True
         await interaction.response.edit_message(
-            content=f"주시 채널 {len(view.draft)}개를 저장했소.\n{selection_summary(guild, view.draft)}",
+            content=f"💾✅ 주시 채널 {len(view.draft)}개를 저장했소. 🎉\n{selection_summary(guild, view.draft)}",
             view=view,
         )
 
@@ -278,7 +278,7 @@ class CancelChannels(discord.ui.Button["ChannelSettingsView"]):
         self.view.stop()
         for item in self.view.children:
             item.disabled = True
-        await interaction.response.edit_message(content="설정 변경을 취소했소.", view=self.view)
+        await interaction.response.edit_message(content="↩️ 설정 변경을 취소했소. 🙆", view=self.view)
 
 
 class ChannelSettingsView(discord.ui.View):
@@ -304,7 +304,7 @@ class ChannelSettingsView(discord.ui.View):
             item.disabled = True
         if self.message is not None:
             try:
-                await self.message.edit(content="설정 시간이 지났소. 명령을 다시 여시오.", view=self)
+                await self.message.edit(content="⌛ 설정 시간이 지났소. 명령을 다시 여시오. 🔁", view=self)
             except discord.HTTPException:
                 LOGGER.warning("watched_channel_view_expired_edit_failed")
 
@@ -329,10 +329,10 @@ def install_channel_commands(
             view = ChannelSettingsView(store, guild.id, interaction.user.id, roles)
         except Exception:  # noqa: BLE001
             LOGGER.warning("watched_channel_read_failed")
-            await reject(interaction, "설정을 읽지 못했소. 잠시 후 다시 시도하시오.")
+            await reject(interaction, "⚠️ 설정을 읽지 못했소. 잠시 후 다시 시도하시오. 🔧")
             return
         await interaction.response.send_message(
-            f"{selection_summary(guild, view.draft)}\n추가·제거 후 저장하거나 전체 해제를 고르시오.",
+            f"{selection_summary(guild, view.draft)}\n🛠️ 추가·제거 후 저장하거나 전체 해제를 고르시오. 👇",
             view=view,
             ephemeral=True,
         )

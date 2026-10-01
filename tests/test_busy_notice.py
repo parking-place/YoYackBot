@@ -28,8 +28,8 @@ from yoyackbot.workflow import SummaryWorkflow
 NOW = datetime(2026, 9, 29, 12, tzinfo=UTC)
 TEN_DAYS = RangeScope(OptionKind.DAYS, 10)
 FIVE_MINUTES = RangeScope(OptionKind.MINUTES, 5)
-START = "10일 채팅을 요약해보겠소."
-BUSY = "현재 10일 분 채팅을 요약중이오.\n참을성을 가져보시오."
+START = "📝 10일 채팅을 요약해보겠소. ✍️"
+BUSY = "⏳ 현재 10일 분 채팅을 요약중이오. 🔄\n🧘 참을성을 가져보시오. 🙏"
 
 
 def request(scope: RangeScope, mode: SummaryMode = SummaryMode.SHORT,
@@ -143,7 +143,7 @@ def test_duplicates_hear_the_first_range_at_every_stage(
         assert same.count(BUSY) == 19 and same.count(START) == 1
         assert not any("5분" in value for value in same)
         assert [value for channel_id, value in sent if channel_id == 7] == [
-            "5분 채팅을 요약해보겠소."
+            "📝 5분 채팅을 요약해보겠소. ✍️"
         ]
         assert gates.counts == {"collect": 2, "model": 2, "publish": 2}
         assert (await states.admit(1, 2)).kind.value == "cooldown"
@@ -154,8 +154,8 @@ def test_duplicates_hear_the_first_range_at_every_stage(
 @pytest.mark.parametrize(
     ("mode", "busy"),
     [
-        (SummaryMode.DETAILED, "현재 10일 분 채팅을 자세히 요약중이오.\n참을성을 가져보시오."),
-        (SummaryMode.LONG, "현재 10일 분 채팅을 길게 요약중이오.\n참을성을 가져보시오."),
+        (SummaryMode.DETAILED, "⏳ 현재 10일 분 채팅을 자세히 요약중이오. 🔄\n🧘 참을성을 가져보시오. 🙏"),
+        (SummaryMode.LONG, "⏳ 현재 10일 분 채팅을 길게 요약중이오. 🔄\n🧘 참을성을 가져보시오. 🙏"),
     ],
 )
 def test_busy_notice_keeps_the_running_mode(
@@ -217,7 +217,7 @@ def test_failed_start_notice_lets_the_waiter_run_its_own_range(
         assert sent == []
         fail.set()
         await asyncio.gather(first, second)
-        assert sent == ["5분 채팅을 요약해보겠소."]
+        assert sent == ["📝 5분 채팅을 요약해보겠소. ✍️"]
         assert gates.counts == {"collect": 1, "model": 1, "publish": 1}
         assert await states.active(1, 2) is None
 
@@ -243,10 +243,10 @@ def test_finished_job_leaves_no_ghost_busy(tmp_path: Path, monkeypatch: pytest.M
         lease = SimpleNamespace(valid=lambda: True)
         await workflow.run(request(TEN_DAYS), channel(), lease, notice)  # type: ignore[arg-type]
         await workflow.run(request(FIVE_MINUTES), channel(), lease, notice)  # type: ignore[arg-type]
-        assert sent == [START, "아직은 때가 아니오. 05분 00초 뒤에 오시오."]
+        assert sent == [START, "🧊 아직은 때가 아니오. 05분 00초 뒤에 오시오. ⏰"]
         clock[0] = NOW + timedelta(minutes=5, seconds=1)
         await workflow.run(request(FIVE_MINUTES), channel(), lease, notice)  # type: ignore[arg-type]
-        assert sent[-1] == "5분 채팅을 요약해보겠소."
+        assert sent[-1] == "📝 5분 채팅을 요약해보겠소. ✍️"
         assert not any("현재" in value for value in sent)
 
     asyncio.run(scenario())

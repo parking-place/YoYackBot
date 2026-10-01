@@ -64,4 +64,4 @@ def cooldown_notice(remaining_seconds: int) -> str:
     if remaining_seconds < 1:
         raise ValueError("Remaining cooldown must be positive")
     minutes, seconds = divmod(remaining_seconds, 60)
-    return f"아직은 때가 아니오. {minutes:02d}분 {seconds:02d}초 뒤에 오시오."
+    return f"🧊 아직은 때가 아니오. {minutes:02d}분 {seconds:02d}초 뒤에 오시오. ⏰"

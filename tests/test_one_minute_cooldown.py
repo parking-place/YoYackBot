@@ -61,7 +61,7 @@ def test_one_minute_boundary(tmp_path: Path, elapsed: int, kind: AdmissionKind,
         assert admission.kind is kind and admission.remaining_seconds == remaining
         if kind is AdmissionKind.COOLDOWN:
             assert cooldown_notice(admission.remaining_seconds) == (
-                f"아직은 때가 아니오. {remaining // 60:02d}분 {remaining % 60:02d}초 뒤에 오시오."
+                f"🧊 아직은 때가 아니오. {remaining // 60:02d}분 {remaining % 60:02d}초 뒤에 오시오. ⏰"
             )
 
     asyncio.run(scenario())

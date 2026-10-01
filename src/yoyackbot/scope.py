@@ -6,7 +6,7 @@ from yoyackbot.config import Settings
 from yoyackbot.domain import SummaryMode
 from yoyackbot.parser import OptionKind, parse_option, validate_option
 
-BUSY_SECOND_LINE = "참을성을 가져보시오."
+BUSY_SECOND_LINE = "🧘 참을성을 가져보시오. 🙏"
 MODE_WORDS = {SummaryMode.SHORT: "", SummaryMode.LONG: "길게 ", SummaryMode.DETAILED: "자세히 "}
 UNITS = {
     OptionKind.MINUTES: "분", OptionKind.HOURS: "시간",
@@ -49,7 +49,7 @@ def describe_range(range_text: str, settings: Settings) -> RangeScope:
 
 
 def start_notice(scope: RangeScope, mode: SummaryMode) -> str:
-    return f"{scope.text} 채팅을 {MODE_WORDS[mode]}요약해보겠소."
+    return f"📝 {scope.text} 채팅을 {MODE_WORDS[mode]}요약해보겠소. ✍️"
 
 
 def busy_notice(scope: RangeScope, mode: SummaryMode) -> str:
@@ -59,4 +59,4 @@ def busy_notice(scope: RangeScope, mode: SummaryMode) -> str:
         subject = f"{scope.text} 분"
     else:
         subject = scope.text
-    return f"현재 {subject} 채팅을 {MODE_WORDS[mode]}요약중이오.\n{BUSY_SECOND_LINE}"
+    return f"⏳ 현재 {subject} 채팅을 {MODE_WORDS[mode]}요약중이오. 🔄\n{BUSY_SECOND_LINE}"

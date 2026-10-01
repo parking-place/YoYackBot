@@ -69,9 +69,9 @@ def test_length_and_note_never_change_the_range(range_text, word, mode, note) ->
 @pytest.mark.parametrize(
     ("mode", "start", "busy"),
     [
-        (S, "3시간 채팅을 요약해보겠소.", "현재 3시간 분 채팅을 요약중이오."),
-        (L, "3시간 채팅을 길게 요약해보겠소.", "현재 3시간 분 채팅을 길게 요약중이오."),
-        (D, "3시간 채팅을 자세히 요약해보겠소.", "현재 3시간 분 채팅을 자세히 요약중이오."),
+        (S, "📝 3시간 채팅을 요약해보겠소. ✍️", "⏳ 현재 3시간 분 채팅을 요약중이오. 🔄"),
+        (L, "📝 3시간 채팅을 길게 요약해보겠소. ✍️", "⏳ 현재 3시간 분 채팅을 길게 요약중이오. 🔄"),
+        (D, "📝 3시간 채팅을 자세히 요약해보겠소. ✍️", "⏳ 현재 3시간 분 채팅을 자세히 요약중이오. 🔄"),
     ],
 )
 def test_notice_mode_words(mode, start, busy) -> None:
@@ -107,7 +107,7 @@ def test_request_notes_are_cleaned() -> None:
     assert clean_request_note("가" * 200) == "가" * 200
     with pytest.raises(CommandLimitError) as raised:
         clean_request_note("가" * 201)
-    assert str(raised.value) == REQUEST_TOO_LONG_NOTICE == "추가 요청은 200자까지만 알아듣겠소."
+    assert str(raised.value) == REQUEST_TOO_LONG_NOTICE == "✂️ 추가 요청은 200자까지만 알아듣겠소. 📏"
 
 
 def test_gateway_carries_the_note_and_logs_only_its_length(caplog) -> None:

@@ -257,7 +257,7 @@ def test_failure_releases_channel_and_allows_retry_without_success_cooldown(
         lease = SimpleNamespace(valid=lambda: True)
         await workflow.run(request(), channel(), lease, notice)  # type: ignore[arg-type]
         expected = {
-            "collection": "요약을 마치지 못했소. 잠시 후 다시 시도하시오.",
+            "collection": "⚠️ 요약을 마치지 못했소. 잠시 후 다시 시도하시오. 😵",
             "input": message_for(FailureKind.MODEL),
             "size": INPUT_TOO_LARGE_NOTICE,
             "model": message_for(FailureKind.MODEL),

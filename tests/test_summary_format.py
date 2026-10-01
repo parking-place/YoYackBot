@@ -28,23 +28,23 @@ def request(start: datetime) -> RangeRequest:
 
 def test_kst_headers_use_actual_start_and_accepted_end() -> None:
     assert range_header(request(ACCEPTED - timedelta(hours=1)), [], KST) == (
-        "오후 8시 00분부터 지금까지의 요약이오."
+        "🗓️ 오후 8시 00분부터 지금까지의 요약이오."
     )
     today_midnight = datetime(2026, 9, 28, 0, 0, tzinfo=KST)
-    assert range_header(request(today_midnight), [], KST).startswith("오늘 00시 00분부터")
+    assert range_header(request(today_midnight), [], KST).startswith("🗓️ 오늘 00시 00분부터")
     assert range_header(request(ACCEPTED - timedelta(days=2)), [], KST).startswith(
-        "9월 26일 오후 9시 00분부터"
+        "🗓️ 9월 26일 오후 9시 00분부터"
     )
     delayed = range_header(request(ACCEPTED - timedelta(hours=1)), [], KST,
                            posted_at=ACCEPTED + timedelta(seconds=90))
-    assert delayed.endswith("(기준: 오후 9시 00분 KST)")
+    assert delayed.endswith("(⏰ 기준: 오후 9시 00분 KST)")
 
 
 def test_count_header_uses_oldest_selected_message_and_empty_is_rejected() -> None:
     selected = [record(2, ACCEPTED - timedelta(minutes=1)),
                 record(1, ACCEPTED - timedelta(hours=2))]
     count = RangeRequest(RequestKind.COUNT, ACCEPTED, count=2)
-    assert range_header(count, selected, KST).startswith("오후 7시 00분부터")
+    assert range_header(count, selected, KST).startswith("🗓️ 오후 7시 00분부터")
     with pytest.raises(ValueError, match="selected messages"):
         range_header(count, [], KST)
 
@@ -71,7 +71,7 @@ def test_format_summary_first_header_only_and_balanced_fences() -> None:
                             limit=140)
     assert len(chunks) > 1
     assert all(utf16_length(chunk) <= 140 for chunk in chunks)
-    assert chunks[0].startswith("오후 8시 00분부터 지금까지의 요약이오.")
+    assert chunks[0].startswith("🗓️ 오후 8시 00분부터 지금까지의 요약이오.")
     assert all("부터 지금까지의 요약이오" not in chunk for chunk in chunks[1:])
     assert all(chunk.count("```") % 2 == 0 for chunk in chunks)
     assert all(f"({index}/{len(chunks)})" in chunk for index, chunk in enumerate(chunks, 1))

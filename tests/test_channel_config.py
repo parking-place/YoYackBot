@@ -221,8 +221,8 @@ def test_channel_must_be_visible_text_channel() -> None:
 def test_admin_sees_selected_channels_in_ephemeral_summary() -> None:
     channels = {10: SimpleNamespace(mention="#first"), 11: SimpleNamespace(mention="#second")}
     guild = SimpleNamespace(get_channel=channels.get)
-    assert selection_summary(guild, {10, 11}) == "현재 주시 채널 2개: #first, #second"
-    assert selection_summary(guild, set()) == "현재 주시 채널 0개: 없음"
+    assert selection_summary(guild, {10, 11}) == "📡 현재 주시 채널 2개: #first, #second"
+    assert selection_summary(guild, set()) == "📡 현재 주시 채널 0개: 없음"
 
 
 def test_view_stays_with_its_opener_and_rechecks_the_role_on_every_click() -> None:
