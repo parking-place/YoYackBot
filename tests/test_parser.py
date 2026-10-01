@@ -63,7 +63,8 @@ def test_help_examples_cover_all_supported_forms() -> None:
         "📡 `채널` → 주시 채널",
         "",
         "진행 중엔 현재 범위, 수집 중엔 준비 중이라고 답하오.  ",
-        "주시 채널은 `/채널 설정`에서 정하시오.",
+        "주시 채널은 `/채널 설정`에서 정하시오.  ",
+        "봇 관리 역할은 `/관리권한 설정`에서 정하시오.",
     ]
     assert HELP_TEXT == "\n".join(lines)
     assert len(HELP_TEXT) < 2000 and "관리자" not in HELP_TEXT
