@@ -35,6 +35,11 @@ from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
 from yoyackbot.health import write_heartbeat
 from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
+from yoyackbot.manager_roles import (
+    ManagerRoleStore,
+    MemoryManagerRoleStore,
+    SQLiteManagerRoleStore,
+)
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.parser import (
     CommandLimitError,
@@ -112,6 +117,7 @@ class YoYackClient(discord.Client):
         clock: Callable[[], datetime] | None = None,
         summary_workflow: SummaryWorkflow | None = None,
         usage_reader: Callable[[], Awaitable[UsageSnapshot]] | None = None,
+        manager_roles: ManagerRoleStore | None = None,
     ) -> None:
         super().__init__(intents=required_intents(), member_cache_flags=discord.MemberCacheFlags.none())
         self.observe_channel_id = observe_channel_id
@@ -122,6 +128,11 @@ class YoYackClient(discord.Client):
         self.watch_store = watch_store or MemoryWatchStore()
         self.message_store = message_store
         self.watch_gate = WatchGate(self.watch_store)
+        self.manager_roles: ManagerRoleStore = manager_roles or (
+            SQLiteManagerRoleStore(settings.database_path)
+            if settings is not None and isinstance(self.watch_store, SQLiteWatchStore)
+            else MemoryManagerRoleStore()
+        )
         self.dev_guild_id = dev_guild_id
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(UTC))
@@ -151,7 +162,7 @@ class YoYackClient(discord.Client):
         self._disconnected_at: datetime | None = None
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
-        install_channel_commands(self.tree, self.watch_store)
+        install_channel_commands(self.tree, self.watch_store, self.manager_roles)
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
@@ -412,6 +423,17 @@ class YoYackClient(discord.Client):
             LOGGER.info("watched_guild_removed")
         except Exception:  # noqa: BLE001
             LOGGER.warning("watched_guild_cleanup_failed")
+        try:
+            await asyncio.to_thread(self.manager_roles.remove_guild, guild.id)
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("manager_roles_cleanup_failed")
+
+    async def on_guild_role_delete(self, role: discord.Role) -> None:
+        try:
+            if await asyncio.to_thread(self.manager_roles.remove_role, role.guild.id, role.id):
+                LOGGER.info("manager_role_deleted")
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("manager_role_cleanup_failed")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if classify_message(after) is not MessageClass.HUMAN_TEXT or after.guild is None:

@@ -19,7 +19,7 @@ class BackupError(RuntimeError):
 
 
 def backup_settings(database: Path, backup_root: Path) -> Path:
-    """Write only watch revisions, selected channels, and cooldowns to a 0600 file."""
+    """Write only watch revisions, selected channels, cooldowns, and manager roles to a 0600 file."""
     if not database.is_file():
         raise BackupError("Settings database unavailable")
     try:
@@ -43,6 +43,7 @@ def backup_settings(database: Path, backup_root: Path) -> Path:
                     "SELECT guild_id, channel_id, last_success_us, expires_at_us "
                     "FROM summary_cooldowns ORDER BY guild_id, channel_id"
                 ).fetchall(),
+                **_manager_rows(connection),
             }
         backup_root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if backup_root.is_symlink() or backup_root.stat().st_mode & 0o077:
@@ -62,6 +63,26 @@ def backup_settings(database: Path, backup_root: Path) -> Path:
         return target
     except (OSError, sqlite3.Error) as exc:
         raise BackupError("Settings backup failed") from exc
+
+
+def _manager_rows(connection: sqlite3.Connection) -> dict[str, list[tuple[int, ...]]]:
+    """Manager roles (1.1.3) live in optional tables; older databases simply have none."""
+    tables = {
+        row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name IN ('manager_role_meta', 'manager_roles')"
+        )
+    }
+    if tables != {"manager_role_meta", "manager_roles"}:
+        return {"manager_meta": [], "manager_roles": []}
+    return {
+        "manager_meta": connection.execute(
+            "SELECT guild_id, version FROM manager_role_meta ORDER BY guild_id"
+        ).fetchall(),
+        "manager_roles": connection.execute(
+            "SELECT guild_id, role_id, updated_at FROM manager_roles ORDER BY guild_id, role_id"
+        ).fetchall(),
+    }
 
 
 def _validated_rows(data: object, key: str, columns: int) -> list[tuple[int, ...]]:
@@ -96,6 +117,11 @@ def restore_settings(
         meta = _validated_rows(data, "watch_meta", 2)
         channels = _validated_rows(data, "channels", 3)
         cooldowns = _validated_rows(data, "cooldowns", 4)
+        # Backups made before 1.1.3 have no manager roles.
+        manager_meta = _validated_rows(data, "manager_meta", 2) if "manager_meta" in data else []
+        manager_roles = (
+            _validated_rows(data, "manager_roles", 3) if "manager_roles" in data else []
+        )
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         os.close(descriptor)
@@ -114,6 +140,13 @@ def restore_settings(
                 connection.executemany(
                     "INSERT INTO summary_cooldowns(guild_id, channel_id, "
                     "last_success_us, expires_at_us) VALUES (?, ?, ?, ?)", cooldowns,
+                )
+                connection.executemany(
+                    "INSERT INTO manager_role_meta(guild_id, version) VALUES (?, ?)", manager_meta
+                )
+                connection.executemany(
+                    "INSERT INTO manager_roles(guild_id, role_id, updated_at) VALUES (?, ?, ?)",
+                    manager_roles,
                 )
                 connection.commit()
             SQLiteMessageStore(target).prune_before(
