@@ -41,14 +41,14 @@ def test_engine_excludes_trigger_and_returns_selected_count(tmp_path: Path) -> N
             seen["prompt"] = prompt
             seen["directory"] = workspace.directory
             workspace.close()
-            return "시험 대화를 정리하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."
+            return "시험 대화를 정리하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 호들갑이 장관이오."
 
     engine = CodexSummaryEngine(settings(tmp_path), FakeRunner())  # type: ignore[arg-type]
     result = asyncio.run(engine.summarize(
         [message(1, "합성 대화"), message(2, "!!요약좀")], trigger_message_id=2,
         channel_name="시험 채널", range_label="최근 1시간",
     ))
-    assert result.text == "시험 대화를 정리하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."
+    assert result.text == "시험 대화를 정리하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 호들갑이 장관이오."
     assert result.rating == "present"
     assert result.model == "gpt-6-luna" and result.request_message_count == 1
     assert len(seen["rows"]) == 2
@@ -68,14 +68,14 @@ def test_engine_failure_does_not_block_next_request(tmp_path: Path) -> None:
             workspace.close()
             if len(paths) == 1:
                 raise CodexRunError(CodexFailure.AUTH)
-            return "다음 요청에 성공하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."
+            return "다음 요청에 성공하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 호들갑이 장관이오."
 
     engine = CodexSummaryEngine(settings(tmp_path), FlakyRunner())  # type: ignore[arg-type]
     with pytest.raises(CodexRunError) as raised:
         asyncio.run(engine.summarize([message(1, "첫 요청")]))
     assert raised.value.kind is CodexFailure.AUTH
     result = asyncio.run(engine.summarize([message(2, "다음 요청")]))
-    assert result.text == "다음 요청에 성공하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."
+    assert result.text == "다음 요청에 성공하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 호들갑이 장관이오."
     assert len(paths) == 2 and paths[0] != paths[1]
     assert all(not path.exists() for path in paths)
 
@@ -93,7 +93,7 @@ def test_model_account_runs_at_most_four_simultaneous_calls(tmp_path: Path) -> N
             self.peak = max(self.peak, self.active)
             try:
                 await asyncio.sleep(0.02)
-                return "합성 대화를 정리하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."
+                return "합성 대화를 정리하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 호들갑이 장관이오."
             finally:
                 self.active -= 1
                 workspace.close()
@@ -134,11 +134,11 @@ def test_internal_speaker_heading_retries_with_same_private_input(tmp_path: Path
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
             calls.append((prompt, workspace.log_file.read_bytes()))
             workspace.close()
-            return "P1은 회의를 제안했소." if len(calls) == 1 else "시험 사용자가 회의를 제안했소.\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."
+            return "P1은 회의를 제안했소." if len(calls) == 1 else "시험 사용자가 회의를 제안했소.\n\n**요약창섭의 떡밥 한줄 평가** : 호들갑이 장관이오."
 
     engine = CodexSummaryEngine(settings(tmp_path), Runner())  # type: ignore[arg-type]
     result = asyncio.run(engine.summarize([message(1, "회의를 제안했소")]))
-    assert result.text == "시험 사용자가 회의를 제안했소.\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁기 그지없소."
+    assert result.text == "시험 사용자가 회의를 제안했소.\n\n**요약창섭의 떡밥 한줄 평가** : 호들갑이 장관이오."
     assert len(calls) == 2 and calls[0][1] == calls[1][1]
     assert calls[0][0] != calls[1][0]
 

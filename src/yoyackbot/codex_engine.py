@@ -15,6 +15,7 @@ from yoyackbot.input_files import InputWorkspace, serialize_conversation
 from yoyackbot.output_quality import (
     OutputIssue,
     inspect_output,
+    narrator_mocks_ongoing,
     narrator_uses_hate_term,
     split_rating,
 )
@@ -68,6 +69,7 @@ class CodexSummaryEngine:
             )
             source_bodies = [item.content for item in included]
             issue = inspect_output(result, source_bodies)
+            ongoing = "none"
             if issue in (OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM):
                 retry_workspace = InputWorkspace.create(root, data)
                 result = await self.runner.execute(retry_workspace, prompt_for(
@@ -75,6 +77,14 @@ class CodexSummaryEngine:
                     speaker_retry=issue is OutputIssue.SPEAKER_KEY,
                     hate_retry=issue is OutputIssue.HATE_TERM,
                 ))
+            elif issue is None and narrator_mocks_ongoing(split_rating(result)[0]):
+                ongoing = "retried"
+                retry_workspace = InputWorkspace.create(root, data)
+                retried = await self.runner.execute(retry_workspace, prompt_for(
+                    mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True,
+                ))
+                if inspect_output(retried, source_bodies) is None:
+                    result = retried
             if inspect_output(result, source_bodies) is not None:
                 raise CodexRunError(CodexFailure.OUTPUT_INVALID)
             body, rating = split_rating(result)
@@ -86,22 +96,32 @@ class CodexSummaryEngine:
             status = "present"
             if skip_rating:
                 rating, status = None, "skipped"
-            elif rating is None:
+            elif rating is None or narrator_mocks_ongoing(rating):
+                mocked = rating is not None
+                if mocked:
+                    ongoing = "retried"
                 status = "missing"
-                rating = await self._rating_only(root, data, body, request_note)
-                if rating is not None:
-                    status = "retried"
+                again = await self._rating_only(
+                    root, data, body, request_note, ongoing_retry=mocked,
+                )
+                if again is not None:
+                    rating, status = again, "retried"
+                elif mocked:
+                    status = "present"
         text = body if rating is None else f"{body}\n\n{rating}"
-        return SummaryResult(text, self.runner.contract.model, len(included), status)
+        if narrator_mocks_ongoing(text):
+            ongoing = "retried_left"
+        return SummaryResult(text, self.runner.contract.model, len(included), status, ongoing)
 
     async def _rating_only(
         self, root: Path, data: bytes, body: str, note: str | None = None,
+        *, ongoing_retry: bool = False,
     ) -> str | None:
         """Ask once for the closing rating alone; a bad or failed answer leaves it out."""
         summary = json.dumps({"type": "summary", "body": body}, ensure_ascii=False).encode()
         workspace = InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + summary + b"\n")
         try:
-            answer = await self.runner.execute(workspace, rating_prompt(note))
+            answer = await self.runner.execute(workspace, rating_prompt(note, ongoing_retry=ongoing_retry))
         except CodexRunError:
             return None
         _rest, rating = split_rating(answer)

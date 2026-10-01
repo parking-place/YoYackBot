@@ -48,16 +48,16 @@ def test_rating_only_prompt_is_trusted_and_self_contained() -> None:
     ("text", "body", "rating"),
     [
         (GOOD, BODY, RATING_LABEL + "요일 퀴즈 풀다 날 샜단 말이오."),
-        (f"{BODY}\n\n요약창섭의 떡밥 한줄 평가 : 싱겁소.", BODY, RATING_LABEL + "싱겁소."),
-        (f"{BODY}\n\n**요약창섭의 떡밥 한줄 평가**: 싱겁소.", BODY, RATING_LABEL + "싱겁소."),
+        (f"{BODY}\n\n요약창섭의 떡밥 한줄 평가 : 요란하오.", BODY, RATING_LABEL + "요란하오."),
+        (f"{BODY}\n\n**요약창섭의 떡밥 한줄 평가**: 요란하오.", BODY, RATING_LABEL + "요란하오."),
         (BODY, BODY, None),
         (f"{BODY}\n\n**요약창섭의 떡밥 한줄 평가** : ", BODY, None),
         (f"**요약창섭의 떡밥 한줄 평가** : 먼저 나옴\n{BODY}", BODY, None),
         (f"{BODY}\n요약창섭의 떡밥 한줄 평가 : 첫째\n\n**요약창섭의 떡밥 한줄 평가** : 둘째",
          BODY, RATING_LABEL + "둘째"),
-        (f"{BODY}\n{NOTICE}\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁소.", f"{BODY}\n{NOTICE}",
-         RATING_LABEL + "싱겁소."),
-        (f"{BODY}\n\n**요약창섭의 떡밥 한줄 평가** : 싱겁소.\n그리고 한 줄 더", f"{BODY}\n\n그리고 한 줄 더",
+        (f"{BODY}\n{NOTICE}\n\n**요약창섭의 떡밥 한줄 평가** : 요란하오.", f"{BODY}\n{NOTICE}",
+         RATING_LABEL + "요란하오."),
+        (f"{BODY}\n\n**요약창섭의 떡밥 한줄 평가** : 요란하오.\n그리고 한 줄 더", f"{BODY}\n\n그리고 한 줄 더",
          None),
     ],
 )
@@ -102,9 +102,9 @@ def test_present_rating_needs_one_call(tmp_path: Path) -> None:
 
 def test_missing_rating_is_regenerated_alone(tmp_path: Path) -> None:
     seen: list = []
-    result = asyncio.run(engine(tmp_path, [BODY, "요약창섭의 떡밥 한줄 평가 : 싱겁소."], seen)
+    result = asyncio.run(engine(tmp_path, [BODY, "요약창섭의 떡밥 한줄 평가 : 요란하오."], seen)
                          .summarize(ROWS, request_note="시간순으로 해줘"))
-    assert result.text == f"{BODY}\n\n{RATING_LABEL}싱겁소." and result.rating == "retried"
+    assert result.text == f"{BODY}\n\n{RATING_LABEL}요란하오." and result.rating == "retried"
     prompt, records = seen[1]
     assert prompt == rating_prompt("시간순으로 해줘") and "«시간순으로 해줘»" in prompt
     assert records[-1] == {"type": "summary", "body": BODY}
@@ -124,7 +124,7 @@ def test_failed_rating_retry_publishes_without_rating(tmp_path: Path, second: ob
 
 def test_full_retry_and_rating_retry_cap_at_three_calls(tmp_path: Path) -> None:
     seen: list = []
-    answers = ["가람이 병신같이 들이밀었소.", BODY, "**요약창섭의 떡밥 한줄 평가** : 싱겁소."]
+    answers = ["가람이 병신같이 들이밀었소.", BODY, "**요약창섭의 떡밥 한줄 평가** : 요란하오."]
     result = asyncio.run(engine(tmp_path, answers, seen).summarize(ROWS))
     assert result.rating == "retried" and len(seen) == 3
     assert "앞선 응답에 집단을 비하하는 말" in seen[1][0] and seen[2][0] == RATING_PROMPT == rating_prompt()

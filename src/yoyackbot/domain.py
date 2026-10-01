@@ -95,6 +95,7 @@ class SummaryResult:
     model: str
     request_message_count: int
     rating: str = "none"
+    ongoing_jab: str = "none"
 
 
 @dataclass(frozen=True)

@@ -110,6 +110,17 @@ HATE_RETRY_NOTE = """
 앞선 응답에 집단을 비하하는 말이 서술자 문장에 들어갔소. 요약 전체를 다시 작성하시오.
 비속어로 거친 말투는 유지하되 집단 비하어와 인신공격은 빼고, 사실과 화자 귀속은 그대로 두시오."""
 
+ONGOING_RETRY_NOTE = """
+
+앞선 응답이 아직 진행 중인 이야기를 비꼬았소(질질 끈다·미뤘다·제자리걸음·흐지부지·끝맺음이 싱겁다 같은
+말). 요약 전체를 다시 작성하시오. 결론이 안 난 것은 '다음에 보자고 했소', '아직 얘기 중이오'처럼
+담담하게 쓰고, 비아냥은 실제로 한 말과 행동에서만 고르시오. 사실과 화자 귀속은 그대로 두시오."""
+
+ONGOING_RATING_RETRY_NOTE = """
+
+앞선 평가가 대화가 매듭지어지지 않았다는 점을 비꼬았소. 대화는 아직 이어지는 중이니 미룸·결론 없음·
+제자리·끝맺음 말고 다른 것을 소재로 다시 쓰시오."""
+
 DETAILED_NOTE = """
 
 요약 밀도: 자세히(아주 길게). 수집 범위는 그대로 두고 길이를 아끼지 말고 빠짐없이 쓰시오. 형식
@@ -175,7 +186,7 @@ SPEAKER_RETRY_PROMPT = SUMMARY_PROMPT + SPEAKER_RETRY_NOTE
 
 def prompt_for(
     mode: SummaryMode, *, speaker_retry: bool = False, hate_retry: bool = False,
-    note: str | None = None, skip_rating: bool = False,
+    note: str | None = None, skip_rating: bool = False, ongoing_retry: bool = False,
 ) -> str:
     """Trusted rules, then the length note, then the request priority and its quote last."""
     return (
@@ -184,8 +195,12 @@ def prompt_for(
         + (NO_RATING_NOTE if skip_rating else "")
         + (SPEAKER_RETRY_NOTE if speaker_retry else "")
         + (HATE_RETRY_NOTE if hate_retry else "")
+        + (ONGOING_RETRY_NOTE if ongoing_retry else "")
     )
 
 
-def rating_prompt(note: str | None = None) -> str:
-    return RATING_PROMPT + (request_quote(note) if note else "")
+def rating_prompt(note: str | None = None, *, ongoing_retry: bool = False) -> str:
+    return (
+        RATING_PROMPT + (request_quote(note) if note else "")
+        + (ONGOING_RATING_RETRY_NOTE if ongoing_retry else "")
+    )
