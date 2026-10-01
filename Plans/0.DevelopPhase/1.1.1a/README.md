@@ -1,6 +1,6 @@
 # 1.1.1a — 결론 안 난 이야기는 진행 중으로
 
-- 상태: **IN_PROGRESS** (P1 진행 중)
+- 상태: **IN_PROGRESS** (P1 완료, P2 진행 중)
 - 단계 수: **4단계**
 - 선행 버전: 출시된 [1.1.1](../1.1.1/README.md)(`v1.1.1`, 2026-10-01)
 
@@ -16,8 +16,8 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 진행 중 원칙·표시 이름·비꼼 소재 프롬프트](01-ongoing-prompt.md) | `T111a-P1-A/B` | PLANNED |
-| 2 | [P2 — 미결 조롱 표현 검사와 1회 재생성](02-ongoing-check.md) | `T111a-P2-A/B` | PLANNED |
+| 1 | [P1 — 진행 중 원칙·표시 이름·비꼼 소재 프롬프트](01-ongoing-prompt.md) | `T111a-P1-A/B` | DONE |
+| 2 | [P2 — 미결 조롱 표현 검사와 1회 재생성](02-ongoing-check.md) | `T111a-P2-A/B` | IN_PROGRESS |
 | 3 | [P3 — 실제 모델 평가](03-evaluation.md) | `T111a-P3-A/B` | PLANNED |
 | 4 | [P4 — 도움말·통합·배포·출시](04-release.md) | `T111a-P4-A/B` | PLANNED |
 
