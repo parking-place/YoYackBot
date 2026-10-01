@@ -154,6 +154,16 @@ class SQLiteWatchStore:
                         connection.execute(
                             "ALTER TABLE backfill_state ADD COLUMN blocked_reason TEXT"
                         )
+                    # 1.1.3: per-server bot manager roles, optional so schema 5 readers still work.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS manager_role_meta ("
+                        "guild_id INTEGER PRIMARY KEY, version INTEGER NOT NULL)"
+                    )
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS manager_roles ("
+                        "guild_id INTEGER NOT NULL, role_id INTEGER NOT NULL, "
+                        "updated_at INTEGER NOT NULL, PRIMARY KEY(guild_id, role_id))"
+                    )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS deleted_messages ("
                         "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "

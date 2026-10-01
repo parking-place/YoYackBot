@@ -13,16 +13,44 @@ from yoyackbot.config import ConfigurationError, Settings
 from yoyackbot.discord import run_gateway
 from yoyackbot.health import read_heartbeat
 from yoyackbot.input_files import GatewayAlreadyRunning, InputFileError
+from yoyackbot.manager_roles import SQLiteManagerRoleStore
 from yoyackbot.readiness import ReadinessError, ReadinessKind, check_ready
 from yoyackbot.settings_backup import BackupError, backup_settings, restore_settings
 from yoyackbot.watch_store import WatchStoreError
+
+MANAGER_ROLES_USAGE = (
+    "Usage: manager-roles list GUILD_ID | set GUILD_ID ROLE_ID [ROLE_ID ...] | clear GUILD_ID"
+)
+
+
+def manager_roles_command(settings: Settings, words: list[str]) -> int:
+    """Operator-only view and recovery of a server's bot manager roles (1.1.3)."""
+    try:
+        action, guild_id, *role_ids = words[0], int(words[1]), *(int(word) for word in words[2:])
+    except (IndexError, ValueError):
+        print(MANAGER_ROLES_USAGE)
+        return 2
+    if action not in {"list", "set", "clear"} or guild_id < 1 or any(role < 1 for role in role_ids) \
+            or (action == "set") != bool(role_ids):
+        print(MANAGER_ROLES_USAGE)
+        return 2
+    try:
+        store = SQLiteManagerRoleStore(settings.database_path)
+        if action != "list":
+            store.replace(guild_id, frozenset(role_ids))
+        roles = sorted(store.get(guild_id))
+    except (WatchStoreError, ValueError):
+        print("Manager role settings are unavailable")
+        return 2
+    print(f"Manager roles: {len(roles)}" + (": " + " ".join(map(str, roles)) if roles else ""))
+    return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="yoyackbot")
     parser.add_argument("command", choices=(
         "version", "check-config", "check-ready", "health", "backup-settings",
-        "restore-settings", "run",
+        "restore-settings", "manager-roles", "run",
     ))
     parser.add_argument("paths", nargs="*")
     parser.add_argument("--smoke-seconds", type=float)
@@ -69,6 +97,9 @@ def main() -> int:
             return 2
         print("Settings restored into an isolated database with an empty message cache")
         return 0
+
+    if args.command == "manager-roles":
+        return manager_roles_command(settings, args.paths)
 
     if args.command == "check-ready":
         try:

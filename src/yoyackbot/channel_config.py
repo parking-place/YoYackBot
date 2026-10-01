@@ -1,19 +1,26 @@
-"""Guild-scoped watched-channel selection; Discord decides who may run slash commands."""
+"""Guild-scoped watched-channel selection; slash commands are for admins and manager roles."""
 
 from __future__ import annotations
 
+import asyncio
+import functools
 import logging
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import discord
 from discord import app_commands
 
+if TYPE_CHECKING:
+    from yoyackbot.manager_roles import ManagerRoleStore
+
 LOGGER = logging.getLogger(__name__)
 DENIED = "이 설정 화면은 연 사람만 쓸 수 있소. `/채널 설정`을 직접 여시오."
 GUILD_ONLY = "서버 안에서만 쓸 수 있소."
-# Every slash command (now and later): anyone Discord lets use application commands, from the start.
+NOT_ALLOWED = "이 명령은 관리자나 봇 관리 역할만 쓸 수 있소."
+# Bot tokens cannot grant command access per role, so every slash command stays visible to anyone
+# who may use application commands and the bot itself decides who may run it (1.1.3).
 SLASH_PERMISSIONS = discord.Permissions(use_application_commands=True)
 INVALID = "봇이 접근할 수 있는 서버의 텍스트 채널만 고르시오."
 
@@ -77,18 +84,61 @@ class MemoryWatchStore:
         self._versions.pop(guild_id, None)
 
 
-def member_group(name: str, description: str) -> app_commands.Group:
-    """A slash command group open to everyone with Use Application Commands, in servers only."""
+def may_manage(member: object, manager_roles: frozenset[int]) -> bool:
+    """Administrators and channel managers (as before 1.1.2a), or holders of a manager role."""
+    permissions = getattr(member, "guild_permissions", None)
+    if permissions is not None and (permissions.administrator or permissions.manage_channels):
+        return True
+    return any(getattr(role, "id", None) in manager_roles for role in getattr(member, "roles", ()))
+
+
+async def allowed(interaction: discord.Interaction, roles: ManagerRoleStore) -> bool:
+    """Decide at run time and answer the caller privately when the answer is no."""
+    guild = interaction.guild
+    if guild is None:
+        await reject(interaction, GUILD_ONLY)
+        return False
+    try:
+        manager_roles = await asyncio.to_thread(roles.get, guild.id)
+    except Exception:  # noqa: BLE001 - administrators keep working if the role table is unreadable
+        LOGGER.warning("manager_roles_read_failed")
+        manager_roles = frozenset()
+    if may_manage(interaction.user, manager_roles):
+        return True
+    await reject(interaction, NOT_ALLOWED)
+    return False
+
+
+def command_group(name: str, description: str) -> app_commands.Group:
+    """A server-only slash command group, visible to application command users."""
     return app_commands.Group(
         name=name, description=description, guild_only=True, default_permissions=SLASH_PERMISSIONS,
     )
 
 
-def member_command[T: Callable[..., object]](function: T) -> T:
-    """The same rule for a top-level slash command; server admins may still narrow it."""
-    return app_commands.guild_only()(
-        app_commands.default_permissions(use_application_commands=True)(function)
-    )
+def gated(
+    roles: ManagerRoleStore,
+) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+    """Run a slash command callback only for administrators and manager roles."""
+    def decorate(callback: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+        @functools.wraps(callback)
+        async def run(interaction: discord.Interaction, *args: Any, **kwargs: Any) -> Any:
+            if await allowed(interaction, roles):
+                return await callback(interaction, *args, **kwargs)
+            return None
+
+        run.__yoyack_gated__ = True  # type: ignore[attr-defined]
+        return run
+    return decorate
+
+
+def bot_command(roles: ManagerRoleStore) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """The same rule for a future top-level slash command."""
+    def decorate(callback: Callable[..., Any]) -> Callable[..., Any]:
+        return app_commands.guild_only()(
+            app_commands.default_permissions(use_application_commands=True)(gated(roles)(callback))
+        )
+    return decorate
 
 
 def valid_channel(guild: discord.Guild, channel_id: int) -> bool:
@@ -232,9 +282,12 @@ class CancelChannels(discord.ui.Button["ChannelSettingsView"]):
 
 
 class ChannelSettingsView(discord.ui.View):
-    def __init__(self, store: WatchStore, guild_id: int, owner_id: int) -> None:
+    def __init__(
+        self, store: WatchStore, guild_id: int, owner_id: int, roles: ManagerRoleStore,
+    ) -> None:
         super().__init__(timeout=120)
         self.store = store
+        self.roles = roles
         self.guild_id = guild_id
         self.owner_id = owner_id
         self.original_version, original = store.snapshot(guild_id)
@@ -259,20 +312,21 @@ class ChannelSettingsView(discord.ui.View):
         if interaction.guild_id != self.guild_id or interaction.user.id != self.owner_id:
             await reject(interaction, DENIED)
             return False
-        return True
+        return await allowed(interaction, self.roles)
 
 
-def install_channel_commands(tree: app_commands.CommandTree, store: WatchStore) -> None:
-    group = member_group("채널", "주시 채널 관리")
+def install_channel_commands(
+    tree: app_commands.CommandTree, store: WatchStore, roles: ManagerRoleStore,
+) -> None:
+    group = command_group("채널", "주시 채널 관리")
 
     @group.command(name="설정", description="요약봇이 주시할 텍스트 채널을 고르오")
+    @gated(roles)
     async def configure(interaction: discord.Interaction) -> None:
         guild = interaction.guild
-        if guild is None:
-            await reject(interaction, GUILD_ONLY)
-            return
+        assert guild is not None  # gated() answers outside servers
         try:
-            view = ChannelSettingsView(store, guild.id, interaction.user.id)
+            view = ChannelSettingsView(store, guild.id, interaction.user.id, roles)
         except Exception:  # noqa: BLE001
             LOGGER.warning("watched_channel_read_failed")
             await reject(interaction, "설정을 읽지 못했소. 잠시 후 다시 시도하시오.")
