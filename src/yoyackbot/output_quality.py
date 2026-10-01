@@ -165,7 +165,11 @@ def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | Non
 
 # A topic heading is a bold-only line, optionally bulleted, with nothing but emoji or marks after it.
 _TOPIC_HEADING = re.compile(r"^\s*(?:[-*•]\s+)?\*\*([^*]+)\*\*[^\w]*$")
-_GROUP_HEADINGS = frozenset({"결정 난 거", "진행 중인 거", "아직 안 정해진 거", "결정", "진행 중", "미정"})
+# Not topics: decision/ongoing groups and a bolded refusal notice.
+_GROUP_HEADINGS = frozenset({
+    "결정 난 거", "진행 중인 거", "아직 안 정해진 거", "결정", "진행 중", "미정",
+    "추가 요청 중 일부는 들어줄 수 없었소",
+})
 _NOT_WORD = re.compile(r"[^\w\s]")
 
 
