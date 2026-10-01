@@ -17,6 +17,7 @@
 - [1.1.0 짧은 기본 요약·추가 요청·더 싸가지없는 말투](Plans/0.DevelopPhase/1.1.0/README.md)
 - [1.1.0a 읽기 쉬운 요약·떡밥 한줄 평가](Plans/0.DevelopPhase/1.1.0a/README.md)
 - [1.1.1 추가 요청 우선·한줄 비평](Plans/0.DevelopPhase/1.1.1/README.md)
+- [1.1.1a 진행 중인 대화 계획](Plans/0.DevelopPhase/1.1.1a/README.md)
 - [단계별 진행 상태](Plans/0.DevelopPhase/STATUS.md)
 - [각 단계의 GitHub 업로드 완료 규칙](Plans/0.DevelopPhase/GIT_WORKFLOW.md)
 - [개발 환경과 실행 방법](DEVELOPMENT.md)
