@@ -5,7 +5,7 @@
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
 | [1.1.1a-P1](01-ongoing-prompt.md) | 진행 중 원칙·표시 이름·비꼼 소재 프롬프트 | DONE | [C `f7ae7c9`](https://github.com/parking-place/YoYackBot/commit/f7ae7c9c768f9acfb1ef4e33c58c2eca7d51f7ce) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36811642563) / [E `9ab2e95`](https://github.com/parking-place/YoYackBot/commit/9ab2e95818ad29fe4df7ae616e97d77d3fc73f2d) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36811728884) / [증거](../evidence/1.1.1a-P1.md); 원격 확인 | P1-A/B PASS |
-| [1.1.1a-P2](02-ongoing-check.md) | 미결 조롱 표현 검사와 1회 재생성 | IN_PROGRESS | — | P1 원격 완료 |
+| [1.1.1a-P2](02-ongoing-check.md) | 미결 조롱 표현 검사와 1회 재생성 | PUSH_PENDING | C `edd6526` / [증거](../evidence/1.1.1a-P2.md) | P2-A/B PASS |
 | [1.1.1a-P3](03-evaluation.md) | 실제 모델 평가 | PLANNED | — | P2 원격 완료, 계정 한도 확인 |
 | [1.1.1a-P4](04-release.md) | 도움말·통합·배포·출시 | PLANNED | — | P1~P3 원격 증거 선행 |
 
