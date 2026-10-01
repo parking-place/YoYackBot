@@ -21,6 +21,7 @@
 - [1.1.2 이모지·주제별 한줄 비평·짧은 기본 요약](Plans/0.DevelopPhase/1.1.2/README.md)
 - [1.1.2a 짧은 도움말·마크다운 요약·슬래시 명령어 권한](Plans/0.DevelopPhase/1.1.2a/README.md)
 - [1.1.3 관리자 기본값·`/관리권한 설정`](Plans/0.DevelopPhase/1.1.3/README.md)
+- [1.1.3a 안내 문구 이모지 계획](Plans/0.DevelopPhase/1.1.3a/README.md)
 - [단계별 진행 상태](Plans/0.DevelopPhase/STATUS.md)
 - [각 단계의 GitHub 업로드 완료 규칙](Plans/0.DevelopPhase/GIT_WORKFLOW.md)
 - [개발 환경과 실행 방법](DEVELOPMENT.md)
