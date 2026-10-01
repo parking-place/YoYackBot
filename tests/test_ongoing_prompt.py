@@ -64,3 +64,10 @@ def test_snark_targets_actual_words_and_deeds() -> None:
     text = flat(SUMMARY_PROMPT)
     assert "말바꿈·헛짚음·딴소리·호들갑·뻔한 소리를 마음껏 비꼬고 빈정거리시오" in text
     assert "질질 끈다·미뤘다· 제자리걸음·흐지부지·끝맺음이 싱겁다 같은 말 금지" in text
+
+
+def test_help_calls_unfinished_talk_ongoing() -> None:
+    from yoyackbot.parser import HELP_TEXT
+
+    assert "화자별 흐름과 결정·진행 중인 이야기까지 요약하오." in HELP_TEXT
+    assert "남은 점" not in HELP_TEXT and len(HELP_TEXT) < 2000
