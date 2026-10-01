@@ -1,6 +1,6 @@
 # 1.1.3a — 안내 문구에도 이모지
 
-- 상태: **IN_PROGRESS** (P1 완료, P2 진행 중)
+- 상태: **IN_PROGRESS** (P1~P2 완료, P3 진행 중)
 - 단계 수: **3단계**
 - 선행 버전: 출시된 [1.1.3](../1.1.3/README.md)(`v1.1.3`, 2026-10-01)
 
@@ -16,8 +16,8 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [P1 — 사용량·상태·채널 목록](01-command-replies.md) | `T113a-P1-A/B` | DONE |
-| 2 | [P2 — 요약 흐름·실패·명령 해석·슬래시 화면·요약 머리말](02-notices.md) | `T113a-P2-A/B` | IN_PROGRESS |
-| 3 | [P3 — 통합·배포·출시](03-release.md) | `T113a-P3-A/B` | PLANNED |
+| 2 | [P2 — 요약 흐름·실패·명령 해석·슬래시 화면·요약 머리말](02-notices.md) | `T113a-P2-A/B` | DONE |
+| 3 | [P3 — 통합·배포·출시](03-release.md) | `T113a-P3-A/B` | IN_PROGRESS |
 
 [검증 목록](TEST_MATRIX.md)은 현재 전부 `NOT_RUN`이며 [상태](STATUS.md)는 전부 `PLANNED`이다. 각 단계는 구현·LXC 검증·증거 기록·**독립 commit → GitHub push → 원격 반영 및 필요한 CI 확인**을 마쳐야 DONE이다. [Git 완료 규칙](../GIT_WORKFLOW.md)의 C/E/D 절차를 따르며, 종료 커밋 D는 증거 커밋 E의 **CI 성공을 확인한 뒤에만** 만든다.
 
