@@ -1,6 +1,6 @@
 # 1.1.3-P3 — 문서·통합·배포·출시
 
-- 상태: **IN_PROGRESS** · 검사: `T113-P3-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **PUSH_PENDING** · 검사: `T113-P3-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 선행 조건·작업
 
