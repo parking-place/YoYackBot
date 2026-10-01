@@ -38,7 +38,7 @@ def test_priority_and_quote_come_after_the_length_note(mode, retry, note) -> Non
         assert tail.endswith(SPEAKER_RETRY_NOTE)
     if retry.get("hate_retry"):
         assert tail.endswith(HATE_RETRY_NOTE)
-    assert PROMPT_VERSION == "1.1.2-p1-v2"
+    assert PROMPT_VERSION == "1.1.2-p1-v3"
 
 
 def test_default_rules_yield_but_first_rank_rules_do_not() -> None:
