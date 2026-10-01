@@ -32,7 +32,7 @@ def test_every_prompt_asks_for_the_rating(mode: SummaryMode, retry: dict) -> Non
     for phrase in ("떡밥 한줄 평가(기본)", "`**요약창섭의 떡밥 한줄 평가** : <평가>`",
                    "정확히 한 번", "한줄 비평", "하오체로 끝내시오",
                    "평가 줄 뒤에는 아무것도", "평가 줄이 있으면 그",
-                   "추가 요청이 평가를 빼 달라고 하면 평가 줄 없이 끝내시오"):
+                   "추가 요청이 평가를 빼 달라고\n하면 평가 줄 없이 끝내시오"):
         assert phrase in prompt, phrase
 
 

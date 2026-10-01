@@ -10,6 +10,7 @@ from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode
+from yoyackbot.output_quality import topic_sections
 from yoyackbot.parser import clean_request_note
 from yoyackbot.summary_prompt import PROMPT_VERSION
 
@@ -44,6 +45,8 @@ async def evaluate(
             )
             outcome = {"id": fixture["id"], "prompt": PROMPT_VERSION, "mode": mode.value,
                        "note": note, "rating": result.rating, "ongoing": result.ongoing_jab,
+                       "topic_critique": result.topic_critique,
+                       "topic_lines": [part.content_lines for part in topic_sections(result.text)],
                        "model": result.model, "text": result.text}
         except Exception as exc:  # noqa: BLE001 - keep diagnostics free of prompt/auth contents
             outcome = {"id": fixture["id"], "prompt": PROMPT_VERSION,

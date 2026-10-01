@@ -96,6 +96,7 @@ class SummaryResult:
     request_message_count: int
     rating: str = "none"
     ongoing_jab: str = "none"
+    topic_critique: str = "na"
 
 
 @dataclass(frozen=True)

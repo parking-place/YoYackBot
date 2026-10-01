@@ -18,8 +18,10 @@ from yoyackbot.output_quality import (
     narrator_mocks_ongoing,
     narrator_uses_hate_term,
     split_rating,
+    strip_emoji,
+    topic_critique,
 )
-from yoyackbot.parser import wants_no_rating, wants_refusal_notice
+from yoyackbot.parser import wants_no_emoji, wants_no_rating, wants_refusal_notice
 from yoyackbot.summary_prompt import REFUSAL_NOTICE, prompt_for, rating_prompt
 
 
@@ -109,9 +111,13 @@ class CodexSummaryEngine:
                 elif mocked:
                     status = "present"
         text = body if rating is None else f"{body}\n\n{rating}"
+        if request_note is not None and wants_no_emoji(request_note):
+            text = strip_emoji(text)
         if narrator_mocks_ongoing(text):
             ongoing = "retried_left"
-        return SummaryResult(text, self.runner.contract.model, len(included), status, ongoing)
+        return SummaryResult(
+            text, self.runner.contract.model, len(included), status, ongoing, topic_critique(text),
+        )
 
     async def _rating_only(
         self, root: Path, data: bytes, body: str, note: str | None = None,

@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from enum import Enum
 
 
@@ -57,9 +58,9 @@ ONGOING_JAB_TERMS = (
 )
 
 
-def _narration(text: str) -> list[str]:
-    """Narrator lines only: quoted source words, block quotes and code may report what was said."""
-    lines: list[str] = []
+def _narration_pairs(text: str) -> list[tuple[str, str]]:
+    """(raw, cleaned) narrator lines: quotes, block quotes and code may report what was said."""
+    lines: list[tuple[str, str]] = []
     in_code = False
     for line in text.splitlines():
         stripped = line.lstrip()
@@ -68,17 +69,56 @@ def _narration(text: str) -> list[str]:
             continue
         if in_code or stripped.startswith(">"):
             continue
-        lines.append(_FILLER.sub("", _QUOTED.sub("", line)))
+        lines.append((line, _FILLER.sub("", _QUOTED.sub("", line))))
     return lines
+
+
+def _narration(text: str) -> list[str]:
+    return [cleaned for _raw, cleaned in _narration_pairs(text)]
 
 
 def narrator_uses_hate_term(text: str) -> bool:
     return any(term in line for line in _narration(text) for term in HATE_TERMS)
 
 
+# Inside critique and rating lines these phrases mean "still not settled" is the joke (1.1.2).
+CRITIQUE_JAB_TERMS = ("아직", "다음 회의", "나중에", "못 박", "미정", "안 잡", "안개 속", "감감")
+
+
 def narrator_mocks_ongoing(text: str) -> bool:
     """True when narration treats unfinished, still-running talk as something to sneer at."""
-    return any(term in line for line in _narration(text) for term in ONGOING_JAB_TERMS)
+    for raw, line in _narration_pairs(text):
+        if any(term in line for term in ONGOING_JAB_TERMS):
+            return True
+        if (raw.lstrip().startswith("↳") or _RATING_LINE.match(raw)) and any(
+            term in line for term in CRITIQUE_JAB_TERMS
+        ):
+            return True
+    return False
+
+
+# Pictographs, dingbats, flags, joiners, selectors and skin tones; arrows such as ↳ are kept.
+_EMOJI = re.compile(
+    "[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF"
+    "\u200D\uFE0E\uFE0F\u20E3\U000E0020-\U000E007F]"
+)
+
+
+def strip_emoji(text: str) -> str:
+    """Remove emoji for '이모지 빼고' and tidy the spaces they leave behind."""
+    lines = []
+    for line in text.splitlines():
+        if not _EMOJI.search(line):
+            lines.append(line)
+            continue
+        cleaned = _EMOJI.sub("", line)
+        if cleaned.lstrip().startswith("**"):
+            cleaned = re.sub(r"^(\s*)\*\*\s+", r"\1**", cleaned)
+        cleaned = re.sub(r"(?<=\S) {2,}", " ", cleaned).rstrip()
+        if not line[:1].isspace():
+            cleaned = cleaned.lstrip()
+        lines.append(cleaned)
+    return "\n".join(lines)
 
 
 _SPEAKER_HEADING = re.compile(
@@ -121,3 +161,58 @@ def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | Non
     if uses_internal_speaker_as_attribution(clean):
         return OutputIssue.SPEAKER_KEY
     return None
+
+
+# A topic heading is a bold-only line, optionally bulleted, with nothing but emoji or marks after it.
+_TOPIC_HEADING = re.compile(r"^\s*(?:[-*•]\s+)?\*\*([^*]+)\*\*[^\w]*$")
+# Not topics: decision/ongoing groups and a bolded refusal notice.
+_GROUP_HEADINGS = frozenset({
+    "결정 난 거", "진행 중인 거", "아직 안 정해진 거", "결정", "진행 중", "미정",
+    "추가 요청 중 일부는 들어줄 수 없었소",
+})
+_NOT_WORD = re.compile(r"[^\w\s]")
+
+
+@dataclass(frozen=True)
+class TopicSection:
+    content_lines: int
+    critiques: int
+
+
+def topic_sections(text: str) -> list[TopicSection]:
+    """Split narration into topics; decision/ongoing groups and the rating line are not topics."""
+    sections: list[list[int]] = []
+    current: list[int] | None = None
+    in_code = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code = not in_code
+            continue
+        if in_code or not stripped:
+            continue
+        if _RATING_LINE.match(line):
+            current = None
+            continue
+        heading = _TOPIC_HEADING.match(line)
+        if heading:
+            if " ".join(_NOT_WORD.sub("", heading.group(1)).split()) in _GROUP_HEADINGS:
+                current = None
+            else:
+                current = [0, 0]
+                sections.append(current)
+            continue
+        if current is not None:
+            current[1 if stripped.startswith("↳") else 0] += 1
+    return [TopicSection(content, critiques) for content, critiques in sections]
+
+
+def topic_critique(text: str) -> str:
+    """all/partial/none: how many topics end with a critique line; na when there are no topics."""
+    sections = topic_sections(text)
+    if not sections:
+        return "na"
+    covered = sum(section.critiques > 0 for section in sections)
+    if covered == len(sections):
+        return "all"
+    return "none" if covered == 0 else "partial"

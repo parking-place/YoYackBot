@@ -243,6 +243,7 @@ class SummaryWorkflow:
             metrics.model_result = "success"
             metrics.rating = result.rating
             metrics.ongoing_jab = result.ongoing_jab
+            metrics.topic_critique = result.topic_critique
             if not await can_continue():
                 raise JobInvalidated
             receipt = await self.publisher.publish(request, result, outcome.messages)

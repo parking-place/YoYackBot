@@ -70,6 +70,21 @@ def _prefix_that_fits(text: str, budget: int) -> int:
     return len(text)
 
 
+def _joins_previous(character: str) -> bool:
+    """Emoji joiners, variation selectors, skin tones and tag characters belong to the left."""
+    code = ord(character)
+    return (code in (0x200D, 0x20E3) or 0xFE00 <= code <= 0xFE0F or 0x1F3FB <= code <= 0x1F3FF
+            or 0xE0020 <= code <= 0xE007F)
+
+
+def _cluster_safe(text: str, end: int) -> int:
+    """Move a hard cut left so one emoji sequence is never split across two messages."""
+    start = end
+    while end > 1 and (_joins_previous(text[end]) or text[end - 1] == "\u200d"):
+        end -= 1
+    return end if end > 0 else start
+
+
 def split_body(text: str, budget: int) -> tuple[str, ...]:
     """Keep every source character; prefer paragraph and line breaks before hard cuts."""
     if budget < 1:
@@ -89,6 +104,8 @@ def split_body(text: str, budget: int) -> tuple[str, ...]:
             if boundary >= lower:
                 end = boundary + len(separator)
                 break
+        else:
+            end = _cluster_safe(remaining, end)
         chunks.append(remaining[:end])
         remaining = remaining[end:]
     return tuple(chunks)
