@@ -10,7 +10,7 @@
 | `T112a-P2-B` | [P2](02-markdown-prompt.md) | LXC 합성 | 1순위·추가 요청·진행 중·평가 줄·이모지 규칙 회귀 | NOT_RUN |
 | `T112a-P3-A` | [P3](03-output-checks.md) | LXC 합성 | `> ↳` 비평 줄 검사, `###`·`> ↳` 주제 지표, `name_underline` 판정 | NOT_RUN |
 | `T112a-P3-B` | [P3](03-output-checks.md) | LXC 합성 | 이모지 제거·평가 줄·거절 안내·분할이 마크다운을 깨지 않음, 지표 원문 비기록, 회귀 | NOT_RUN |
-| `T112a-P4-A` | [P4](04-help-evaluation.md) | LXC/CI | 도움말이 문안과 같음(설정값별), 2,000자 미만, 빈 목록 안내 “관리자가” 없음, 문서 갱신 | NOT_RUN |
+| `T112a-P4-A` | [P4](04-help-evaluation.md) | LXC/CI | 도움말이 문안과 같음(설정값별), 2,000자 미만, 도움말·빈 목록 안내에 “관리자” 문구 없음, 문서 갱신 | NOT_RUN |
 | `T112a-P4-B` | [P4](04-help-evaluation.md) | LXC 실제 모델 | 6건 사실 오류 0, `###` 제목, 인용 비평, 이름 밑줄, 깨진 마크다운 0, 1.1.2 형식 유지, 사용자 확인 | NOT_RUN |
 | `T112a-P5-A` | [P5](05-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
 | `T112a-P5-B` | [P5](05-release.md) | LXC/시험 Discord | 배포·복귀, 비관리자 `/채널 설정` 사용 확인, 마크다운·밑줄·도움말 확인, 로그, 병합 후 `main` CI | NOT_RUN |
