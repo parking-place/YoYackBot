@@ -27,13 +27,13 @@ def flat(text: str) -> str:
 def test_every_prompt_has_emoji_and_topic_critique_rules(mode: SummaryMode, variant: dict) -> None:
     text = flat(prompt_for(mode, **variant))
     for phrase in ("이모지(기본): 이모지를 제한 없이 마음껏, 적극적으로 써서 읽기 쉽고 재미있게 하시오.",
-                   "주제 소제목은 반드시 이모지로 시작하고",
+                   "주제 제목(`### ` 뒤)은 반드시 이모지로 시작하고",
                    "내용 줄·불릿·주제 한줄 비평·떡밥 한줄 평가에도 줄마다 하나 이상 섞으시오.",
                    "개수와 위치에는 제한이 없소.",
                    "계획·일정이 아직 안 잡혔다는 점은 비평 소재로도 쓰지 마시오",
                    "화자 이름· 숫자·시간·금액 글자 사이에 끼워 넣지 말고",
                    "찬성·반대·결정 같은 사실을 이모지로 대신하지 말고 글로 쓰며",
-                   "주제 묶음마다 **정확히 한 줄**을 그 묶음 맨 끝에 `↳ *한줄 비평*` 형태로 따로 쓰시오.",
+                   "주제 묶음마다 **정확히 한 줄**을 그 묶음 맨 끝에 인용문 `> ↳ _한줄 비평_ 이모지` 형태로 따로 쓰시오.",
                    "비평 줄이 빠진 주제가 하나도 없어야 하오.",
                    "`⏳ 진행 중인 거` 묶음에는 비평 줄을 붙이지 마시오.",
                    "짧고 신랄한 한 문장(40자 안팎)",
@@ -48,18 +48,18 @@ def test_only_short_drops_speaker_bullets(mode: SummaryMode) -> None:
     short_only = ("짧게에서는 화자별 불릿을 쓰지 말고", "그 주제의 내용만 1~2줄", "짧게 형식 예")
     for phrase in short_only:
         assert (phrase in text) is (mode is SummaryMode.SHORT), phrase
-    assert "길게·자세히에서는 묶음 안에 `- **화자 이름**: 한\n말이나 한 일` 불릿을 쓰되" in text
+    assert "길게·자세히에서는 묶음 안에 `- **__화자 이름__**: 한\n말이나 한 일` 불릿을 쓰되" in text
     assert "불릿은 모두 합쳐" not in text and "8개 이하" not in text
 
 
 def test_short_layout_details() -> None:
     text = flat(SHORT_NOTE)
-    for phrase in ("누가 했는지가 중요한 곳(결정·담당·정정·제안자)에만 이름을 쓰고",
+    for phrase in ("누가 했는지가 중요한 곳(결정·담당·정정·제안자)에만 이름(`__이름__`)을 쓰고",
                    "서로 다른 사람의 의견을 한 사람 말처럼 합치지 마시오.",
                    "'찬반이 갈렸소'처럼 귀속 없이 적으시오.",
                    "결정은 `✅ **결정**:`, 진행 중인 것은 `⏳ **진행 중**:`으로",
                    "주제당 내용 2줄을 넘기지 마시오.",
-                   "↳ *면 하나 고르는 데 청문회를 차렸구려* 🙄🔥"):
+                   "> ↳ _면 하나 고르는 데 청문회를 차렸구려_ 🙄🔥"):
         assert phrase in text, phrase
     assert "`⏳ 진행 중` 같은 소제목을 절대 쓰지 말고, 결정·진행 중은 해당 주제의 내용 줄 안에만 표시하시오" in text
     assert "1~2줄" not in DETAILED_NOTE and "불릿 수에 제한은 없소" in DETAILED_NOTE

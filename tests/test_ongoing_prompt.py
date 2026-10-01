@@ -34,7 +34,7 @@ def test_every_prompt_treats_unfinished_talk_as_ongoing(prompt: str) -> None:
                    "아직 진행 중이라는 사실 자체는 비꼬지 마시오",
                    "아직 진행 중이라는 점은 비아냥 소재로 쓰지 마시오.",
                    "결론이 안 났다·미뤘다·제자리다·끝맺음이 없다는 식으로 평가하지 마시오.",
-                   "`**⏳ 진행 중인 거**`"):
+                   "`### ⏳ 진행 중인 거`"):
         assert phrase in text, phrase
     for phrase in OLD_PHRASES:
         assert phrase not in prompt, phrase

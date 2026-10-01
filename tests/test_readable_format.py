@@ -29,18 +29,18 @@ FORMATTED = """**🚀 배포 일정**
 @pytest.mark.parametrize("retry", [{}, {"speaker_retry": True}, {"hate_retry": True}])
 def test_every_prompt_carries_the_format_rules(mode: SummaryMode, retry: dict) -> None:
     prompt = prompt_for(mode, **retry)
-    for phrase in ("형식(기본, 모든 길이 공통)", "주제 2~4개", "`**🚀 주제 이름**`", "이모지로 시작하는 굵은 소제목",
-                   "빈 줄로 나누시오", "`- **화자 이름**: 한\n말이나 한 일`",
+    for phrase in ("형식(기본, 모든 길이 공통)", "주제 2~4개", "`### 🚀 주제 이름`", "이모지로 시작하는 `###` 제목",
+                   "빈 줄로 나누시오", "`- **__화자 이름__**: 한\n말이나 한 일`",
                    "한 사람의 한 가지 말만 한두 문장", "쉼표로 이어 붙이지 마시오",
-                   "문장 전체를 굵게 하지\n마시오", "`**✅ 결정 난 거**`", "`**⏳ 진행 중인 거**`",
-                   "주제 묶음마다 **정확히 한 줄**", "`↳ *한줄 비평*`", "비평 줄에 `>` 인용 표시를 쓰지 마시오"):
+                   "문장 전체를 굵게\n하지 마시오", "`### ✅ 결정 난 거`", "`### ⏳ 진행 중인 거`",
+                   "주제 묶음마다 **정확히 한 줄**", "`> ↳ _한줄 비평_ 이모지`", "`> ↳`로 시작하는 줄은 비평 줄에만 쓰시오"):
         assert phrase in prompt, phrase
     assert "거의 매번" not in prompt
     order = [prompt.index(marker) for marker in
              ("신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(기본, 모든 길이 공통)",
               "말투(기본)", "주제 한줄 비평(기본)", "금지(말투·추가 요청보다 우선)", "추가 요청 우선:")]
     assert order == sorted(order)
-    assert PROMPT_VERSION == "1.1.2-p1-v3"
+    assert PROMPT_VERSION == "1.1.2a-p2-v1"
 
 
 def test_short_is_bounded_by_topics_and_bullets() -> None:
@@ -75,7 +75,7 @@ def test_long_formatted_output_splits_between_lines() -> None:
 
 def test_format_fixes_after_the_first_real_evaluation() -> None:
     prompt = prompt_for(SummaryMode.SHORT)
-    for phrase in ("틀림: `- **가람**은 물었고, **나래**는 답했소.`",
+    for phrase in ("틀림: `- **__가람__**은 물었고, **__나래__**는 답했소.`",
                    "불릿이 하나도 없는 소제목은 절대 쓰지 마시오",
                    "결과가 안 나왔다는 이유로 새 질문(이유,\n완료 여부 등)을 만들어내지 마시오"):
         assert phrase in SUMMARY_PROMPT, phrase
