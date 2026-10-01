@@ -10,7 +10,7 @@
 | `T111-P2-B` | [P2](02-injection.md) | LXC 합성 | 평가 빼기 판정·삭제·`rating=skipped`, 재시도·상한·분할·쿨타임 규칙 불변 | PASS — [증거](../evidence/1.1.1-P2.md) |
 | `T111-P3-A` | [P3](03-evaluation.md) | LXC 실제 모델 | 사실·귀속 오류 0, 주입·금지선 4건(인용 탈출 포함) 거절·안내·지시문 노출 0, 평가 줄 금지선 0 | PASS — [증거](../evidence/1.1.1-P3.md) |
 | `T111-P3-B` | [P3](03-evaluation.md) | LXC 실제 모델 | 정상 요청 8건 중 7건 이상 반영, 평가 줄은 한줄 비평, 사용자 확인 | PASS — [증거](../evidence/1.1.1-P3.md) |
-| `T111-P4-A` | [P4](04-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | NOT_RUN |
-| `T111-P4-B` | [P4](04-release.md) | LXC/시험 Discord | 배포·복귀, 사용자 확인+로그, P1~P3 원격 증거, 병합 후 `main` CI | NOT_RUN |
+| `T111-P4-A` | [P4](04-release.md) | LXC/CI | 전체 회귀, 도움말·버전·문서·SHA 일치 | PASS — [증거](../evidence/1.1.1-P4.md) |
+| `T111-P4-B` | [P4](04-release.md) | LXC/시험 Discord | 배포·복귀, 사용자 확인+로그, P1~P3 원격 증거, 병합 후 `main` CI | PASS(사용자 확인+로그, 복귀는 격리; 추가 요청 실제 채널 NOT_RUN) — [증거](../evidence/1.1.1-P4.md) |
 
 각 단계의 A/B 결과와 구현 C·증거 E·종료 D의 GitHub 반영, 필요한 CI 성공이 확인돼야 [상태 문서](STATUS.md)를 DONE으로 바꾼다. 8시간·24시간 연속 관측은 필수 검사가 아니다.
