@@ -167,6 +167,17 @@ def clean_request_note(text: str) -> str | None:
     return cleaned
 
 
+_NO_RATING = re.compile(
+    r"평가\S{0,2}\s*(?:좀\s*|는\s*|도\s*)?(?:빼|없이|생략|지워|지우|말고|안\s*해|하지\s*마)"
+)
+_KEEP_RATING = re.compile(r"빼지\s*말|지우지\s*말|생략하지\s*말")
+
+
+def wants_no_rating(note: str) -> bool:
+    """A request that explicitly drops the closing rating, decided in code not by the model."""
+    return bool(_NO_RATING.search(note)) and not _KEEP_RATING.search(note)
+
+
 def parse_summary_command(options: str) -> SummaryCommand:
     """Never reorder parts: a request that looks like a range, length, or command is refused."""
     words = options.split()

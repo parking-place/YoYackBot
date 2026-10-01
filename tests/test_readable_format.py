@@ -29,7 +29,7 @@ FORMATTED = """**🚀 배포 일정**
 @pytest.mark.parametrize("retry", [{}, {"speaker_retry": True}, {"hate_retry": True}])
 def test_every_prompt_carries_the_format_rules(mode: SummaryMode, retry: dict) -> None:
     prompt = prompt_for(mode, **retry)
-    for phrase in ("형식(모든 길이 공통)", "주제 2~4개", "`**주제 이름**`", "이모지 1개까지",
+    for phrase in ("형식(기본, 모든 길이 공통)", "주제 2~4개", "`**주제 이름**`", "이모지 1개까지",
                    "빈 줄로 나누시오", "`- **화자 이름**: 한 말이나\n한 일`",
                    "한 사람의 한 가지 말만 한두 문장", "쉼표로 이어 붙이지 마시오",
                    "문장 전체를 굵게 하지\n마시오", "`**결정 난 거**`", "`**아직 안 정해진 거**`",
@@ -37,10 +37,10 @@ def test_every_prompt_carries_the_format_rules(mode: SummaryMode, retry: dict) -
         assert phrase in prompt, phrase
     assert "거의 매번" not in prompt
     order = [prompt.index(marker) for marker in
-             ("신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(모든 길이 공통)", "추가 요청:",
-              "말투(반드시 적용)", "비아냥 형식", "금지(말투보다 우선)")]
+             ("신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(기본, 모든 길이 공통)",
+              "말투(기본)", "비아냥 형식", "금지(말투·추가 요청보다 우선)", "추가 요청 우선:")]
     assert order == sorted(order)
-    assert PROMPT_VERSION == "1.1.0a-p2-v2"
+    assert PROMPT_VERSION == "1.1.1-p1-v1"
 
 
 def test_short_is_bounded_by_topics_and_bullets() -> None:
