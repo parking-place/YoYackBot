@@ -18,8 +18,8 @@ from yoyackbot.output_quality import (
     narrator_uses_hate_term,
     split_rating,
 )
-from yoyackbot.parser import wants_no_rating
-from yoyackbot.summary_prompt import prompt_for, rating_prompt
+from yoyackbot.parser import wants_no_rating, wants_refusal_notice
+from yoyackbot.summary_prompt import REFUSAL_NOTICE, prompt_for, rating_prompt
 
 
 @dataclass(frozen=True)
@@ -78,6 +78,11 @@ class CodexSummaryEngine:
             if inspect_output(result, source_bodies) is not None:
                 raise CodexRunError(CodexFailure.OUTPUT_INVALID)
             body, rating = split_rating(result)
+            if (
+                request_note is not None and wants_refusal_notice(request_note)
+                and REFUSAL_NOTICE not in body
+            ):
+                body = f"{body}\n\n{REFUSAL_NOTICE}"
             status = "present"
             if skip_rating:
                 rating, status = None, "skipped"

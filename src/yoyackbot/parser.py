@@ -173,6 +173,21 @@ _NO_RATING = re.compile(
 _KEEP_RATING = re.compile(r"빼지\s*말|지우지\s*말|생략하지\s*말")
 
 
+_UNSAFE_REQUEST = re.compile(
+    r"지시문|프롬프트|시스템|규칙\S{0,2}\s*(?:무시|해제|없애|끝)|무시하고|무시해|"
+    r"\d+\s*일\s*(?:전체|치\s*(?:전부|다|모두))|전체\s*(?:기간|대화)|다른\s*채널|모든\s*채널|"
+    r"했다고\s*(?:써|적어|해)|라고\s*(?:써|적어)|화자\S{0,2}.{0,12}바꿔|"
+    r"비하어|병신|성적으로|야하게|auth|파일|https?://|URL|도구|«|»|"
+    r"신뢰\s*경계|인용이\s*끝|system|[{}<>]",
+    re.IGNORECASE,
+)
+
+
+def wants_refusal_notice(note: str) -> bool:
+    """Obvious out-of-bounds requests always get the refusal line, even if the model forgets."""
+    return bool(_UNSAFE_REQUEST.search(note))
+
+
 def wants_no_rating(note: str) -> bool:
     """A request that explicitly drops the closing rating, decided in code not by the model."""
     return bool(_NO_RATING.search(note)) and not _KEEP_RATING.search(note)
