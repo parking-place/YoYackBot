@@ -5,7 +5,7 @@
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
 | [1.1.1-P1](01-priority-prompt.md) | 우선순위·원문 인용·한줄 비평 프롬프트 | DONE | [C `5763332`](https://github.com/parking-place/YoYackBot/commit/576333221c8427f44be584d420522ed6cf4682a6) / [C CI](https://github.com/parking-place/YoYackBot/actions/runs/36802361869) / [E `d3de4ba`](https://github.com/parking-place/YoYackBot/commit/d3de4ba892fa0bef67848c4da196cb441bfe4d95) / [E CI](https://github.com/parking-place/YoYackBot/actions/runs/36802417434) / [증거](../evidence/1.1.1-P1.md); 원격 확인 | P1-A/B PASS |
-| [1.1.1-P2](02-injection.md) | 인용 탈출·주입 시험, 평가 줄 빼기 | IN_PROGRESS | — | P1 원격 완료 선행 |
+| [1.1.1-P2](02-injection.md) | 인용 탈출·주입 시험, 평가 줄 빼기 | PUSH_PENDING | C `1f8fca6` / [증거](../evidence/1.1.1-P2.md) | P2-A/B PASS |
 | [1.1.1-P3](03-evaluation.md) | 실제 모델 반영률 평가 | PLANNED | — | P2 원격 완료, 계정 한도 확인 |
 | [1.1.1-P4](04-release.md) | 도움말·통합·배포·출시 | PLANNED | — | P1~P3 원격 증거 선행 |
 
