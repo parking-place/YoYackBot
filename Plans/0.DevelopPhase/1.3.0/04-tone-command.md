@@ -1,6 +1,6 @@
 # 1.3.0-P4 — `/말투` 명령
 
-- 상태: **PUSH_PENDING** · 검사: `T130-P4-A/B` **PASS** ([증거](../evidence/1.3.0-P4.md)) · 환경: 개발 LXC, 합성(Discord·모델 호출 없음)
+- 상태: **DONE** · 검사: `T130-P4-A/B` **PASS** ([증거](../evidence/1.3.0-P4.md)) · 환경: 개발 LXC, 합성(Discord·모델 호출 없음)
 
 ## 선행 조건·작업
 
