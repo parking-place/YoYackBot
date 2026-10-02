@@ -2,12 +2,15 @@
 
 import asyncio
 import logging
+import sqlite3
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 
 import discord
 
+from yoyackbot import idiom
 from yoyackbot.backfill import NOT_READY_NOTICE, SQLiteBackfillStore
 from yoyackbot.cache_collector import BackfillNotReady, CacheCollectionOutcome, CacheOnlyCollector
 from yoyackbot.channel_config import valid_channel
@@ -18,18 +21,28 @@ from yoyackbot.collection import EMPTY_NOTICE, CollectionOutcome, CollectionUnav
 from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore, cooldown_notice
 from yoyackbot.count_collection import CountError
-from yoyackbot.domain import MessageRecord, SummaryMode, SummaryRequest, SummaryResult
+from yoyackbot.domain import (
+    MessageRecord,
+    RangeRequest,
+    RequestKind,
+    SummaryMode,
+    SummaryRequest,
+    SummaryResult,
+)
 from yoyackbot.errors import BUSY_NOTICE, FailureKind, message_for
 from yoyackbot.history import HistoryError
+from yoyackbot.idiom import IdiomFailed, IdiomResult
 from yoyackbot.input_files import ConversationTooLarge, InputFileError
 from yoyackbot.job_queue import QueueClosed, QueueFull, QueueWaitExpired, SummaryJobQueue
 from yoyackbot.long_range import LongRangeError
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
-from yoyackbot.ops import RequestMetrics
+from yoyackbot.ops import IdiomMetrics, RequestMetrics
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError
+from yoyackbot.rating_pool import SQLiteRecentRatings
 from yoyackbot.scope import busy_notice, start_notice
 from yoyackbot.state import AdmissionKind, ChannelStates
+from yoyackbot.tone import SQLiteToneStore
 from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
 from yoyackbot.watch_gate import ChannelLease
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
@@ -55,6 +68,8 @@ class SummaryWorkflow:
     states: ChannelStates = field(default_factory=ChannelStates)
     queue: SummaryJobQueue | None = None
     readiness: Callable[[int, int], Awaitable[bool]] | None = None
+    ratings: SQLiteRecentRatings | None = None
+    tones: SQLiteToneStore | None = None
     closing: bool = False
     _jobs: set[asyncio.Task] = field(default_factory=set, init=False, repr=False)
 
@@ -66,7 +81,8 @@ class SummaryWorkflow:
         self, messages: Sequence[MessageRecord], *, channel_name: str,
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
-        can_continue: Callable[[], Awaitable[bool]],
+        can_continue: Callable[[], Awaitable[bool]], recent_ratings: Sequence[str] = (),
+        tone: str | None = None,
     ) -> SummaryResult:
         if self.queue is not None:
             waiting_since = time.monotonic()
@@ -82,19 +98,22 @@ class SummaryWorkflow:
                 return await self._run_model_guarded(
                     messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
                     mode=mode, request_note=request_note, channel=channel, lease=lease,
-                    metrics=metrics, can_continue=can_continue,
+                    metrics=metrics, can_continue=can_continue, recent_ratings=recent_ratings,
+                    tone=tone,
                 )
         return await self._run_model_guarded(
             messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
             mode=mode, request_note=request_note, channel=channel, lease=lease,
-            metrics=metrics, can_continue=can_continue,
+            metrics=metrics, can_continue=can_continue, recent_ratings=recent_ratings,
+            tone=tone,
         )
 
     async def _run_model_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
-        can_continue: Callable[[], Awaitable[bool]],
+        can_continue: Callable[[], Awaitable[bool]], recent_ratings: Sequence[str] = (),
+        tone: str | None = None,
     ) -> SummaryResult:
         if not await can_continue():
             raise JobInvalidated
@@ -103,6 +122,7 @@ class SummaryWorkflow:
             messages, channel_name=channel_name, range_label="선택한 대화",
             trigger_message_id=trigger_message_id, mode=mode, request_note=request_note,
             on_input_size=lambda size: setattr(metrics, "input_bytes", size),
+            recent_ratings=tuple(recent_ratings), tone=tone,
         ))
         try:
             while True:
@@ -116,6 +136,202 @@ class SummaryWorkflow:
             if not model.done():
                 model.cancel()
                 await asyncio.gather(model, return_exceptions=True)
+
+    async def _recent_ratings(self, guild_id: int, channel_id: int) -> tuple[str, ...]:
+        """The channel's last posted ratings; an unreadable store just means none."""
+        if self.ratings is None:
+            return ()
+        try:
+            return tuple(await asyncio.to_thread(self.ratings.recent, guild_id, channel_id))
+        except sqlite3.Error:
+            LOGGER.warning("recent_rating_read_failed")
+            return ()
+
+    async def run_idiom(
+        self, guild_id: int, channel: discord.TextChannel, lease: ChannelLease,
+        send_notice: Callable[[str], Awaitable[None]], *, accepted_at: datetime,
+        trigger_message_id: int | None,
+    ) -> None:
+        """`!!말하자면`: the same channel slot, queue, readiness and success cooldown as summaries."""
+        metrics = IdiomMetrics()
+        task = asyncio.current_task()
+        if task is not None:
+            self._jobs.add(task)
+        try:
+            if self.closing:
+                metrics.outcome = "queue_closed"
+                await send_notice(idiom.QUEUE_NOTICE)
+                return
+            await self._run_idiom(
+                guild_id, channel, lease, send_notice, metrics,
+                accepted_at=accepted_at, trigger_message_id=trigger_message_id,
+            )
+        except asyncio.CancelledError:
+            metrics.outcome = "cancelled"
+            raise
+        finally:
+            metrics.emit()
+            if task is not None:
+                self._jobs.discard(task)
+
+    async def _run_idiom(
+        self, guild_id: int, channel: discord.TextChannel, lease: ChannelLease,
+        send_notice: Callable[[str], Awaitable[None]], metrics: IdiomMetrics, *,
+        accepted_at: datetime, trigger_message_id: int | None,
+    ) -> None:
+        channel_id = channel.id
+        if (
+            getattr(channel, "type", None) is not discord.ChannelType.text
+            or getattr(getattr(channel, "guild", None), "id", None) != guild_id
+            or not await self._channel_ready(channel, lease)
+        ):
+            metrics.outcome = "channel_unavailable"
+            await send_notice(idiom.INVALIDATED_NOTICE)
+            return
+        if self.collector.max_count < idiom.RECENT_MESSAGES:
+            metrics.outcome = "limit"
+            await send_notice(idiom.LIMIT_NOTICE)
+            return
+        admission = await self.states.admit(guild_id, channel_id)
+        if admission.kind is AdmissionKind.BUSY:
+            metrics.outcome = "busy"
+            await send_notice(idiom.BUSY_NOTICE)
+            return
+        if admission.kind is AdmissionKind.COOLDOWN:
+            metrics.outcome = "cooldown"
+            await send_notice(idiom.cooldown_notice(admission.remaining_seconds))
+            return
+        completed = False
+        outcome: CollectionOutcome | None = None
+
+        async def can_continue() -> bool:
+            if not await self._channel_ready(channel, lease):
+                return False
+            if self.readiness is not None and not await self.readiness(guild_id, channel_id):
+                raise BackfillNotReady("Cache or Gateway is no longer ready")
+            if isinstance(outcome, CacheCollectionOutcome):
+                await self.collector.validate_selection(
+                    guild_id, channel_id, outcome.cache_generation, outcome.messages,
+                )
+            return True
+
+        try:
+            if self.readiness is not None and not await self.readiness(guild_id, channel_id):
+                metrics.outcome = "not_ready"
+                await send_notice(idiom.NOT_READY_NOTICE)
+                return
+            try:
+                await send_notice(idiom.START_NOTICE)
+            except (discord.DiscordException, OSError):
+                metrics.outcome = "notice_error"
+                return
+            if admission.job is not None:
+                admission.job.announced.set()
+            outcome = await self.collector.collect(
+                channel, guild_id=guild_id, channel_id=channel_id,
+                request=RangeRequest(
+                    RequestKind.COUNT, accepted_at, count=idiom.RECENT_MESSAGES,
+                    trigger_message_id=trigger_message_id,
+                ),
+                can_continue=can_continue,
+            )
+            metrics.selected_count = len(outcome.messages)
+            if not outcome.messages:
+                metrics.outcome = "empty"
+                await send_notice(idiom.EMPTY_NOTICE)
+                return
+            if not await can_continue():
+                raise JobInvalidated
+            result = await self._guarded_model(
+                lambda: self.engine.idiom(
+                    outcome.messages, channel_name=channel.name,
+                    trigger_message_id=trigger_message_id,
+                ),
+                guild_id=guild_id, size=len(outcome.messages), metrics=metrics,
+                can_continue=can_continue,
+            )
+            metrics.calls, metrics.idioms, metrics.words = result.calls, result.idioms, result.words
+            metrics.selected_kind = result.selected_kind
+            if not await can_continue():
+                raise JobInvalidated
+            try:
+                await channel.send(result.text, allowed_mentions=discord.AllowedMentions.none())
+            except (discord.DiscordException, OSError):
+                metrics.outcome = "post_error"
+                return
+            await self.states.finish_success(guild_id, channel_id, self.collector.clock())
+            metrics.outcome = "success"
+            completed = True
+        except JobInvalidated:
+            metrics.outcome = "invalidated"
+            await send_notice(idiom.INVALIDATED_NOTICE)
+        except BackfillNotReady:
+            metrics.outcome = "not_ready"
+            await send_notice(idiom.NOT_READY_NOTICE)
+        except (CollectionError, CollectionUnavailable, HistoryError, CountError, LongRangeError,
+                MessageStoreError, WatchStoreError):
+            metrics.outcome = "history_error"
+            await send_notice(idiom.FAILED_NOTICE)
+        except ConversationTooLarge:
+            metrics.outcome = "input_error"
+            await send_notice(idiom.TOO_LARGE_NOTICE)
+        except IdiomFailed:
+            metrics.outcome = "no_choice"
+            await send_notice(idiom.FAILED_NOTICE)
+        except (CodexRunError, InputFileError):
+            metrics.outcome = "model_error"
+            await send_notice(idiom.FAILED_NOTICE)
+        except (QueueFull, QueueWaitExpired, QueueClosed) as exc:
+            metrics.outcome = {QueueFull: "queue_full", QueueWaitExpired: "queue_timeout",
+                               QueueClosed: "queue_closed"}[type(exc)]
+            await send_notice(idiom.QUEUE_NOTICE)
+        except Exception:  # noqa: BLE001
+            metrics.outcome = "unexpected"
+            LOGGER.warning("idiom_job_failed")
+            await send_notice(idiom.FAILED_NOTICE)
+        finally:
+            if not completed:
+                await self.states.finish(guild_id, channel_id)
+
+    async def _guarded_model(
+        self, call: Callable[[], Awaitable[IdiomResult]], *, guild_id: int, size: int,
+        metrics: IdiomMetrics, can_continue: Callable[[], Awaitable[bool]],
+    ) -> IdiomResult:
+        """The shared queue slot, then the model call cancelled if the channel stops being valid."""
+        async def guarded() -> IdiomResult:
+            started = time.monotonic()
+            task = asyncio.create_task(call())
+            try:
+                while True:
+                    done, _ = await asyncio.wait({task}, timeout=0.5)
+                    if done:
+                        return await task
+                    if not await can_continue():
+                        raise JobInvalidated
+            finally:
+                metrics.model_ms = max(0, round((time.monotonic() - started) * 1000))
+                if not task.done():
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+
+        if self.queue is None:
+            return await guarded()
+        slot = await self.queue.acquire(guild_id=guild_id, size_hint=size)
+        async with slot:
+            if not await can_continue():
+                raise JobInvalidated
+            return await guarded()
+
+    async def _tone(self, guild_id: int, metrics: RequestMetrics) -> str | None:
+        """This server's tone; an unreadable store falls back to the default tone."""
+        tone = None
+        if self.tones is not None:
+            try:
+                tone = await asyncio.to_thread(self.tones.get, guild_id)
+            except sqlite3.Error:
+                LOGGER.warning("tone_read_failed")
+        metrics.tone = "default" if tone is None else "custom"
+        return tone
 
     async def shutdown(self) -> None:
         self.closing = True
@@ -252,9 +468,13 @@ class SummaryWorkflow:
                 trigger_message_id=request.requested_range.trigger_message_id,
                 mode=request.mode, request_note=request.request_note, channel=channel,
                 lease=lease, metrics=metrics, can_continue=can_continue,
+                recent_ratings=await self._recent_ratings(guild_id, channel_id),
+                tone=await self._tone(guild_id, metrics),
             )
             metrics.model_result = "success"
             metrics.rating = result.rating
+            metrics.rating_candidates = result.rating_candidates
+            metrics.rating_similar = result.rating_similar
             metrics.ongoing_jab = result.ongoing_jab
             metrics.topic_critique = result.topic_critique
             metrics.name_underline = result.name_underline
@@ -268,6 +488,14 @@ class SummaryWorkflow:
                 receipt = await self.publisher.publish(request, result, outcome.messages)
             metrics.post_result = "success"
             await self.states.finish_success(guild_id, channel_id, receipt.last_success_at)
+            if result.rating_text is not None and self.ratings is not None:
+                try:
+                    await asyncio.to_thread(
+                        self.ratings.add, guild_id, channel_id, result.rating_text,
+                        posted_at=receipt.last_success_at,
+                    )
+                except sqlite3.Error:
+                    LOGGER.warning("recent_rating_save_failed")
             metrics.outcome = "success"
             completed = True
         except JobInvalidated:
@@ -372,4 +600,8 @@ def build_workflow(
             wait_seconds=settings.queue_wait_seconds,
         ),
         readiness=ready,
+        ratings=SQLiteRecentRatings(
+            settings.database_path, retention_days=settings.cache_retention_days, clock=clock,
+        ),
+        tones=SQLiteToneStore(settings.database_path),
     )

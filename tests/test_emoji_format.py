@@ -7,7 +7,7 @@ from yoyackbot.output_quality import RATING_LABEL, narrator_mocks_ongoing, split
 from yoyackbot.parser import wants_no_emoji, wants_no_rating
 from yoyackbot.summary_prompt import (
     DETAILED_NOTE,
-    RATING_PROMPT,
+    RATING_CANDIDATES_PROMPT,
     REQUEST_PRIORITY_NOTE,
     SHORT_NOTE,
     SUMMARY_PROMPT,
@@ -82,7 +82,7 @@ def test_requests_can_drop_emoji_or_topic_critiques_but_not_the_rating_by_accide
 def test_emoji_rating_line_still_splits(rating: str) -> None:
     body = "**🚀 배포 날짜** 🗓️\n목요일로 정했소. ✅ **결정**: 목요일 🎉\n↳ *요일 퀴즈였소* 🤡"
     assert split_rating(f"{body}\n\n{RATING_LABEL}{rating}") == (body, RATING_LABEL + rating)
-    assert "이모지를 마음껏" in RATING_PROMPT
+    assert "이모지를 마음껏" in RATING_CANDIDATES_PROMPT
 
 
 @pytest.mark.parametrize(

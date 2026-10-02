@@ -38,9 +38,9 @@ def test_every_prompt_carries_the_format_rules(mode: SummaryMode, retry: dict) -
     assert "거의 매번" not in prompt
     order = [prompt.index(marker) for marker in
              ("신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(기본, 모든 길이 공통)",
-              "말투(기본)", "주제 한줄 비평(기본)", "금지(말투·추가 요청보다 우선)", "추가 요청 우선:")]
+              "주제 한줄 비평(기본)", "금지(말투·추가 요청보다 우선)", "말투·성격(기본)", "추가 요청 우선:")]
     assert order == sorted(order)
-    assert PROMPT_VERSION == "1.2.0-p6-v1"
+    assert PROMPT_VERSION == "1.3.0-p6-v3"
 
 
 def test_short_is_bounded_by_topics_and_bullets() -> None:

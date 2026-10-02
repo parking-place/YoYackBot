@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from rating_fakes import skip_rating_step
 
 from yoyackbot.backfill import NOT_READY_NOTICE
 from yoyackbot.channel_list import EMPTY_NOTICE as CHANNEL_EMPTY_NOTICE
@@ -40,14 +41,15 @@ from yoyackbot.workflow import (
 @pytest.mark.parametrize("retry", [{}, {"speaker_retry": True}, {"hate_retry": True}])
 def test_every_prompt_carries_the_tone_after_the_fact_rules(mode, retry) -> None:
     prompt = prompt_for(mode, **retry)
-    tone = prompt.index("말투(기본): 위의 사실·화자 귀속·신뢰 경계 규칙을 지키는 범위 안에서")
+    tone = prompt.index("말투·성격(기본): 위의 사실·화자 귀속·신뢰 경계 규칙을 지키는 범위 안에서")
+    assert prompt.index("금지(말투·추가 요청보다 우선)") < tone
     assert prompt.index("원문에 없는 사실·동기·결론") < tone
     assert prompt.index("신뢰 경계:") < tone
     for phrase in ("천박한 입담", "하오체", "존나, 시발", "외설적인 속어", "떡밥을 비꼬는 거친 말로",
                    "금지(말투·추가 요청보다 우선)", "하지 않은 욕설을 그 사람이 한 말처럼 쓰지 말고",
                    "성적으로 묘사하거나", "집단을 비하하는 말", "인신공격",
                    "말투 때문에 사실을\n바꾸거나 보태지 마시오"):
-        assert phrase in prompt
+        assert " ".join(phrase.split()) in " ".join(prompt.split())
     assert "한국어 하오체로 자연스럽고 간결하게" not in prompt
     note = {SummaryMode.DETAILED: DETAILED_NOTE, SummaryMode.SHORT: SHORT_NOTE}.get(mode)
     if note:
@@ -117,6 +119,7 @@ def engine_with(tmp_path: Path, outputs: list[str], prompts: list[str]) -> Codex
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             prompts.append(prompt)
             workspace.close()
             return outputs.pop(0)

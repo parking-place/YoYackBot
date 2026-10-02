@@ -4,11 +4,12 @@ import pytest
 
 from yoyackbot.domain import SummaryMode
 from yoyackbot.summary_prompt import (
-    RATING_PROMPT,
+    RATING_CANDIDATES_PROMPT,
     REQUEST_PRIORITY_NOTE,
     SUMMARY_PROMPT,
     prompt_for,
-    rating_prompt,
+    rating_candidates_prompt,
+    tone_section,
 )
 
 PROMPTS = [
@@ -47,9 +48,9 @@ def test_short_marks_ongoing_inline() -> None:
 
 
 def test_rating_prompt_does_not_mock_unfinished_talk() -> None:
-    for prompt in (RATING_PROMPT, rating_prompt("욕 빼고")):
+    for prompt in (RATING_CANDIDATES_PROMPT, rating_candidates_prompt("욕 빼고")):
         text = flat(prompt)
-        assert "결론이 안 났다· 미뤘다·제자리다·끝맺음이 없다는 식으로 평가하지 마시오." in text
+        assert "결론이 안 났다·미뤘다·제자리다·끝맺음이 없다는 식의 미결·미룸은 어느 후보에도 쓰지 마시오." in text
         for phrase in OLD_PHRASES:
             assert phrase not in prompt, phrase
 
@@ -61,7 +62,7 @@ def test_decision_only_without_decisions_is_calm() -> None:
 
 
 def test_snark_targets_actual_words_and_deeds() -> None:
-    text = flat(SUMMARY_PROMPT)
+    text = flat(SUMMARY_PROMPT + tone_section())
     assert "말바꿈·헛짚음·딴소리·호들갑·뻔한 소리를 마음껏 비꼬고 빈정거리시오" in text
     assert "질질 끈다·미뤘다· 제자리걸음·흐지부지·끝맺음이 싱겁다 같은 말 금지" in text
 

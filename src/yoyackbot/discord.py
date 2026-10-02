@@ -12,7 +12,7 @@ from typing import Protocol
 import discord
 from discord import app_commands
 
-from yoyackbot import __version__
+from yoyackbot import __version__, idiom
 from yoyackbot.backfill import (
     NOT_READY_NOTICE,
     BackfillError,
@@ -59,10 +59,13 @@ from yoyackbot.parser import (
     route_trigger,
 )
 from yoyackbot.range_request import resolve_range
+from yoyackbot.reply_range import ReplyRangeRefused, reply_reference, resolve_reply_range
 from yoyackbot.reply_refs import reply_target
 from yoyackbot.role_config import install_role_commands
 from yoyackbot.scope import RangeScope, describe_range
 from yoyackbot.status_report import StatusReport, collect_status, status_message
+from yoyackbot.tone import SQLiteToneStore
+from yoyackbot.tone_config import install_tone_command
 from yoyackbot.usage import (
     USAGE_UNAVAILABLE_NOTICE,
     UsageSnapshot,
@@ -194,6 +197,10 @@ class YoYackClient(discord.Client):
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
         install_role_commands(self.tree, self.manager_roles)
+        if settings is not None and isinstance(self.watch_store, SQLiteWatchStore):
+            install_tone_command(
+                self.tree, SQLiteToneStore(settings.database_path), self.manager_roles,
+            )
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
@@ -700,6 +707,9 @@ class YoYackClient(discord.Client):
                 summarize=handle_usage,
             )
             return
+        if route.kind in (RouteKind.IDIOM, RouteKind.IDIOM_USAGE):
+            await self._on_idiom(message, usage=route.kind is RouteKind.IDIOM_USAGE)
+            return
         if route.kind is RouteKind.SUMMARY:
             accepted_at = self.clock()
 
@@ -725,18 +735,30 @@ class YoYackClient(discord.Client):
                             message.guild.id, message.channel.id,
                         ))
                         return
+                reference = reply_reference(message)
                 try:
                     command = parse_summary_command(route.options)
                     range_text, mode = command.range_text, command.mode
-                    scope = describe_range(range_text, self.settings)
-                    request = resolve_range(
-                        range_text,
-                        self.settings,
-                        accepted_at,
-                        trigger_message_id=getattr(message, "id", None),
-                    )
-                except (CommandSyntaxError, CommandLimitError) as exc:
+                    if reference is not None:
+                        # A reply sets the start; a range written with it is ignored (1.3.0).
+                        request, scope = await resolve_reply_range(
+                            message, reference, store=self.message_store,
+                            settings=self.settings, accepted_at=accepted_at,
+                            ignored_range=bool(range_text),
+                        )
+                    else:
+                        scope = describe_range(range_text, self.settings)
+                        request = resolve_range(
+                            range_text,
+                            self.settings,
+                            accepted_at,
+                            trigger_message_id=getattr(message, "id", None),
+                        )
+                except (CommandSyntaxError, CommandLimitError, ReplyRangeRefused) as exc:
                     await send_notice(str(exc))
+                    return
+                except MessageStoreError:
+                    await send_notice(UNAVAILABLE_NOTICE)
                     return
                 await self.on_summary_request(
                     message, request, lease, mode=mode, scope=scope, note=command.note,
@@ -757,6 +779,60 @@ class YoYackClient(discord.Client):
             message.channel.id,
             message,
             self.on_watched_message,
+        )
+
+    async def _on_idiom(self, message: discord.Message, *, usage: bool) -> None:
+        """`!!말하자면` (1.3.0): fixed casual notices; a reply never changes its range."""
+        assert message.guild is not None
+        accepted_at = self.clock()
+
+        async def send(notice: str) -> None:
+            await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
+
+        async def handle(lease: ChannelLease) -> None:
+            if usage:
+                await send(idiom.USAGE_NOTICE)
+                return
+            if (
+                self.settings is None or self.message_store is None
+                or not isinstance(self.watch_store, SQLiteWatchStore)
+            ):
+                await send(idiom.UNAVAILABLE_NOTICE)
+                return
+            if self.summary_workflow is None:
+                try:
+                    self.summary_workflow = build_workflow(
+                        self.settings, self, self.watch_store, self.message_store,
+                    )
+                except CodexContractError:
+                    LOGGER.warning("summary_workflow_unavailable type=CodexContractError")
+                    await send(idiom.FAILED_NOTICE)
+                    return
+            if self.backfill_store is not None:
+                try:
+                    backfill, _generation, pending = await asyncio.to_thread(
+                        self.backfill_store.readiness_snapshot,
+                        message.guild.id, message.channel.id,
+                        cutoff=self.clock() - timedelta(days=self.settings.cache_retention_days),
+                    )
+                except BackfillError:
+                    await send(idiom.UNAVAILABLE_NOTICE)
+                    return
+                if not self.cache_available() or pending or not summary_ready(backfill):
+                    await send(idiom.NOT_READY_NOTICE)
+                    return
+            LOGGER.info("idiom_request_parsed")
+            await self.summary_workflow.run_idiom(
+                message.guild.id, message.channel, lease, send,
+                accepted_at=accepted_at, trigger_message_id=getattr(message, "id", None),
+            )
+
+        await self.watch_gate.request(
+            message.guild.id, message.channel.id, is_help=False,
+            help_reply=lambda: send(idiom.USAGE_NOTICE),
+            unwatched_reply=lambda _notice: send(idiom.UNWATCHED_NOTICE),
+            unavailable_reply=lambda _notice: send(idiom.UNAVAILABLE_NOTICE),
+            summarize=handle,
         )
 
     async def _read_usage(self) -> UsageSnapshot:
@@ -871,8 +947,9 @@ class YoYackClient(discord.Client):
     ) -> None:
         """Run the model path when the persistent runtime is configured."""
         LOGGER.info(
-            "summary_request_parsed kind=%s mode=%s has_request=%s request_chars=%d",
-            request.kind.value, mode.value, note is not None, len(note or ""),
+            "summary_request_parsed kind=%s mode=%s reply=%s has_request=%s request_chars=%d",
+            request.kind.value, mode.value, request.anchor_message_id is not None,
+            note is not None, len(note or ""),
         )
         if (
             self.summary_workflow is None

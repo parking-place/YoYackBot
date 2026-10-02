@@ -70,10 +70,14 @@ class RangeRequest:
     start: datetime | None = None
     count: int | None = None
     trigger_message_id: int | None = None
+    # 1.3.0 reply range: the replied-to message; same-time messages before it are left out.
+    anchor_message_id: int | None = None
 
     def __post_init__(self) -> None:
         if self.accepted_at.tzinfo is None:
             raise ValueError("accepted_at must have a timezone")
+        if self.anchor_message_id is not None and self.kind is not RequestKind.TIME:
+            raise ValueError("only time requests can start at a replied-to message")
         if self.kind is RequestKind.TIME:
             if self.start is None or self.start.tzinfo is None or self.start > self.accepted_at:
                 raise ValueError("time requests need an aware start no later than accepted_at")
@@ -104,6 +108,10 @@ class SummaryResult:
     ongoing_jab: str = "none"
     topic_critique: str = "na"
     name_underline: str = "na"
+    # 1.3.0: the posted rating line (remembered per channel) and candidate/judge counts.
+    rating_text: str | None = None
+    rating_candidates: int = 0
+    rating_similar: int = 0
 
 
 @dataclass(frozen=True)

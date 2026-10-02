@@ -24,7 +24,7 @@ def contract() -> CodexContract:
 
 @pytest.mark.parametrize(
     ("model", "effort"),
-    [("other-model", "low"), ("gpt-6-luna", "medium")],
+    [("other-model", "low"), ("gpt-6-luna", "high"), ("gpt-6-luna", "minimal")],
 )
 def test_required_model_and_reasoning_are_fixed(model: str, effort: str) -> None:
     settings = Settings.from_environment({"DISCORD_BOT_TOKEN": "synthetic"})
@@ -32,6 +32,20 @@ def test_required_model_and_reasoning_are_fixed(model: str, effort: str) -> None
         CodexContract.from_settings(
             replace(settings, codex_model=model, codex_reasoning_effort=effort)
         )
+
+
+@pytest.mark.parametrize("effort", ["low", "medium"])
+def test_low_default_and_medium_are_accepted(effort: str) -> None:
+    settings = Settings.from_environment({
+        "DISCORD_BOT_TOKEN": "synthetic", "YOYACK_CODEX_EXECUTABLE": "/synthetic/bin/codex",
+        "YOYACK_CODEX_REASONING_EFFORT": effort,
+    })
+    contract = CodexContract.from_settings(settings)
+    assert contract.reasoning_effort == effort
+    assert f"model_reasoning_effort={effort}" in contract.arguments(
+        working_directory=Path("/work"), output_file=Path("/output/final.txt"),
+    )
+    assert Settings.from_environment({"DISCORD_BOT_TOKEN": "x"}).codex_reasoning_effort == "low"
 
 
 def test_arguments_use_stdin_and_isolated_ephemeral_execution(tmp_path: Path) -> None:

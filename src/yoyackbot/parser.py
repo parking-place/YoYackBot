@@ -8,6 +8,7 @@ from yoyackbot.config import Settings
 from yoyackbot.domain import SummaryMode
 
 TRIGGER = "!!요약좀"
+IDIOM_TRIGGER = "!!말하자면"
 USAGE_WORD = "사용량"
 STATUS_WORD = "상태"
 CHANNELS_WORD = "채널"
@@ -54,6 +55,8 @@ class RouteKind(Enum):
     USAGE = "usage"
     STATUS = "status"
     CHANNELS = "channels"
+    IDIOM = "idiom"              # 1.3.0 `!!말하자면` alone
+    IDIOM_USAGE = "idiom_usage"  # `!!말하자면` with words after it, repeated or mixed
 
 
 @dataclass(frozen=True)
@@ -70,6 +73,7 @@ class OptionKind(Enum):
     WEEKS = "weeks"
     COUNT = "count"
     TODAY = "today"
+    REPLY = "reply"  # 1.3.0: from the replied-to message; never produced by parse_option
 
 
 @dataclass(frozen=True)
@@ -100,7 +104,16 @@ UNIT_KIND = {
 
 
 def route_trigger(content: str) -> TriggerRoute:
-    """Use the first trigger's options; help has priority across repeated triggers."""
+    """Use the first trigger's options; help has priority across repeated triggers.
+
+    `!!말하자면` runs only as the whole message. With anything after it, or mixed with
+    `!!요약좀`, it is a usage notice; inside an ordinary sentence it is just conversation.
+    """
+    stripped = content.strip()
+    if stripped == IDIOM_TRIGGER:
+        return TriggerRoute(RouteKind.IDIOM)
+    if stripped.startswith(IDIOM_TRIGGER) or (IDIOM_TRIGGER in content and TRIGGER in content):
+        return TriggerRoute(RouteKind.IDIOM_USAGE)
     _, marker, after = content.partition(TRIGGER)
     if not marker:
         return TriggerRoute(RouteKind.NONE)

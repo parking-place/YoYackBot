@@ -11,6 +11,15 @@ from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
 from yoyackbot.codex_runner import CodexRunError, SandboxedCodex
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode, SummaryResult
+from yoyackbot.idiom import (
+    IDIOM_SELECT_PROMPT,
+    IdiomFailed,
+    IdiomResult,
+    idiom_candidates_prompt,
+    idiom_line,
+)
+from yoyackbot.idiom import parse_candidates as parse_idiom_candidates
+from yoyackbot.idiom import parse_choice as parse_idiom_choice
 from yoyackbot.input_files import InputWorkspace, message_keys, serialize_conversation
 from yoyackbot.output_quality import (
     OutputIssue,
@@ -24,8 +33,19 @@ from yoyackbot.output_quality import (
     topic_critique,
 )
 from yoyackbot.parser import wants_no_emoji, wants_no_rating, wants_refusal_notice
+from yoyackbot.rating_pool import (
+    filter_candidates,
+    parse_candidates,
+    parse_judgement,
+    usable_rating,
+)
 from yoyackbot.speaker_names import speaker_labels
-from yoyackbot.summary_prompt import REFUSAL_NOTICE, prompt_for, rating_prompt
+from yoyackbot.summary_prompt import (
+    REFUSAL_NOTICE,
+    prompt_for,
+    rating_candidates_prompt,
+    rating_judge_prompt,
+)
 
 
 @dataclass(frozen=True)
@@ -56,6 +76,8 @@ class CodexSummaryEngine:
         on_input_size: Callable[[int], None] | None = None,
         mode: SummaryMode = SummaryMode.SHORT,
         request_note: str | None = None,
+        recent_ratings: Sequence[str] = (),
+        tone: str | None = None,
     ) -> SummaryResult:
         included = [item for item in messages if item.message_id != trigger_message_id]
         if not included:
@@ -70,7 +92,7 @@ class CodexSummaryEngine:
             workspace = InputWorkspace.create(root, data)
             skip_rating = request_note is not None and wants_no_rating(request_note)
             result = await self.runner.execute(
-                workspace, prompt_for(mode, note=request_note, skip_rating=skip_rating)
+                workspace, prompt_for(mode, note=request_note, skip_rating=skip_rating, tone=tone)
             )
             source_bodies = [item.content for item in included]
             keys = frozenset(message_keys(sorted(
@@ -84,7 +106,7 @@ class CodexSummaryEngine:
             ):
                 retry_workspace = InputWorkspace.create(root, data)
                 result = await self.runner.execute(retry_workspace, prompt_for(
-                    mode, note=request_note, skip_rating=skip_rating,
+                    mode, note=request_note, skip_rating=skip_rating, tone=tone,
                     speaker_retry=issue is OutputIssue.SPEAKER_KEY,
                     hate_retry=issue is OutputIssue.HATE_TERM,
                     message_key_retry=issue is OutputIssue.MESSAGE_KEY,
@@ -93,7 +115,7 @@ class CodexSummaryEngine:
                 ongoing = "retried"
                 retry_workspace = InputWorkspace.create(root, data)
                 retried = await self.runner.execute(retry_workspace, prompt_for(
-                    mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True,
+                    mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True, tone=tone,
                 ))
                 if summary_issue(retried, source_bodies, keys) is None:
                     result = retried
@@ -110,21 +132,19 @@ class CodexSummaryEngine:
                 and REFUSAL_NOTICE not in body
             ):
                 body = f"{body}\n\n{REFUSAL_NOTICE}"
-            status = "present"
+            names = [*speaker_labels(included).values(), *(item.author_name for item in included)]
+            candidates = similar = 0
             if skip_rating:
                 rating, status = None, "skipped"
-            elif rating is None or narrator_mocks_ongoing(rating):
-                mocked = rating is not None
-                if mocked:
-                    ongoing = "retried"
-                status = "missing"
-                again = await self._rating_only(
-                    root, data, body, source_bodies, keys, request_note, ongoing_retry=mocked,
+            else:
+                # The summary's own line is only a fallback; ten candidates and a judge pick it.
+                own = rating if rating is not None and usable_rating(
+                    rating, source_bodies, names, keys,
+                ) else None
+                rating, status, candidates, similar = await self._pick_rating(
+                    root, data, body, source_bodies, names, keys, request_note,
+                    recent_ratings, own, tone,
                 )
-                if again is not None:
-                    rating, status = again, "retried"
-                elif mocked:
-                    status = "present"
         text = self._compose(body, rating, request_note)
         if inspect_output(text, source_bodies, keys) is not None:
             # The composed result passes the same checks; a rating that breaks it is left out.
@@ -136,10 +156,62 @@ class CodexSummaryEngine:
                 raise CodexRunError(CodexFailure.OUTPUT_INVALID)
         if narrator_mocks_ongoing(text):
             ongoing = "retried_left"
-        names = list(speaker_labels(included).values())
+        posted = split_rating(text)[1] if rating is not None else None
         return SummaryResult(
             text, self.runner.contract.model, len(included), status, ongoing, topic_critique(text),
-            name_underline(text, names),
+            name_underline(text, list(speaker_labels(included).values())),
+            rating_text=posted, rating_candidates=candidates, rating_similar=similar,
+        )
+
+    async def idiom(
+        self, messages: Sequence[MessageRecord], *, channel_name: str = "현재 채널",
+        trigger_message_id: int | None = None,
+        on_input_size: Callable[[int], None] | None = None,
+    ) -> IdiomResult:
+        """`!!말하자면`: four candidates (once more if malformed), then one pick and emoji.
+
+        No tone, rating or request note reaches these calls; at most three calls.
+        """
+        included = [item for item in messages if item.message_id != trigger_message_id]
+        if not included:
+            raise ValueError("Idiom requires at least one eligible message")
+        data = serialize_conversation(
+            included, channel_name=channel_name, range_label="최근 대화",
+            trigger_message_id=trigger_message_id, max_bytes=self.settings.max_input_bytes,
+            on_size=on_input_size,
+        )
+        names = [*speaker_labels(included).values(), *(item.author_name for item in included)]
+        root = self.settings.input_directory.absolute()
+        calls = 0
+        async with self._slots:
+            found = None
+            for retry in (False, True):
+                calls += 1
+                answer = await self.runner.execute(
+                    InputWorkspace.create(root, data), idiom_candidates_prompt(retry=retry),
+                )
+                found = parse_idiom_candidates(answer, names, salvage=retry)
+                if found is not None:
+                    break
+            if found is None:
+                raise IdiomFailed("No valid candidates")
+            lines = b"".join(json.dumps(
+                {"type": "idiom_candidate", "number": index, "term": item.term, "kind": item.kind},
+                ensure_ascii=False,
+            ).encode() + b"\n" for index, item in enumerate(found, start=1))
+            calls += 1
+            answer = await self.runner.execute(
+                InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + lines),
+                IDIOM_SELECT_PROMPT,
+            )
+        choice = parse_idiom_choice(answer, len(found))
+        if choice is None:
+            raise IdiomFailed("Invalid choice")
+        picked = found[choice[0] - 1]
+        return IdiomResult(
+            idiom_line(picked.term, choice[1]), calls,
+            sum(item.kind == "idiom" for item in found), sum(item.kind == "word" for item in found),
+            picked.kind, len(included),
         )
 
     @staticmethod
@@ -147,21 +219,63 @@ class CodexSummaryEngine:
         text = body if rating is None else f"{body}\n\n{rating}"
         return strip_emoji(text) if note is not None and wants_no_emoji(note) else text
 
-    async def _rating_only(
-        self, root: Path, data: bytes, body: str, source_bodies: Sequence[str],
-        keys: frozenset[str], note: str | None = None, *, ongoing_retry: bool = False,
-    ) -> str | None:
-        """Ask once for the closing rating alone; a bad or failed answer leaves it out."""
-        summary = json.dumps({"type": "summary", "body": body}, ensure_ascii=False).encode()
-        workspace = InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + summary + b"\n")
+    async def _ask(self, root: Path, data: bytes, extra: Sequence[dict], prompt: str) -> str | None:
+        """One auxiliary call over the conversation plus data lines; failures return None."""
+        lines = b"".join(json.dumps(item, ensure_ascii=False).encode() + b"\n" for item in extra)
+        workspace = InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + lines)
         try:
-            answer = await self.runner.execute(workspace, rating_prompt(note, ongoing_retry=ongoing_retry))
+            return await self.runner.execute(workspace, prompt)
         except CodexRunError:
             return None
-        _rest, rating = split_rating(answer)
-        if rating is None or rating_issue(rating, source_bodies, keys) is not None:
+
+    async def _candidates(
+        self, root: Path, data: bytes, context: Sequence[dict], source_bodies: Sequence[str],
+        names: Sequence[str], keys: frozenset[str], note: str | None, *, regenerate: bool,
+        tone: str | None = None,
+    ) -> list[str] | None:
+        answer = await self._ask(
+            root, data, context, rating_candidates_prompt(note, regenerate=regenerate, tone=tone),
+        )
+        if answer is None:
             return None
-        return rating
+        return filter_candidates(parse_candidates(answer), source_bodies, names, keys)
+
+    async def _pick_rating(
+        self, root: Path, data: bytes, body: str, source_bodies: Sequence[str],
+        names: Sequence[str], keys: frozenset[str], note: str | None,
+        recent: Sequence[str], own: str | None, tone: str | None = None,
+    ) -> tuple[str | None, str, int, int]:
+        """(rating, status, valid candidates, similar). At most three calls are added here."""
+        context = [{"type": "summary", "body": body},
+                   *({"type": "recent_rating", "text": item} for item in recent)]
+        found = await self._candidates(
+            root, data, context, source_bodies, names, keys, note, regenerate=False, tone=tone,
+        )
+        fallback = (own, "fallback_summary") if own is not None else (None, "missing")
+        if found is None:
+            return (*fallback, 0, 0)
+        similar = 0
+        if found:
+            answer = await self._ask(root, data, [*context, *(
+                {"type": "candidate", "number": index, "text": item}
+                for index, item in enumerate(found, start=1)
+            )], rating_judge_prompt(custom_tone=tone is not None))
+            verdict = parse_judgement(answer, len(found)) if answer is not None else None
+            if verdict is None:
+                return found[0], "fallback_first", len(found), 0
+            marked, chosen = verdict
+            similar = len(marked)
+            if chosen is not None:
+                return found[chosen - 1], "picked", len(found), similar
+            if similar < len(found):
+                remaining = [item for index, item in enumerate(found, 1) if index not in marked]
+                return remaining[0], "fallback_first", len(found), similar
+        again = await self._candidates(
+            root, data, context, source_bodies, names, keys, note, regenerate=True, tone=tone,
+        )
+        if again:
+            return again[0], "regenerated", len(again), similar
+        return (*fallback, len(found), similar)
 
 
 def summary_issue(

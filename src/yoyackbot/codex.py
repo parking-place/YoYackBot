@@ -13,7 +13,8 @@ from yoyackbot.config import Settings
 
 PINNED_CLI_VERSION = "codex-cli 0.158.0"
 REQUIRED_MODEL = "gpt-6-luna"
-REQUIRED_EFFORT = "low"
+# low is the default; operators may raise it to medium in the service environment.
+ALLOWED_EFFORTS = frozenset({"low", "medium"})
 
 
 class CodexFailure(Enum):
@@ -64,8 +65,11 @@ class CodexContract:
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "CodexContract":
-        if settings.codex_model != REQUIRED_MODEL or settings.codex_reasoning_effort != REQUIRED_EFFORT:
-            raise CodexContractError("The required GPT-6 Luna Low configuration is unavailable")
+        if (
+            settings.codex_model != REQUIRED_MODEL
+            or settings.codex_reasoning_effort not in ALLOWED_EFFORTS
+        ):
+            raise CodexContractError("The required GPT-6 Luna low/medium configuration is unavailable")
         return cls(
             resolve_executable(settings.codex_executable), settings.codex_model,
             settings.codex_reasoning_effort,

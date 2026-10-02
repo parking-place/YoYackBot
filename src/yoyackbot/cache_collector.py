@@ -108,10 +108,14 @@ class CacheOnlyCollector:
                     raise LongRangeError(LongRangeFailure.TOO_OLD)
                 start = min(request.accepted_at, max(request.start, floor))
                 # Bounded reads refuse an oversized range before the whole period is loaded.
-                selected_rows = tuple(await asyncio.to_thread(
-                    self.messages.recent, guild_id, channel_id, start, request.accepted_at,
-                    exclude_id=request.trigger_message_id, max_bytes=self.max_content_bytes,
-                ))
+                selected_rows = tuple(
+                    row for row in await asyncio.to_thread(
+                        self.messages.recent, guild_id, channel_id, start, request.accepted_at,
+                        exclude_id=request.trigger_message_id, max_bytes=self.max_content_bytes,
+                    )
+                    if request.anchor_message_id is None or row.created_at > start
+                    or row.message_id >= request.anchor_message_id
+                )
                 shortage = 0
                 searched_since = start
             else:

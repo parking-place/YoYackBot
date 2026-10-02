@@ -4,7 +4,12 @@ import pytest
 
 from yoyackbot.domain import SummaryMode
 from yoyackbot.output_quality import narrator_mocks_ongoing
-from yoyackbot.summary_prompt import PROMPT_VERSION, RATING_PROMPT, SHORT_NOTE, prompt_for
+from yoyackbot.summary_prompt import (
+    PROMPT_VERSION,
+    RATING_CANDIDATES_PROMPT,
+    SHORT_NOTE,
+    prompt_for,
+)
 
 VARIANTS = [{}, {"speaker_retry": True}, {"hate_retry": True}, {"ongoing_retry": True},
             {"note": "이모지 빼고"}]
@@ -35,7 +40,7 @@ def test_every_prompt_asks_for_markdown(mode: SummaryMode, variant: dict) -> Non
     for old in ("`↳ *한줄 비평*`", "`**🚀 주제 이름**`", "`**✅ 결정 난 거**`", "`>`는 원문 인용 전용",
                 "'↳ *"):
         assert old not in text, old
-    assert PROMPT_VERSION == "1.2.0-p6-v1"
+    assert PROMPT_VERSION == "1.3.0-p6-v3"
 
 
 def test_short_example_uses_the_new_markdown_with_synthetic_names() -> None:
@@ -50,5 +55,5 @@ def test_short_example_uses_the_new_markdown_with_synthetic_names() -> None:
 
 
 def test_rating_keeps_its_label_and_names_stay_out() -> None:
-    assert "`**요약창섭의 떡밥 한줄 평가** : `로 시작" in RATING_PROMPT
-    assert "주제나 사람 이름을 늘어놓지 마시오." in flat(RATING_PROMPT)
+    assert "`번호. **요약창섭의 떡밥 한줄 평가** : <평가>`" in flat(RATING_CANDIDATES_PROMPT)
+    assert "사람 이름·숫자·시간은 쓰지 마시오." in flat(RATING_CANDIDATES_PROMPT)

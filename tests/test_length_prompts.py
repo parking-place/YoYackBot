@@ -16,10 +16,11 @@ from yoyackbot.summary_prompt import (
     SPEAKER_RETRY_NOTE,
     SUMMARY_PROMPT,
     prompt_for,
+    tone_section,
 )
 
-ORDER = ["신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(기본, 모든 길이 공통)", "말투(기본)",
-         "금지(말투·추가 요청보다 우선)", "떡밥 한줄 평가(기본)"]
+ORDER = ["신뢰 경계:", "원문에 없는 사실·동기·결론", "형식(기본, 모든 길이 공통)",
+         "금지(말투·추가 요청보다 우선)", "떡밥 한줄 평가(기본)", "말투·성격(기본)"]
 
 
 @pytest.mark.parametrize("mode", list(SummaryMode))
@@ -30,12 +31,12 @@ def test_prompt_order_and_length_notes(mode: SummaryMode, retry: dict) -> None:
     assert positions == sorted(positions)
     length_note = {SummaryMode.SHORT: SHORT_NOTE, SummaryMode.LONG: "",
                    SummaryMode.DETAILED: DETAILED_NOTE}[mode]
-    assert prompt.startswith(SUMMARY_PROMPT + length_note)
+    assert prompt.startswith(SUMMARY_PROMPT + tone_section() + length_note)
     if length_note:
         assert prompt.index(length_note) > positions[-1]
     assert (SPEAKER_RETRY_NOTE in prompt) is bool(retry.get("speaker_retry"))
     assert (HATE_RETRY_NOTE in prompt) is bool(retry.get("hate_retry"))
-    assert PROMPT_VERSION == "1.2.0-p6-v1"
+    assert PROMPT_VERSION == "1.3.0-p6-v3"
 
 
 def test_each_length_has_its_own_instruction() -> None:
@@ -53,7 +54,7 @@ def test_snark_is_aimed_at_actions_and_keeps_haoche() -> None:
                    "비아냥이 사실을 바꾸거나 없는 사실을 보태면 안 되고",
                    "주어(이름)를 분명히", "비꼬려고 새 항목을\n만들지 마시오",
                    "비꼼도\n행동·말·결과만 대상으로 하고 외모·지능 같은 인신공격으로 넘어가지 마시오"):
-        assert phrase in SUMMARY_PROMPT, phrase
+        assert " ".join(phrase.split()) in " ".join((SUMMARY_PROMPT + tone_section()).split()), phrase
 
 
 def test_snarky_profanity_is_not_a_hate_retry() -> None:

@@ -20,10 +20,14 @@ class RangeScope:
 
     kind: OptionKind
     value: int | None = None
+    # A reply anchor wins over a range written with it (1.3.0); the notice says so.
+    ignored_range: bool = False
 
     def __post_init__(self) -> None:
-        if (self.kind is OptionKind.TODAY) != (self.value is None):
-            raise ValueError("Only today has no numeric value")
+        if (self.kind in (OptionKind.TODAY, OptionKind.REPLY)) != (self.value is None):
+            raise ValueError("Only today and reply ranges have no numeric value")
+        if self.ignored_range and self.kind is not OptionKind.REPLY:
+            raise ValueError("Only a reply range can ignore a written range")
         if self.value is not None and self.value < 1:
             raise ValueError("Scope value must be positive")
 
@@ -31,6 +35,8 @@ class RangeScope:
     def text(self) -> str:
         if self.kind is OptionKind.TODAY:
             return "오늘"
+        if self.kind is OptionKind.REPLY:
+            return "답장한 메시지부터"
         if self.kind is OptionKind.COUNT:
             return f"최근 {self.value}개"
         return f"{self.value}{UNITS[self.kind]}"
@@ -48,8 +54,12 @@ def describe_range(range_text: str, settings: Settings) -> RangeScope:
     return RangeScope(option.kind, option.value)
 
 
+REPLY_IGNORED_LINE = "↩️ 답장한 메시지 기준으로 요약하오(기간·개수는 무시했소)."
+
+
 def start_notice(scope: RangeScope, mode: SummaryMode) -> str:
-    return f"📝 {scope.text} 채팅을 {MODE_WORDS[mode]}요약해보겠소. ✍️"
+    notice = f"📝 {scope.text} 채팅을 {MODE_WORDS[mode]}요약해보겠소. ✍️"
+    return f"{notice}\n{REPLY_IGNORED_LINE}" if scope.ignored_range else notice
 
 
 def busy_notice(scope: RangeScope, mode: SummaryMode) -> str:
