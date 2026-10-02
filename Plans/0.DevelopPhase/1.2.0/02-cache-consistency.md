@@ -1,6 +1,6 @@
 # 1.2.0-P2 — 캐시 정합성·보존
 
-- 상태: **PUSH_PENDING** · 구현 완료 **0** · 검사: `T120-P2-A`~`D` **PASS**
+- 상태: **DONE** · 구현 완료 **1** · 검사: `T120-P2-A`~`D` **PASS**
 - 대상: **B03·B04·B06·B07** · 환경: 개발 LXC, 시간 제어·합성 History·격리 SQLite
 - 근거: [계약 3절](CONTRACT.md), [범위 추적표](SCOPE_MAP.md), [감사 결함](../../1.Improvements/02-bug-findings.md)
 
