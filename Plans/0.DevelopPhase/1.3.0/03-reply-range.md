@@ -1,6 +1,6 @@
 # 1.3.0-P3 — 답장으로 범위 지정
 
-- 상태: **IN_PROGRESS** · 검사: `T130-P3-A/B` · 환경: 개발 LXC, 합성(Discord 연결 없음)
+- 상태: **PUSH_PENDING** · 검사: `T130-P3-A/B` **PASS** ([증거](../evidence/1.3.0-P3.md)) · 환경: 개발 LXC, 합성(Discord 연결 없음)
 
 ## 선행 조건·작업
 
