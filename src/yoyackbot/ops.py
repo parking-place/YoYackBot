@@ -34,6 +34,7 @@ class RequestMetrics:
     rating: str = "none"
     rating_candidates: int = 0
     rating_similar: int = 0
+    tone: str = "default"
     ongoing_jab: str = "none"
     topic_critique: str = "na"
     name_underline: str = "na"
@@ -77,6 +78,7 @@ class RequestMetrics:
             } else "none",
             "rating_candidates": min(10, max(0, self.rating_candidates)),
             "rating_similar": min(10, max(0, self.rating_similar)),
+            "tone": self.tone if self.tone in {"default", "custom"} else "default",
             "ongoing_jab": self.ongoing_jab if self.ongoing_jab in {
                 "none", "retried", "retried_left"
             } else "none",

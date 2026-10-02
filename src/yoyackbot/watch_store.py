@@ -233,6 +233,12 @@ class SQLiteWatchStore:
                         "AND m.guild_id=message_reply_refs.guild_id "
                         "AND m.channel_id=message_reply_refs.channel_id)"
                     )
+                    # 1.3.0 `/말투`: a server's tone text (NULL = default). Backed up as a setting.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS guild_tones ("
+                        "guild_id INTEGER PRIMARY KEY CHECK(guild_id > 0), content TEXT, "
+                        "version INTEGER NOT NULL, updated_us INTEGER NOT NULL)"
+                    )
                     # 1.3.0: the last posted ratings per channel (model text only), not backed up.
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS recent_ratings ("
@@ -447,6 +453,7 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM backfill_progress WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM message_reply_refs WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM recent_ratings WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM guild_tones WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

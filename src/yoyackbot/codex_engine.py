@@ -68,6 +68,7 @@ class CodexSummaryEngine:
         mode: SummaryMode = SummaryMode.SHORT,
         request_note: str | None = None,
         recent_ratings: Sequence[str] = (),
+        tone: str | None = None,
     ) -> SummaryResult:
         included = [item for item in messages if item.message_id != trigger_message_id]
         if not included:
@@ -82,7 +83,7 @@ class CodexSummaryEngine:
             workspace = InputWorkspace.create(root, data)
             skip_rating = request_note is not None and wants_no_rating(request_note)
             result = await self.runner.execute(
-                workspace, prompt_for(mode, note=request_note, skip_rating=skip_rating)
+                workspace, prompt_for(mode, note=request_note, skip_rating=skip_rating, tone=tone)
             )
             source_bodies = [item.content for item in included]
             keys = frozenset(message_keys(sorted(
@@ -96,7 +97,7 @@ class CodexSummaryEngine:
             ):
                 retry_workspace = InputWorkspace.create(root, data)
                 result = await self.runner.execute(retry_workspace, prompt_for(
-                    mode, note=request_note, skip_rating=skip_rating,
+                    mode, note=request_note, skip_rating=skip_rating, tone=tone,
                     speaker_retry=issue is OutputIssue.SPEAKER_KEY,
                     hate_retry=issue is OutputIssue.HATE_TERM,
                     message_key_retry=issue is OutputIssue.MESSAGE_KEY,
@@ -105,7 +106,7 @@ class CodexSummaryEngine:
                 ongoing = "retried"
                 retry_workspace = InputWorkspace.create(root, data)
                 retried = await self.runner.execute(retry_workspace, prompt_for(
-                    mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True,
+                    mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True, tone=tone,
                 ))
                 if summary_issue(retried, source_bodies, keys) is None:
                     result = retried
@@ -133,7 +134,7 @@ class CodexSummaryEngine:
                 ) else None
                 rating, status, candidates, similar = await self._pick_rating(
                     root, data, body, source_bodies, names, keys, request_note,
-                    recent_ratings, own,
+                    recent_ratings, own, tone,
                 )
         text = self._compose(body, rating, request_note)
         if inspect_output(text, source_bodies, keys) is not None:
@@ -170,9 +171,10 @@ class CodexSummaryEngine:
     async def _candidates(
         self, root: Path, data: bytes, context: Sequence[dict], source_bodies: Sequence[str],
         names: Sequence[str], keys: frozenset[str], note: str | None, *, regenerate: bool,
+        tone: str | None = None,
     ) -> list[str] | None:
         answer = await self._ask(
-            root, data, context, rating_candidates_prompt(note, regenerate=regenerate),
+            root, data, context, rating_candidates_prompt(note, regenerate=regenerate, tone=tone),
         )
         if answer is None:
             return None
@@ -181,13 +183,13 @@ class CodexSummaryEngine:
     async def _pick_rating(
         self, root: Path, data: bytes, body: str, source_bodies: Sequence[str],
         names: Sequence[str], keys: frozenset[str], note: str | None,
-        recent: Sequence[str], own: str | None,
+        recent: Sequence[str], own: str | None, tone: str | None = None,
     ) -> tuple[str | None, str, int, int]:
         """(rating, status, valid candidates, similar). At most three calls are added here."""
         context = [{"type": "summary", "body": body},
                    *({"type": "recent_rating", "text": item} for item in recent)]
         found = await self._candidates(
-            root, data, context, source_bodies, names, keys, note, regenerate=False,
+            root, data, context, source_bodies, names, keys, note, regenerate=False, tone=tone,
         )
         fallback = (own, "fallback_summary") if own is not None else (None, "missing")
         if found is None:
@@ -197,7 +199,7 @@ class CodexSummaryEngine:
             answer = await self._ask(root, data, [*context, *(
                 {"type": "candidate", "number": index, "text": item}
                 for index, item in enumerate(found, start=1)
-            )], rating_judge_prompt())
+            )], rating_judge_prompt(custom_tone=tone is not None))
             verdict = parse_judgement(answer, len(found)) if answer is not None else None
             if verdict is None:
                 return found[0], "fallback_first", len(found), 0
@@ -209,7 +211,7 @@ class CodexSummaryEngine:
                 remaining = [item for index, item in enumerate(found, 1) if index not in marked]
                 return remaining[0], "fallback_first", len(found), similar
         again = await self._candidates(
-            root, data, context, source_bodies, names, keys, note, regenerate=True,
+            root, data, context, source_bodies, names, keys, note, regenerate=True, tone=tone,
         )
         if again:
             return again[0], "regenerated", len(again), similar

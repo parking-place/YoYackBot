@@ -29,7 +29,13 @@ from yoyackbot.input_files import InputWorkspace
 from yoyackbot.parser import USAGE_NOTICE, CommandSyntaxError, parse_summary_command
 from yoyackbot.range_request import resolve_range
 from yoyackbot.state import ChannelStates
-from yoyackbot.summary_prompt import DETAILED_NOTE, SHORT_NOTE, SUMMARY_PROMPT, prompt_for
+from yoyackbot.summary_prompt import (
+    DETAILED_NOTE,
+    SHORT_NOTE,
+    SUMMARY_PROMPT,
+    prompt_for,
+    tone_section,
+)
 from yoyackbot.workflow import BUSY_NOTICE, SummaryWorkflow
 
 SETTINGS = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
@@ -150,12 +156,14 @@ def engine_settings(tmp_path: Path) -> Settings:
 def test_prompt_notes_are_trusted_constants() -> None:
     from yoyackbot.summary_prompt import REQUEST_PRIORITY_NOTE
 
-    assert prompt_for(SummaryMode.LONG) == SUMMARY_PROMPT + REQUEST_PRIORITY_NOTE
-    assert prompt_for(SummaryMode.DETAILED) == SUMMARY_PROMPT + DETAILED_NOTE + REQUEST_PRIORITY_NOTE
-    assert prompt_for(SummaryMode.SHORT) == SUMMARY_PROMPT + SHORT_NOTE + REQUEST_PRIORITY_NOTE
+    assert prompt_for(SummaryMode.LONG) == SUMMARY_PROMPT + tone_section() + REQUEST_PRIORITY_NOTE
+    assert prompt_for(SummaryMode.DETAILED) == (
+        SUMMARY_PROMPT + tone_section() + DETAILED_NOTE + REQUEST_PRIORITY_NOTE
+    )
+    assert prompt_for(SummaryMode.SHORT) == SUMMARY_PROMPT + tone_section() + SHORT_NOTE + REQUEST_PRIORITY_NOTE
     assert "내용만 1~2줄" in SHORT_NOTE and "내용만 1~2줄" not in DETAILED_NOTE
     retry = prompt_for(SummaryMode.DETAILED, speaker_retry=True)
-    assert retry.startswith(SUMMARY_PROMPT + DETAILED_NOTE) and "P1/P2" in retry
+    assert retry.startswith(SUMMARY_PROMPT + tone_section() + DETAILED_NOTE) and "P1/P2" in retry
 
 
 @pytest.mark.parametrize("mode", list(SummaryMode))

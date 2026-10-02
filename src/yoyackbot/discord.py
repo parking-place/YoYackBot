@@ -64,6 +64,8 @@ from yoyackbot.reply_refs import reply_target
 from yoyackbot.role_config import install_role_commands
 from yoyackbot.scope import RangeScope, describe_range
 from yoyackbot.status_report import StatusReport, collect_status, status_message
+from yoyackbot.tone import SQLiteToneStore
+from yoyackbot.tone_config import install_tone_command
 from yoyackbot.usage import (
     USAGE_UNAVAILABLE_NOTICE,
     UsageSnapshot,
@@ -195,6 +197,10 @@ class YoYackClient(discord.Client):
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
         install_role_commands(self.tree, self.manager_roles)
+        if settings is not None and isinstance(self.watch_store, SQLiteWatchStore):
+            install_tone_command(
+                self.tree, SQLiteToneStore(settings.database_path), self.manager_roles,
+            )
 
     async def setup_hook(self) -> None:
         if self.settings is not None:

@@ -32,6 +32,7 @@ from yoyackbot.range_collection import CollectionError
 from yoyackbot.rating_pool import SQLiteRecentRatings
 from yoyackbot.scope import busy_notice, start_notice
 from yoyackbot.state import AdmissionKind, ChannelStates
+from yoyackbot.tone import SQLiteToneStore
 from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
 from yoyackbot.watch_gate import ChannelLease
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
@@ -58,6 +59,7 @@ class SummaryWorkflow:
     queue: SummaryJobQueue | None = None
     readiness: Callable[[int, int], Awaitable[bool]] | None = None
     ratings: SQLiteRecentRatings | None = None
+    tones: SQLiteToneStore | None = None
     closing: bool = False
     _jobs: set[asyncio.Task] = field(default_factory=set, init=False, repr=False)
 
@@ -70,6 +72,7 @@ class SummaryWorkflow:
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
         can_continue: Callable[[], Awaitable[bool]], recent_ratings: Sequence[str] = (),
+        tone: str | None = None,
     ) -> SummaryResult:
         if self.queue is not None:
             waiting_since = time.monotonic()
@@ -86,11 +89,13 @@ class SummaryWorkflow:
                     messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
                     mode=mode, request_note=request_note, channel=channel, lease=lease,
                     metrics=metrics, can_continue=can_continue, recent_ratings=recent_ratings,
+                    tone=tone,
                 )
         return await self._run_model_guarded(
             messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
             mode=mode, request_note=request_note, channel=channel, lease=lease,
             metrics=metrics, can_continue=can_continue, recent_ratings=recent_ratings,
+            tone=tone,
         )
 
     async def _run_model_guarded(
@@ -98,6 +103,7 @@ class SummaryWorkflow:
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
         can_continue: Callable[[], Awaitable[bool]], recent_ratings: Sequence[str] = (),
+        tone: str | None = None,
     ) -> SummaryResult:
         if not await can_continue():
             raise JobInvalidated
@@ -106,7 +112,7 @@ class SummaryWorkflow:
             messages, channel_name=channel_name, range_label="선택한 대화",
             trigger_message_id=trigger_message_id, mode=mode, request_note=request_note,
             on_input_size=lambda size: setattr(metrics, "input_bytes", size),
-            recent_ratings=tuple(recent_ratings),
+            recent_ratings=tuple(recent_ratings), tone=tone,
         ))
         try:
             while True:
@@ -130,6 +136,17 @@ class SummaryWorkflow:
         except sqlite3.Error:
             LOGGER.warning("recent_rating_read_failed")
             return ()
+
+    async def _tone(self, guild_id: int, metrics: RequestMetrics) -> str | None:
+        """This server's tone; an unreadable store falls back to the default tone."""
+        tone = None
+        if self.tones is not None:
+            try:
+                tone = await asyncio.to_thread(self.tones.get, guild_id)
+            except sqlite3.Error:
+                LOGGER.warning("tone_read_failed")
+        metrics.tone = "default" if tone is None else "custom"
+        return tone
 
     async def shutdown(self) -> None:
         self.closing = True
@@ -267,6 +284,7 @@ class SummaryWorkflow:
                 mode=request.mode, request_note=request.request_note, channel=channel,
                 lease=lease, metrics=metrics, can_continue=can_continue,
                 recent_ratings=await self._recent_ratings(guild_id, channel_id),
+                tone=await self._tone(guild_id, metrics),
             )
             metrics.model_result = "success"
             metrics.rating = result.rating
@@ -400,4 +418,5 @@ def build_workflow(
         ratings=SQLiteRecentRatings(
             settings.database_path, retention_days=settings.cache_retention_days, clock=clock,
         ),
+        tones=SQLiteToneStore(settings.database_path),
     )

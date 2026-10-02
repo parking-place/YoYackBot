@@ -9,6 +9,7 @@ from yoyackbot.summary_prompt import (
     SUMMARY_PROMPT,
     prompt_for,
     rating_candidates_prompt,
+    tone_section,
 )
 
 PROMPTS = [
@@ -61,7 +62,7 @@ def test_decision_only_without_decisions_is_calm() -> None:
 
 
 def test_snark_targets_actual_words_and_deeds() -> None:
-    text = flat(SUMMARY_PROMPT)
+    text = flat(SUMMARY_PROMPT + tone_section())
     assert "말바꿈·헛짚음·딴소리·호들갑·뻔한 소리를 마음껏 비꼬고 빈정거리시오" in text
     assert "질질 끈다·미뤘다· 제자리걸음·흐지부지·끝맺음이 싱겁다 같은 말 금지" in text
 

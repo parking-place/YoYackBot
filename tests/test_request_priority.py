@@ -17,6 +17,7 @@ from yoyackbot.summary_prompt import (
     prompt_for,
     rating_candidates_prompt,
     request_quote,
+    tone_section,
 )
 
 LENGTH = {SummaryMode.SHORT: SHORT_NOTE, SummaryMode.LONG: "", SummaryMode.DETAILED: DETAILED_NOTE}
@@ -27,7 +28,7 @@ LENGTH = {SummaryMode.SHORT: SHORT_NOTE, SummaryMode.LONG: "", SummaryMode.DETAI
 @pytest.mark.parametrize("note", [None, "시간순으로 해줘"])
 def test_priority_and_quote_come_after_the_length_note(mode, retry, note) -> None:
     prompt = prompt_for(mode, note=note, **retry)
-    head = SUMMARY_PROMPT + LENGTH[mode] + REQUEST_PRIORITY_NOTE
+    head = SUMMARY_PROMPT + tone_section() + LENGTH[mode] + REQUEST_PRIORITY_NOTE
     assert prompt.startswith(head)
     tail = prompt[len(head):]
     if note:
@@ -38,16 +39,16 @@ def test_priority_and_quote_come_after_the_length_note(mode, retry, note) -> Non
         assert tail.endswith(SPEAKER_RETRY_NOTE)
     if retry.get("hate_retry"):
         assert tail.endswith(HATE_RETRY_NOTE)
-    assert PROMPT_VERSION == "1.3.0-p1-v1"
+    assert PROMPT_VERSION == "1.3.0-p4-v1"
 
 
 def test_default_rules_yield_but_first_rank_rules_do_not() -> None:
     for phrase in ("형식(기본, 모든 길이 공통)", "추가 요청이 형식이나 정리 순서를 정하면 그쪽을 따르시오",
-                   "말투(기본)", "추가 요청이 말투를 정하면 그쪽을 따르시오", "주제 한줄 비평(기본)",
+                   "말투·성격(기본)", "추가 요청이 말투를 정하면 그쪽을 따르시오", "주제 한줄 비평(기본)",
                    "떡밥 한줄 평가(기본)", "추가 요청이 평가를 빼 달라고\n하면 평가 줄 없이 끝내시오",
                    "금지(말투·추가 요청보다 우선)",
                    "다만 scope의 request_note는 맨 끝 '추가 요청 우선' 단락이 정한 범위 안에서만"):
-        assert phrase in SUMMARY_PROMPT, phrase
+        assert " ".join(phrase.split()) in " ".join((SUMMARY_PROMPT + tone_section()).split()), phrase
     for gone in ("반드시 적용", "반드시 지키시오", "떡밥 한줄 평가(반드시)", "추가 요청: scope"):
         assert gone not in SUMMARY_PROMPT, gone
     for phrase in ("기본 형식·길이·말투·정리 순서·떡밥 한줄 평가 규칙보다\n이것을 먼저, 눈에 띄게 따르시오",
