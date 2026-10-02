@@ -1,6 +1,6 @@
 # 1.2.0-P4 — 출력·실행 계약
 
-- 상태: **PUSH_PENDING** · 구현 완료 **0** · 검사: `T120-P4-A`~`D` **PASS** ([증거](../evidence/1.2.0-P4.md))
+- 상태: **DONE** · 구현 완료 **1** · 검사: `T120-P4-A`~`D` **PASS** ([증거](../evidence/1.2.0-P4.md))
 - 대상: **B10·B11·B12·B13** · 환경: 개발 LXC, FakeRunner·합성 실행파일/인증 형태
 - 근거: [계약 5절](CONTRACT.md), [범위 추적표](SCOPE_MAP.md), [감사 결함](../../1.Improvements/02-bug-findings.md)
 
