@@ -1,6 +1,6 @@
 # 1.2.0 — 버그 수정·수집 진행 상태·범위 안 답글 연결
 
-- 상태: **IN_PROGRESS** · 계획 **7단계 / 구현 완료 4단계**
+- 상태: **IN_PROGRESS** · 계획 **7단계 / 구현 완료 5단계**
 - 선행 제품: [1.1.3a](../1.1.3a/STATUS.md), 패키지 `1.1.3.1`
 - 계획 브랜치: `new-1.2.0` · 후속 구현 브랜치: `develop/1.2.0`
 - 근거: [Improvements 감사](../../1.Improvements/README.md), [범위 추적표](SCOPE_MAP.md)
@@ -21,7 +21,7 @@ F10은 이미 선택된 대화 안에서 질문과 답변 관계를 전달하는
 | 2 | [P2 캐시 정합성·보존](02-cache-consistency.md) | B03·B04·B06·B07 | `T120-P2-A`~`D` | DONE |
 | 3 | [P3 백필 복구·조회 한도](03-worker-memory.md) | B05·B08 | `T120-P3-A`~`D` | DONE |
 | 4 | [P4 출력·실행 계약](04-output-runtime.md) | B10·B11·B12·B13 | `T120-P4-A`~`D` | DONE |
-| 5 | [P5 수집 진행·차단 원인](05-collection-progress.md) | F02 | `T120-P5-A`~`D` | PUSH_PENDING |
+| 5 | [P5 수집 진행·차단 원인](05-collection-progress.md) | F02 | `T120-P5-A`~`D` | DONE |
 | 6 | [P6 범위 안 답글 연결](06-reply-context.md) | F10 | `T120-P6-A`~`D` | PLANNED |
 | 7 | [P7 통합·복귀·출시](07-integration-release.md) | 전체 회귀·운영 확인 | `T120-P7-A`~`D` | PLANNED |
 
