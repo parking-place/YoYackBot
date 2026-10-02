@@ -9,12 +9,12 @@ from dataclasses import dataclass, field
 import discord
 
 from yoyackbot.backfill import NOT_READY_NOTICE, SQLiteBackfillStore
-from yoyackbot.cache_collector import BackfillNotReady, CacheOnlyCollector
+from yoyackbot.cache_collector import BackfillNotReady, CacheCollectionOutcome, CacheOnlyCollector
 from yoyackbot.channel_config import valid_channel
 from yoyackbot.codex import CodexFailure
 from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
-from yoyackbot.collection import EMPTY_NOTICE, CollectionUnavailable
+from yoyackbot.collection import EMPTY_NOTICE, CollectionOutcome, CollectionUnavailable
 from yoyackbot.config import Settings
 from yoyackbot.cooldown import SQLiteCooldownStore, cooldown_notice
 from yoyackbot.count_collection import CountError
@@ -66,6 +66,7 @@ class SummaryWorkflow:
         self, messages: Sequence[MessageRecord], *, channel_name: str,
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
+        can_continue: Callable[[], Awaitable[bool]],
     ) -> SummaryResult:
         if self.queue is not None:
             waiting_since = time.monotonic()
@@ -76,24 +77,27 @@ class SummaryWorkflow:
             finally:
                 metrics.queue_ms = max(0, round((time.monotonic() - waiting_since) * 1000))
             async with slot:
-                if not await self._channel_ready(channel, lease):
+                if not await can_continue():
                     raise JobInvalidated
                 return await self._run_model_guarded(
                     messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
                     mode=mode, request_note=request_note, channel=channel, lease=lease,
-                    metrics=metrics,
+                    metrics=metrics, can_continue=can_continue,
                 )
         return await self._run_model_guarded(
             messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
             mode=mode, request_note=request_note, channel=channel, lease=lease,
-                    metrics=metrics,
+            metrics=metrics, can_continue=can_continue,
         )
 
     async def _run_model_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
+        can_continue: Callable[[], Awaitable[bool]],
     ) -> SummaryResult:
+        if not await can_continue():
+            raise JobInvalidated
         model_started = time.monotonic()
         model = asyncio.create_task(self.engine.summarize(
             messages, channel_name=channel_name, range_label="선택한 대화",
@@ -105,7 +109,7 @@ class SummaryWorkflow:
                 done, _ = await asyncio.wait({model}, timeout=0.5)
                 if done:
                     return await model
-                if not await self._channel_ready(channel, lease):
+                if not await can_continue():
                     raise JobInvalidated
         finally:
             metrics.model_ms = max(0, round((time.monotonic() - model_started) * 1000))
@@ -207,8 +211,18 @@ class SummaryWorkflow:
             if admission.job is not None:
                 admission.job.announced.set()
 
+            outcome: CollectionOutcome | None = None
+
             async def can_continue() -> bool:
-                return await self._channel_ready(channel, lease)
+                if not await self._channel_ready(channel, lease):
+                    return False
+                if self.readiness is not None and not await self.readiness(guild_id, channel_id):
+                    raise BackfillNotReady("Cache or Gateway is no longer ready")
+                if isinstance(outcome, CacheCollectionOutcome):
+                    await self.collector.validate_selection(
+                        guild_id, channel_id, outcome.cache_generation, outcome.messages,
+                    )
+                return True
 
             collecting_since = time.monotonic()
             try:
@@ -237,7 +251,7 @@ class SummaryWorkflow:
                 outcome.messages, channel_name=channel.name,
                 trigger_message_id=request.requested_range.trigger_message_id,
                 mode=request.mode, request_note=request.request_note, channel=channel,
-                lease=lease, metrics=metrics,
+                lease=lease, metrics=metrics, can_continue=can_continue,
             )
             metrics.model_result = "success"
             metrics.rating = result.rating
@@ -246,7 +260,12 @@ class SummaryWorkflow:
             metrics.name_underline = result.name_underline
             if not await can_continue():
                 raise JobInvalidated
-            receipt = await self.publisher.publish(request, result, outcome.messages)
+            if isinstance(self.publisher, DiscordSummaryPublisher):
+                receipt = await self.publisher.publish(
+                    request, result, outcome.messages, can_continue=can_continue,
+                )
+            else:
+                receipt = await self.publisher.publish(request, result, outcome.messages)
             metrics.post_result = "success"
             await self.states.finish_success(guild_id, channel_id, receipt.last_success_at)
             metrics.outcome = "success"
@@ -327,20 +346,30 @@ def build_workflow(
     settings: Settings, client: discord.Client,
     watches: SQLiteWatchStore, messages: SQLiteMessageStore,
 ) -> SummaryWorkflow:
+    clock = getattr(client, "clock", None)
     collector = CacheOnlyCollector(
-        watches, messages, SQLiteBackfillStore(settings.database_path),
+        watches, messages, SQLiteBackfillStore(
+            settings.database_path, retention_days=settings.cache_retention_days, clock=clock,
+        ),
         retention_days=settings.cache_retention_days, max_days=settings.max_days,
         max_count=settings.max_messages, max_content_bytes=settings.max_input_bytes,
+        clock=clock,
     )
+
+    async def ready(guild_id: int, channel_id: int) -> bool:
+        if not getattr(client, "cache_available", lambda: True)():
+            return False
+        return await collector.ready(guild_id, channel_id)
+
     return SummaryWorkflow(
         collector, CodexSummaryEngine.from_settings(settings),
-        DiscordSummaryPublisher(client, watches, settings),
+        DiscordSummaryPublisher(client, watches, settings, clock=collector.clock),
         ChannelStates(SQLiteCooldownStore(
             settings.database_path, duration_seconds=settings.success_cooldown_seconds
-        )),
+        ), clock=collector.clock),
         SummaryJobQueue(
             concurrency=settings.codex_concurrency, capacity=settings.queue_capacity,
             wait_seconds=settings.queue_wait_seconds,
         ),
-        readiness=collector.ready,
+        readiness=ready,
     )

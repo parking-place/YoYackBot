@@ -44,7 +44,7 @@ def setup(tmp_path, history, **limits):
     path = tmp_path / "messages.db"
     watches = SQLiteWatchStore(path)
     watches.replace(1, frozenset({10}))
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     recent = TimeRangeCollector(store, watches, history, clock=lambda: NOW)
     collector = LongRangeCollector(recent, history, **{
         "retention_days": 7, "max_days": 28, **limits,

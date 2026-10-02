@@ -162,6 +162,29 @@ def test_migrated_watch_has_no_first_watch_announcement(tmp_path) -> None:
     asyncio.run(scenario())
 
 
+def test_ready_notice_does_not_cross_a_recheck_generation(tmp_path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "messages.db"
+        SQLiteWatchStore(path).replace(1, frozenset({99}))
+        store = SQLiteBackfillStore(path)
+        state = store.get(1, 99)
+        now = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=state.started_us)
+        clock = lambda: now + timedelta(seconds=1)
+        worker = InitialBackfill(store, EmptyPages(), clock=clock)
+        for _ in range(2):
+            assert await worker.step(FakeChannel(clock), store.get(1, 99))
+        stale_ready = store.get(1, 99)
+        assert stale_ready.ready
+        store.schedule_ready_recheck(end=clock())
+        channel = FakeChannel(clock)
+        notifier = BackfillNotifier(store, bot_user_id=lambda: 42, clock=clock)
+        assert not await notifier.ensure(channel, stale_ready, ready=True)
+        assert not store.record_notice(stale_ready, ready=True, message_id=999)
+        assert channel.sent == []
+
+    asyncio.run(scenario())
+
+
 def test_summary_waits_without_model_or_cooldown_while_help_remains_available(tmp_path) -> None:
     async def scenario() -> None:
         path = tmp_path / "messages.db"

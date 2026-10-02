@@ -121,6 +121,17 @@ class SQLiteWatchStore:
                         connection.execute("PRAGMA user_version=5")
                 # Optional to schema 5 so the released 1.0.0a reader can be restored.
                 with connection:
+                    # A single logical observation clock survives deletion of the newest row.
+                    # It carries no message/channel data and is excluded from settings backups.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS cache_observation_clock ("
+                        "singleton INTEGER PRIMARY KEY CHECK(singleton=1), "
+                        "last_us INTEGER NOT NULL)"
+                    )
+                    connection.execute(
+                        "CREATE INDEX IF NOT EXISTS messages_guild_channel_observed "
+                        "ON messages(guild_id, channel_id, cached_at_us)"
+                    )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS backfill_state ("
                         "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "

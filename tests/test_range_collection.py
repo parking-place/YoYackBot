@@ -56,7 +56,7 @@ def setup_store(tmp_path):
     path = tmp_path / "messages.db"
     watches = SQLiteWatchStore(path)
     watches.replace(1, frozenset({10}))
-    return SQLiteMessageStore(path), watches
+    return SQLiteMessageStore(path, clock=lambda: NOW), watches
 
 
 def test_overlap_fetches_only_two_gaps_then_zero(tmp_path) -> None:

@@ -137,11 +137,18 @@ class YoYackClient(discord.Client):
         self.dev_guild_id = dev_guild_id
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(UTC))
+        if self.message_store is not None:
+            self.message_store.clock = self.clock
+            if settings is not None:
+                self.message_store.retention_days = settings.cache_retention_days
         self.summary_workflow = summary_workflow
         self.usage_reader = usage_reader
         self._usage_lock = asyncio.Lock()
         self.backfill_store = (
-            SQLiteBackfillStore(settings.database_path)
+            SQLiteBackfillStore(
+                settings.database_path, retention_days=settings.cache_retention_days,
+                clock=self.clock,
+            )
             if settings is not None and isinstance(self.watch_store, SQLiteWatchStore)
             and message_store is not None else None
         )
@@ -161,6 +168,8 @@ class YoYackClient(discord.Client):
         self._cleanup_task: asyncio.Task[None] | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._disconnected_at: datetime | None = None
+        self._cache_recheck_pending = False
+        self._connection_generation = 0
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
@@ -171,15 +180,14 @@ class YoYackClient(discord.Client):
             self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         if self.message_store is not None and self.settings is not None:
             await self._prune_once()
-            await self._mark_recheck("startup")
+            if self.backfill_store is None:
+                await self._mark_recheck("startup")
             self._cleanup_task = asyncio.create_task(self._prune_loop())
         if self.backfill_store is not None:
             seeded = await asyncio.to_thread(self.backfill_store.ensure_existing)
             LOGGER.info("initial_backfill_seeded count=%d", seeded)
-            gaps = await asyncio.to_thread(
-                self.backfill_store.schedule_ready_recheck, end=self.clock()
-            )
-            LOGGER.info("initial_backfill_recheck_scheduled count=%d", gaps)
+            self._cache_recheck_pending = True
+            await self._schedule_backfill_gap(self.clock())
             self._backfill_task = asyncio.create_task(self._backfill_loop())
         if self.dev_guild_id is not None:
             await self._sync_guild_commands(discord.Object(id=self.dev_guild_id))
@@ -196,13 +204,13 @@ class YoYackClient(discord.Client):
         LOGGER.info("commands_synced count=%d", len(commands))
 
     async def on_ready(self) -> None:
+        generation = self._connection_generation
         self.connection_count += 1
         await self._resume_accessible_backfills()
-        if self._disconnected_at is not None:
-            await self._schedule_backfill_gap(self._disconnected_at)
-            await self._mark_recheck("gateway_gap")
-            self._disconnected_at = None
-        self.ready_event.set()
+        if self._disconnected_at is not None or self._cache_recheck_pending:
+            await self._schedule_backfill_gap(self._disconnected_at or self.clock())
+        if generation == self._connection_generation:
+            self.ready_event.set()
         self._write_heartbeat()
         LOGGER.info("gateway_ready guild_count=%d", len(self.guilds))
         if self.dev_guild_id is not None:
@@ -220,20 +228,26 @@ class YoYackClient(discord.Client):
                 LOGGER.warning("guild_commands_sync_failed")
 
     async def on_resumed(self) -> None:
+        generation = self._connection_generation
         LOGGER.info("gateway_resumed")
         await self._resume_accessible_backfills()
-        if self._disconnected_at is not None:
-            await self._schedule_backfill_gap(self._disconnected_at)
-            await self._mark_recheck("gateway_gap")
-            self._disconnected_at = None
-        self.ready_event.set()
+        if self._disconnected_at is not None or self._cache_recheck_pending:
+            await self._schedule_backfill_gap(self._disconnected_at or self.clock())
+        if generation == self._connection_generation:
+            self.ready_event.set()
         self._write_heartbeat()
 
     async def on_disconnect(self) -> None:
+        self._connection_generation += 1
         LOGGER.info("gateway_disconnected")
         self.ready_event.clear()
         self._write_heartbeat()
-        self._disconnected_at = self.clock()
+        self._disconnected_at = self._disconnected_at or self.clock()
+        self._cache_recheck_pending = True
+
+    def cache_available(self) -> bool:
+        """A failed gap reservation or an active disconnect cannot allow summaries."""
+        return not self._cache_recheck_pending and self._disconnected_at is None
 
     async def close(self) -> None:
         self.ready_event.clear()
@@ -276,9 +290,9 @@ class YoYackClient(discord.Client):
         except MessageStoreError:
             LOGGER.warning("cache_cleanup_failed")
 
-    async def _mark_recheck(self, reason: str) -> None:
+    async def _mark_recheck(self, reason: str) -> bool:
         if self.message_store is None or self.settings is None:
-            return
+            return True
         end = self.clock()
         start = end - timedelta(days=self.settings.cache_retention_days)
         try:
@@ -288,10 +302,20 @@ class YoYackClient(discord.Client):
             LOGGER.info("cache_recheck_marked count=%d reason=%s", count, reason)
         except MessageStoreError:
             LOGGER.warning("cache_recheck_mark_failed")
+            return False
+        return True
 
-    async def _schedule_backfill_gap(self, disconnected_at: datetime) -> None:
+    async def _schedule_backfill_gap(self, disconnected_at: datetime) -> bool:
+        self._cache_recheck_pending = True
+        generation = self._connection_generation
         if self.backfill_store is None:
-            return
+            if not await self._mark_recheck("gateway_gap"):
+                return False
+            if generation != self._connection_generation:
+                return False
+            self._cache_recheck_pending = False
+            self._disconnected_at = None
+            return True
         try:
             count = await asyncio.to_thread(
                 self.backfill_store.schedule_ready_recheck,
@@ -300,6 +324,12 @@ class YoYackClient(discord.Client):
             LOGGER.info("backfill_gap_scheduled count=%d", count)
         except BackfillError:
             LOGGER.warning("backfill_gap_schedule_failed")
+            return False
+        if generation != self._connection_generation:
+            return False
+        self._cache_recheck_pending = False
+        self._disconnected_at = None
+        return True
 
     async def _resume_accessible_backfills(self) -> None:
         if self.backfill_store is None:
@@ -352,6 +382,11 @@ class YoYackClient(discord.Client):
         assert self.backfill_notifier is not None and self.backfill_scheduler is not None
         while True:
             await self.ready_event.wait()
+            if self._cache_recheck_pending and not await self._schedule_backfill_gap(
+                self._disconnected_at or self.clock()
+            ):
+                await asyncio.sleep(5)
+                continue
             try:
                 pending = await asyncio.to_thread(self.backfill_store.pending, self.clock())
             except BackfillError:
@@ -440,6 +475,18 @@ class YoYackClient(discord.Client):
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if classify_message(after) is not MessageClass.HUMAN_TEXT or after.guild is None:
             return
+        if self.message_store is not None and after.edited_at is None:
+            if getattr(before, "content", None) == after.content:
+                return
+            try:
+                await asyncio.to_thread(
+                    self.message_store.update_content,
+                    after.guild.id, after.channel.id, after.id, after.content,
+                    edited_at=None, cached_at=self.clock(),
+                )
+            except MessageStoreError:
+                LOGGER.warning("message_edit_sync_failed")
+            return
         await self.watch_gate.ingest(
             after.guild.id,
             after.channel.id,
@@ -455,11 +502,11 @@ class YoYackClient(discord.Client):
             return
         raw_edited = payload.data.get("edited_timestamp")
         try:
-            edited_at = datetime.fromisoformat(raw_edited) if isinstance(raw_edited, str) else self.clock()
+            edited_at = datetime.fromisoformat(raw_edited) if isinstance(raw_edited, str) else None
         except ValueError:
-            edited_at = self.clock()
-        if edited_at.tzinfo is None:
-            edited_at = self.clock()
+            edited_at = None
+        if edited_at is not None and edited_at.tzinfo is None:
+            edited_at = None
         try:
             await asyncio.to_thread(
                 self.message_store.update_content,
@@ -554,13 +601,15 @@ class YoYackClient(discord.Client):
                     return
                 if self.backfill_store is not None:
                     try:
-                        backfill = await asyncio.to_thread(
-                            self.backfill_store.get, message.guild.id, message.channel.id
+                        backfill, _generation, pending = await asyncio.to_thread(
+                            self.backfill_store.readiness_snapshot,
+                            message.guild.id, message.channel.id,
+                            cutoff=self.clock() - timedelta(days=self.settings.cache_retention_days),
                         )
                     except BackfillError:
                         await send_notice(UNAVAILABLE_NOTICE)
                         return
-                    if not summary_ready(backfill):
+                    if not self.cache_available() or pending or not summary_ready(backfill):
                         await send_notice(NOT_READY_NOTICE)
                         return
                 try:

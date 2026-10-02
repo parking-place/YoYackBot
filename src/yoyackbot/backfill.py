@@ -14,6 +14,7 @@ from pathlib import Path
 import discord
 from aiohttp import ClientError
 
+from yoyackbot.backfill_state import reset_recheck
 from yoyackbot.domain import MessageRecord
 from yoyackbot.history import DiscordHistorySource, HistoryPageSource
 from yoyackbot.message_store import SQLiteMessageStore, _microseconds
@@ -112,7 +113,7 @@ class BackfillState:
 
 def summary_ready(state: BackfillState | None) -> bool:
     """Ready only after the full collection or gap recheck and any first-watch ready notice."""
-    return state is not None and state.ready and not (
+    return state is not None and state.ready and state.blocked_reason is None and not (
         state.first_watch and state.ready_notice_id is None
     )
 
@@ -120,8 +121,15 @@ def summary_ready(state: BackfillState | None) -> bool:
 class SQLiteBackfillStore:
     """Share the watch database so page records and cursor commit atomically."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(
+        self, path: Path, *, retention_days: int = 30,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        if not 1 <= retention_days <= 30:
+            raise ValueError("Retention must be between 1 and 30 days")
         self.watches = SQLiteWatchStore(path)
+        self.retention_days = retention_days
+        self.clock = clock or (lambda: datetime.now(UTC))
 
     @staticmethod
     def _state(row: tuple) -> BackfillState:
@@ -175,7 +183,20 @@ class SQLiteBackfillStore:
 
     def pending(self, now: datetime, *, limit: int = 20) -> tuple[BackfillState, ...]:
         try:
-            with self.watches._connection() as connection:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                # Consume recheck rows left by an older writer or a previous startup too.
+                stale = connection.execute(
+                    "SELECT b.guild_id, b.channel_id FROM backfill_state b "
+                    "WHERE b.phase='ready' AND EXISTS (SELECT 1 FROM coverage_recheck c "
+                    "WHERE c.guild_id=b.guild_id AND c.channel_id=b.channel_id AND c.end_us>?)",
+                    (_us(now - timedelta(days=self.retention_days)),),
+                ).fetchall()
+                for guild_id, channel_id in stale:
+                    reset_recheck(
+                        connection, guild_id, channel_id, now=now,
+                        retention_days=self.retention_days, reason="pending",
+                    )
                 rows = connection.execute(
                     self._select() + "WHERE (phase IN ('history', 'overlap') "
                     "OR (phase='ready' AND first_watch=1 AND ready_notice_id IS NULL)) "
@@ -187,14 +208,34 @@ class SQLiteBackfillStore:
         except sqlite3.Error as exc:
             raise BackfillError("Unable to list initial collections") from exc
 
+    def readiness_snapshot(
+        self, guild_id: int, channel_id: int, *, cutoff: datetime,
+    ) -> tuple[BackfillState | None, int, bool]:
+        """Read state, generation and relevant recheck markers from one SQLite snapshot."""
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN")
+                row = connection.execute(
+                    self._select() + "WHERE guild_id=? AND channel_id=?", (guild_id, channel_id),
+                ).fetchone()
+                state = self._state(row) if row is not None else None
+                pending = connection.execute(
+                    "SELECT 1 FROM coverage_recheck WHERE guild_id=? AND channel_id=? "
+                    "AND end_us>? LIMIT 1", (guild_id, channel_id, _us(cutoff)),
+                ).fetchone() is not None
+                return state, state.started_us if state is not None else 0, pending
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to read collection readiness") from exc
+
     def defer(self, state: BackfillState, *, until: datetime) -> None:
         try:
             with self.watches._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
                 connection.execute(
                     "UPDATE backfill_state SET retry_at_us=? WHERE guild_id=? AND channel_id=? "
-                    "AND token=? AND phase=?",
-                    (_us(until), state.guild_id, state.channel_id, state.token, state.phase),
+                    "AND token=? AND phase=? AND started_us=?",
+                    (_us(until), state.guild_id, state.channel_id, state.token, state.phase,
+                     state.started_us),
                 )
         except sqlite3.Error as exc:
             raise BackfillError("Unable to defer initial collection") from exc
@@ -209,8 +250,9 @@ class SQLiteBackfillStore:
                 cursor = connection.execute(
                     "UPDATE backfill_state SET blocked_reason=?, retry_at_us=0 "
                     "WHERE guild_id=? AND channel_id=? AND token=? AND phase=? "
-                    "AND blocked_reason IS NULL",
-                    (reason, state.guild_id, state.channel_id, state.token, state.phase),
+                    "AND started_us=? AND blocked_reason IS NULL",
+                    (reason, state.guild_id, state.channel_id, state.token, state.phase,
+                     state.started_us),
                 )
                 return cursor.rowcount == 1
         except sqlite3.Error as exc:
@@ -244,8 +286,9 @@ class SQLiteBackfillStore:
                 cursor = connection.execute(
                     f"UPDATE backfill_state SET {column}=? "
                     f"WHERE guild_id=? AND channel_id=? AND token=? AND phase=? "
-                    f"AND first_watch=1 AND {id_column} IS NULL",
-                    (_us(at), state.guild_id, state.channel_id, state.token, state.phase),
+                    f"AND started_us=? AND first_watch=1 AND {id_column} IS NULL",
+                    (_us(at), state.guild_id, state.channel_id, state.token, state.phase,
+                     state.started_us),
                 )
                 return cursor.rowcount == 1
         except sqlite3.Error as exc:
@@ -263,55 +306,59 @@ class SQLiteBackfillStore:
                 cursor = connection.execute(
                     f"UPDATE backfill_state SET {column}=?, retry_at_us=0 "
                     f"WHERE guild_id=? AND channel_id=? AND token=? AND first_watch=1 "
-                    f"AND {column} IS NULL",
-                    (message_id, state.guild_id, state.channel_id, state.token),
+                    f"AND started_us=? AND {column} IS NULL",
+                    (message_id, state.guild_id, state.channel_id, state.token, state.started_us),
                 )
                 return cursor.rowcount == 1
         except sqlite3.Error as exc:
             raise BackfillError("Unable to record collection notice") from exc
 
     def schedule_ready_recheck(self, *, end: datetime, start: datetime | None = None) -> int:
-        """Reconcile a disconnected interval independently of summary requests."""
-        end_us = _us(end)
-        floor_us = _us(end - timedelta(days=30))
-        start_us = _us(start - timedelta(seconds=1)) if start is not None else None
+        """Recheck retained edits/deletions and new messages from every work phase.
+
+        ``start`` remains accepted for callers reporting their disconnection boundary; edits
+        to older retained messages require a full pass regardless of that creation-time gap.
+        """
         count = 0
         try:
             with self.watches._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
                 rows = connection.execute(
-                    "SELECT guild_id, channel_id, verified_us FROM backfill_state "
-                    "WHERE phase='ready'"
+                    "SELECT guild_id, channel_id FROM watched_channels"
                 ).fetchall()
-                for guild_id, channel_id, verified_us in rows:
-                    if verified_us is None:
-                        continue
-                    lower = max(floor_us, start_us if start_us is not None else verified_us)
-                    if lower >= end_us:
-                        continue
-                    before = discord.utils.time_snowflake(end, high=True) + 1
-                    connection.execute(
-                        "UPDATE backfill_state SET phase='overlap', finished_us=?, "
-                        "overlap_start_us=?, overlap_before_id=?, retry_at_us=0 "
-                        "WHERE guild_id=? AND channel_id=? AND phase='ready'",
-                        (end_us, lower, before, guild_id, channel_id),
+                for guild_id, channel_id in rows:
+                    count += reset_recheck(
+                        connection, guild_id, channel_id, now=end,
+                        retention_days=self.retention_days,
+                        reason="gateway_gap" if start is not None else "startup",
                     )
-                    count += 1
             return count
         except sqlite3.Error as exc:
             raise BackfillError("Unable to schedule connection-gap check") from exc
+
+    def history_boundary(self, state: BackfillState, *, at: datetime) -> int:
+        try:
+            with self.watches._connection() as connection:
+                return SQLiteMessageStore._history_boundary(
+                    connection, state.guild_id, state.channel_id, at,
+                )
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to capture History observation boundary") from exc
 
     def save_page(
         self, state: BackfillState, records: Sequence[MessageRecord], *,
         next_cursor: int, next_phase: str, finished_at: datetime | None,
         cached_at: datetime,
+        fetched_after_us: int | None = None, reconcile_lower_id: int | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> bool:
         """Reject stale watch generations before any message from that page is written."""
         try:
             with self.watches._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
                 row = connection.execute(
-                    "SELECT phase, before_id, overlap_before_id, blocked_reason "
+                    "SELECT phase, before_id, overlap_before_id, blocked_reason, "
+                    "started_us, cutoff_us, finished_us, overlap_start_us "
                     "FROM backfill_state "
                     "WHERE guild_id=? AND channel_id=? AND token=?",
                     (state.guild_id, state.channel_id, state.token),
@@ -322,25 +369,48 @@ class SQLiteBackfillStore:
                 ).fetchone()
                 if row is None or watched is None or row[3] is not None or row[0] != state.phase or (
                     row[2] if state.phase == "overlap" else row[1]
-                ) != state.cursor:
+                ) != state.cursor or row[4:] != (
+                    state.started_us, state.cutoff_us, state.finished_us, state.overlap_start_us,
+                ):
                     return False
+                current_cutoff_us = _us((clock or self.clock)() - timedelta(days=self.retention_days))
                 for record in records:
                     if record.guild_id != state.guild_id or record.channel_id != state.channel_id:
                         raise BackfillError("History page channel mismatch")
-                    SQLiteMessageStore._upsert(connection, record, cached_at)
+                retained = tuple(
+                    record for record in records if _us(record.created_at) >= current_cutoff_us
+                )
+                if fetched_after_us is not None and reconcile_lower_id is not None:
+                    lower_us = state.cutoff_us if state.phase == "history" else state.overlap_start_us
+                    upper_us = (
+                        state.finished_us if state.finished_us is not None else state.started_us
+                    )
+                    assert lower_us is not None
+                    if max(lower_us, current_cutoff_us) < upper_us and reconcile_lower_id < state.cursor:
+                        SQLiteMessageStore._reconcile_page(
+                            connection, state.guild_id, state.channel_id, retained,
+                            lower_id=reconcile_lower_id, before_id=state.cursor,
+                            start_us=lower_us, end_us=upper_us, fetched_after_us=fetched_after_us,
+                            cached_at=cached_at, cutoff_us=current_cutoff_us,
+                        )
+                else:
+                    # Compatibility for direct import adapters; the worker always reconciles.
+                    for record in retained:
+                        SQLiteMessageStore._upsert(connection, record, cached_at)
                 if state.phase == "history":
                     if next_phase == "overlap":
                         assert finished_at is not None
-                        finished_us = _us(finished_at)
+                        history_end_us = state.finished_us or state.started_us
+                        finished_us = max(_us(finished_at), history_end_us)
                         overlap_before = discord.utils.time_snowflake(
-                            finished_at, high=True
+                            _at(finished_us), high=True
                         ) + 1
                         connection.execute(
                             "UPDATE backfill_state SET before_id=?, phase='overlap', "
-                            "finished_us=?, overlap_start_us=started_us, "
+                            "finished_us=?, overlap_start_us=?, "
                             "overlap_before_id=?, retry_at_us=0 "
                             "WHERE guild_id=? AND channel_id=? AND token=?",
-                            (next_cursor, finished_us, overlap_before,
+                            (next_cursor, finished_us, history_end_us, overlap_before,
                              state.guild_id, state.channel_id, state.token),
                         )
                     else:
@@ -350,6 +420,11 @@ class SQLiteBackfillStore:
                             (next_cursor, state.guild_id, state.channel_id, state.token),
                         )
                 elif next_phase == "ready":
+                    # Every retained page and the live overlap passed for this exact generation.
+                    connection.execute(
+                        "DELETE FROM coverage_recheck WHERE guild_id=? AND channel_id=?",
+                        (state.guild_id, state.channel_id),
+                    )
                     connection.execute(
                         "UPDATE backfill_state SET phase='ready', overlap_before_id=?, "
                         "verified_us=finished_us, retry_at_us=0 "
@@ -391,13 +466,17 @@ class InitialBackfill:
         *,
         clock: Callable[[], datetime] | None = None,
         page_size: int = 100,
+        retention_days: int | None = None,
     ) -> None:
         if not 1 <= page_size <= 100:
             raise ValueError("Discord History page size must be 1..100")
         self.store = store
         self.source = source or DiscordHistorySource()
-        self.clock = clock or (lambda: datetime.now(UTC))
+        self.clock = clock or store.clock
         self.page_size = page_size
+        self.retention_days = store.retention_days if retention_days is None else retention_days
+        if not 1 <= self.retention_days <= 30 or self.retention_days != store.retention_days:
+            raise ValueError("Worker retention must match its store's 1..30 day policy")
 
     async def step(
         self, channel: discord.TextChannel, state: BackfillState,
@@ -412,9 +491,21 @@ class InitialBackfill:
             or getattr(getattr(channel, "guild", None), "id", None) != state.guild_id
         ):
             raise BackfillError("History channel mismatch")
+        fetched_after_us = await asyncio.to_thread(
+            self.store.history_boundary, state, at=self.clock(),
+        )
+        lower_us = max(
+            state.cutoff_us if state.phase == "history"
+            else state.overlap_start_us if state.overlap_start_us is not None else state.started_us,
+            _us(self.clock() - timedelta(days=self.retention_days)),
+        )
+        upper_us = state.finished_us if state.finished_us is not None else state.started_us
+        lower_id = discord.utils.time_snowflake(_at(lower_us))
         try:
-            page = await self.source.fetch_page(
-                channel, before=state.cursor, limit=self.page_size
+            page = (
+                await self.source.fetch_page(
+                    channel, before=state.cursor, limit=self.page_size, after=lower_id - 1,
+                ) if lower_us < upper_us else []
             )
         except discord.HTTPException as exc:
             if exc.status in {401, 403, 404}:
@@ -436,12 +527,8 @@ class InitialBackfill:
             raise BackfillError(
                 "Invalid History page", retryable=False, kind="invalid_page"
             )
-        lower_us = (
-            state.cutoff_us if state.phase == "history"
-            else state.overlap_start_us or state.started_us
-        )
-        upper_us = state.started_us if state.phase == "history" else state.finished_us
-        assert upper_us is not None
+        # Retention can move while Discord is responding; never hand expired rows to the writer.
+        lower_us = max(lower_us, _us(self.clock() - timedelta(days=self.retention_days)))
         records = tuple(
             record for message in page
             if lower_us <= _us(message.created_at) < upper_us
@@ -459,6 +546,9 @@ class InitialBackfill:
             next_cursor=next_cursor, next_phase=next_phase,
             finished_at=self.clock() if next_phase == "overlap" else None,
             cached_at=self.clock(),
+            fetched_after_us=fetched_after_us,
+            reconcile_lower_id=lower_id if exhausted else page[-1].id,
+            clock=self.clock,
         )
 
 
@@ -478,10 +568,14 @@ class BackfillNotifier:
     ) -> bool:
         if not state.first_watch:
             return True
-        current = await asyncio.to_thread(self.store.get, state.guild_id, state.channel_id)
-        if current is None or current.token != state.token:
+        current, generation, pending = await asyncio.to_thread(
+            self.store.readiness_snapshot, state.guild_id, state.channel_id,
+            cutoff=self.clock() - timedelta(days=self.store.retention_days),
+        )
+        if (current is None or current.token != state.token or generation != state.started_us
+                or current.blocked_reason is not None):
             return False
-        if (ready and not current.ready) or (not ready and current.ready):
+        if (ready and (not current.ready or pending)) or (not ready and current.ready):
             return False
         notice_id = current.ready_notice_id if ready else current.started_notice_id
         if notice_id is not None:

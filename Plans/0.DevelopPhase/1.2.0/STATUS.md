@@ -5,7 +5,7 @@
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
 | [1.2.0-P1](01-permissions-settings.md) | B01·B02·B09·B14 권한·설정 | DONE | C `1f47eff1e20a1b5bda770a9f0d22255555baf402` / E [`f26c60c`](https://github.com/parking-place/YoYackBot/commit/f26c60c75ae8f37cd56655fd675fc53c94ba9186) | PR #44 main 통합 `b987a17`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36992669254), 종료 D push 확인 |
-| [1.2.0-P2](02-cache-consistency.md) | B03·B04·B06·B07 캐시 정합성 | PLANNED | — | P1 원격 완료 |
+| [1.2.0-P2](02-cache-consistency.md) | B03·B04·B06·B07 캐시 정합성 | IN_PROGRESS | — | P1 종료 D `3f3997a`, 원격·CI 성공 |
 | [1.2.0-P3](03-worker-memory.md) | B05·B08 worker·메모리 | PLANNED | — | P2 원격 완료 |
 | [1.2.0-P4](04-output-runtime.md) | B10~B13 출력·실행 | PLANNED | — | P3 원격 완료 |
 | [1.2.0-P5](05-collection-progress.md) | F02 수집 진행·차단 원인 | PLANNED | — | P4 원격 완료 |

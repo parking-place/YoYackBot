@@ -1,6 +1,6 @@
 # 1.2.0-P2 — 캐시 정합성·보존
 
-- 상태: **PLANNED** · 구현 완료 **0** · 검사: `T120-P2-A`~`D` **NOT_RUN**
+- 상태: **IN_PROGRESS** · 구현 완료 **0** · 검사: `T120-P2-A`~`D` **NOT_RUN**
 - 대상: **B03·B04·B06·B07** · 환경: 개발 LXC, 시간 제어·합성 History·격리 SQLite
 - 근거: [계약 3절](CONTRACT.md), [범위 추적표](SCOPE_MAP.md), [감사 결함](../../1.Improvements/02-bug-findings.md)
 
@@ -17,7 +17,7 @@ P1의 종료 D가 원격에 반영됐는지 확인한다. 현재 `build_workflow
 | `watch_store.py`, `message_store.py`, `config.py`, `discord.py` | 초기 fetch·재개·upsert·raw/cached edit에 같은 현재 retention cutoff를 적용한다. 기간 축소와 장기 중단 뒤 재개의 오래된 cutoff도 갱신한다. |
 | `message_store.py`, `discord.py` | raw update에 수정 시각 단조성을 적용한다. 동시각은 멱등 처리하고 timestamp 없는/과거 이벤트로 최신 본문을 덮어쓰지 않는다. live edit·삭제 tombstone이 오래된 History보다 우선한다. |
 
-모호한 timestamp의 처리와 제한된 재검증 정책을 구현 전에 고정한다. 삭제 의도 보존을 위해 최신 이벤트와 대조 시작점/commit 순서를 증거에 기록한다. F02 진척 필드와 F10 참조는 후속 단계에서 붙이되 현재 캐시 불변조건을 훼손하지 않게 한다.
+timestamp가 없거나 잘못된 raw edit는 보관기간 안의 알려진 주시 메시지 본문을 유지하고 재검증을 예약한다. 과거 timestamp는 무시하고 같은 timestamp의 본문은 멱등 유지한다. 재검증은 채널당 기존 상태 하나로 합치고 현재 retention(1~30일) 안에서 기존 100개 이하 페이지와 동시성 제한으로 수행한다. 이벤트별 작업 큐를 추가하지 않는다. cutoff와 같은 생성 시각은 포함하고 이전 시각은 저장하지 않는다. 동일 시각의 쓰기 순서는 선택 테이블 `cache_observation_clock`의 단일 논리 시각과 채널별 관측 인덱스로 보존한다. 메시지 삭제 뒤에도 시각이 역행하지 않으며 원문·식별값을 추가 저장하지 않는다. schema 5와 messages 레이아웃 및 설정 백업을 유지한다. 삭제 의도 보존을 위해 최신 이벤트와 대조 시작점/commit 순서를 증거에 기록한다. F02 진척 필드와 F10 참조는 후속 단계에서 붙이되 현재 캐시 불변조건을 훼손하지 않게 한다.
 
 ## 실패 경계
 

@@ -44,7 +44,7 @@ def setup(tmp_path, history):
     path = tmp_path / "messages.db"
     watches = SQLiteWatchStore(path)
     watches.replace(1, frozenset({10}))
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     recent = TimeRangeCollector(store, watches, history, clock=lambda: NOW)
     return CountCollector(recent, history), store
 
@@ -128,7 +128,7 @@ def test_lower_request_limit_does_not_use_older_cached_messages(tmp_path) -> Non
         path = tmp_path / "messages.db"
         watches = SQLiteWatchStore(path)
         watches.replace(1, frozenset({10}))
-        store = SQLiteMessageStore(path)
+        store = SQLiteMessageStore(path, clock=lambda: NOW)
         store.upsert(old, cached_at=NOW)
         store.upsert(fresh, cached_at=NOW)
         recent = TimeRangeCollector(store, watches, history, clock=lambda: NOW)
