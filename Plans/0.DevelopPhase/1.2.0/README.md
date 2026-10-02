@@ -22,7 +22,7 @@ F10은 이미 선택된 대화 안에서 질문과 답변 관계를 전달하는
 | 3 | [P3 백필 복구·조회 한도](03-worker-memory.md) | B05·B08 | `T120-P3-A`~`D` | DONE |
 | 4 | [P4 출력·실행 계약](04-output-runtime.md) | B10·B11·B12·B13 | `T120-P4-A`~`D` | DONE |
 | 5 | [P5 수집 진행·차단 원인](05-collection-progress.md) | F02 | `T120-P5-A`~`D` | DONE |
-| 6 | [P6 범위 안 답글 연결](06-reply-context.md) | F10 | `T120-P6-A`~`D` | IN_PROGRESS |
+| 6 | [P6 범위 안 답글 연결](06-reply-context.md) | F10 | `T120-P6-A`~`D` | PUSH_PENDING |
 | 7 | [P7 통합·복귀·출시](07-integration-release.md) | 전체 회귀·운영 확인 | `T120-P7-A`~`D` | PLANNED |
 
 [계약](CONTRACT.md)에 사용자 동작·저장·실패 정책을, [검증 목록](TEST_MATRIX.md)에 28개 검사를, [상태](STATUS.md)에 C/E/D를 기록한다. [버전 이동 기록](MIGRATION.md)은 이전 계획의 이력과 재머지 주의사항을 설명한다.
