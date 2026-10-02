@@ -1,6 +1,6 @@
 # 1.3.0 진행 상태
 
-기준일: 2026-10-02. **계획 7단계·16검사 / 구현 완료 6단계.** 2026-10-02 사용자 지시(“1.3.0까지 바로 개발”)로 1.2.0의 Discord 확인·태그·`main` 통합을 기다리지 않고 `develop/1.3.0`을 1.2.0 후보 위에서 시작했다. 1.2.0 출시 마무리(P7-C/D)는 별도로 남아 있으며, 1.3.0 출시(P7)는 1.2.0 출시 뒤에만 한다. 사자성어 기능을 P5로 추가하고 기존 실제 평가·출시를 P6·P7로 이동했다. 이관 시점의 출시 코드 근거는 [`v1.1.3a`](../1.1.3a/STATUS.md)다. 1.3.0 착수는 새 [1.2.0](../1.2.0/STATUS.md)의 7단계 완료·출시·`main` 통합 뒤이며, 실행·복귀 대상의 정확한 SHA는 아직 미정이다. 이 문서의 GitHub 게시는 두 버전의 구현·검증 완료를 뜻하지 않는다.
+기준일: 2026-10-02. **7단계·16검사 모두 완료, `v1.3.0` 출시.** 2026-10-02 사용자 지시(“1.3.0까지 바로 개발”)로 1.2.0의 Discord 확인·태그·`main` 통합을 기다리지 않고 `develop/1.3.0`을 1.2.0 후보 위에서 시작했다. 1.2.0 출시 마무리(P7-C/D)는 별도로 남아 있으며, 1.3.0 출시(P7)는 1.2.0 출시 뒤에만 한다. 사자성어 기능을 P5로 추가하고 기존 실제 평가·출시를 P6·P7로 이동했다. 이관 시점의 출시 코드 근거는 [`v1.1.3a`](../1.1.3a/STATUS.md)다. 1.3.0 착수는 새 [1.2.0](../1.2.0/STATUS.md)의 7단계 완료·출시·`main` 통합 뒤이며, 실행·복귀 대상의 정확한 SHA는 아직 미정이다. 이 문서의 GitHub 게시는 두 버전의 구현·검증 완료를 뜻하지 않는다.
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
@@ -9,8 +9,8 @@
 | [1.3.0-P3](03-reply-range.md) | 답장으로 범위 지정 | DONE | C `4e47de4e50c46dba83e78f4c04644d6376425585` / E [`e16b9eb`](https://github.com/parking-place/YoYackBot/commit/e16b9ebbe276b4d6e3f6f23540f59c2b9252f115) | P2 D `1d1829f`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37003556701), 종료 D push 확인 |
 | [1.3.0-P4](04-tone-command.md) | `/말투` 명령 | DONE | C `462f46227cca2e661b7b4f827fbacd4c9dda85ac` / E [`5e47151`](https://github.com/parking-place/YoYackBot/commit/5e471513079cc922c0cfa303270e93fa14f0aa2c) | P3 D `2c0721d`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37004569991), 종료 D push 확인 |
 | [1.3.0-P5](05-idiom.md) | 최근 30개·후보 4개·사자성어 한마디 | DONE | C `402fc881d494cd8959883d6411d4579eb3196294` / E [`2443b3a`](https://github.com/parking-place/YoYackBot/commit/2443b3a270c517e9ca69b3355ea204b661feca35) | P4 D `b0da646`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37005468627), 종료 D push 확인 |
-| [1.3.0-P6](06-evaluation.md) | 기존 요약 16건 + 사자성어 4건 실제 평가 | DONE | C `38cfeb6e73bc55a137930f8c9cfe7dcdbe1881a1` / E [`c62ad6d`](https://github.com/parking-place/YoYackBot/commit/c62ad6d9fc259cc3d89839f02a255776dc4ea15d) | P5 D `0529086`, 3회 실행 기록, 예시 사용자 확인 대기, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37011246729), 종료 D push 확인 |
-| [1.3.0-P7](07-release.md) | 도움말·통합·배포·출시 | PUSH_PENDING | C `df159ccbf670c2f50a06ebaaccf1695f41ca6a74`(luna medium 허용, 이전 `558c9d9`) / E_pre `e421a15` | 운영 배포 완료, P7-A PASS, 사용자 Discord 확인·1.2.0 출시 대기 |
+| [1.3.0-P6](06-evaluation.md) | 기존 요약 16건 + 사자성어 4건 실제 평가 | DONE | C `38cfeb6e73bc55a137930f8c9cfe7dcdbe1881a1` / E [`c62ad6d`](https://github.com/parking-place/YoYackBot/commit/c62ad6d9fc259cc3d89839f02a255776dc4ea15d) | P5 D `0529086`, 3회 실행 기록, 예시 사용자 확인(10-03), [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37011246729), 종료 D push 확인 |
+| [1.3.0-P7](07-release.md) | 도움말·통합·배포·출시 | DONE | C `df159ccbf670c2f50a06ebaaccf1695f41ca6a74` / E [`6278b20`](https://github.com/parking-place/YoYackBot/commit/6278b2025c18153532da4745f39bfe721ecaf6ac) | 태그 `v1.3.0`·[Release](https://github.com/parking-place/YoYackBot/releases/tag/v1.3.0), [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37041226952), 사용자 Discord 확인 2026-10-03 |
 
 실행 시 [검증 목록](TEST_MATRIX.md)의 결과와 대상 SHA·환경·원격 URL·남은 공백을 단계마다 기록한다. 구현 C 검증과 증거 E의 원격 반영·CI 성공 후 DONE을 기록하는 종료 D를 만들고, D의 원격 반영·필요 CI까지 확인해야 완료다. 마지막 P7의 출시 전·후 증거 순서는 해당 단계 문서를 따른다.
 

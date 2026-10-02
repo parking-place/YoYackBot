@@ -1,6 +1,6 @@
 # 1.3.0-P7 — 도움말·통합·배포·출시
 
-- 상태: **PUSH_PENDING** · 검사: `T130-P7-A` **PASS**, `T130-P7-B` 사용자 확인 대기 ([증거](../evidence/1.3.0-P7.md)) · `T130-P7-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **DONE** · 검사: `T130-P7-A/B` **PASS** ([증거](../evidence/1.3.0-P7.md)) · `T130-P7-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 선행 조건·작업
 
