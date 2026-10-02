@@ -23,7 +23,7 @@
 - [1.1.3 관리자 기본값·`/관리권한 설정`](Plans/0.DevelopPhase/1.1.3/README.md)
 - [1.1.3a 안내 문구 이모지](Plans/0.DevelopPhase/1.1.3a/README.md)
 - [1.2.0 버그 수정·수집 진행·답글 연결 계획](Plans/0.DevelopPhase/1.2.0/README.md)
-- [1.3.0 `/말투`·답장 범위·평가 다양화 계획](Plans/0.DevelopPhase/1.3.0/README.md)
+- [1.3.0 `/말투`·답장 범위·평가 다양화·`!!말하자면` 계획](Plans/0.DevelopPhase/1.3.0/README.md)
 - [프로젝트 비평·버그·기능 제안](Plans/1.Improvements/README.md)
 - [단계별 진행 상태](Plans/0.DevelopPhase/STATUS.md)
 - [각 단계의 GitHub 업로드 완료 규칙](Plans/0.DevelopPhase/GIT_WORKFLOW.md)
@@ -40,7 +40,7 @@
 
 1.0.2의 요약 시작·진행 중 범위 안내는 `v1.0.1` 기준으로 다시 검토한 5단계 계획으로 구현했다.
 
-새 1.2.0은 Improvements의 B01~B14 수정과 F02 수집 진행·차단 원인, F10 범위 안 답글 연결만 포함하는 7단계 계획이다. 기존 1.2.0의 `/말투`·답장 범위·평가 다양화는 1.3.0으로 이동했다. 두 버전 모두 PLANNED이며 현재 출시 기능이 아니다. 이력과 병합 기준은 [계획 이동 기록](Plans/0.DevelopPhase/1.2.0/MIGRATION.md)을 따른다.
+새 1.2.0은 Improvements의 B01~B14 수정과 F02 수집 진행·차단 원인, F10 범위 안 답글 연결만 포함하는 7단계 계획이다. 기존 1.2.0의 `/말투`·답장 범위·평가 다양화는 1.3.0으로 이동했다. 1.3.0에는 최근 30개 대화로 후보 4개 중 사자성어 또는 네 글자 단어 하나를 골라 고정 비하오체·이모지로 말하는 기능을 추가해 7단계·16검사로 확장했다. 두 버전 모두 PLANNED이며 현재 출시 기능이 아니다. 이력과 병합 기준은 [계획 이동 기록](Plans/0.DevelopPhase/1.2.0/MIGRATION.md)을 따른다.
 
 `.private`, 실제 인증값, Discord 대화 원문, SQLite DB와 임시 로그는 공개 저장소에 올리지 않는다.
 

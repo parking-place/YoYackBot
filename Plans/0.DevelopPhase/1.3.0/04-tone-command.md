@@ -13,4 +13,4 @@
 
 같은 SHA의 결과를 [증거 양식](../EVIDENCE_TEMPLATE.md)에 남기고 구현 C → 증거 E → (E CI 성공 확인) → 종료 D를 각각 commit·GitHub push·원격 확인한다. [공통 Git 규칙](../GIT_WORKFLOW.md)을 따른다.
 
-[버전 개요](README.md) · [검증 목록](TEST_MATRIX.md) · [다음 단계](05-evaluation.md)
+[버전 개요](README.md) · [검증 목록](TEST_MATRIX.md) · [다음 단계](05-idiom.md)
