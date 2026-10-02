@@ -2,7 +2,7 @@
 
 from yoyackbot.domain import SummaryMode
 
-PROMPT_VERSION = "1.3.0-p6-v2"
+PROMPT_VERSION = "1.3.0-p6-v3"
 
 SUMMARY_PROMPT = """다음 작업은 Discord 대화 요약이오. `/work/conversation.jsonl` 한 파일만 읽으시오.
 파일은 JSON Lines 형식이며 첫 줄의 scope는 범위, 그다음 message 줄은 오래된 순서의 발언이오.
@@ -284,8 +284,11 @@ def prompt_for(
 def rating_candidates_prompt(
     note: str | None = None, *, regenerate: bool = False, tone: str | None = None,
 ) -> str:
+    base = RATING_CANDIDATES_PROMPT if tone is None else RATING_CANDIDATES_PROMPT.replace(
+        "하오체로 끝내시오", "아래 서버 말투·성격의 문체와 어미로 끝내시오",
+    )
     return (
-        RATING_CANDIDATES_PROMPT + (tone_section(tone) if tone is not None else "")
+        base + (tone_section(tone) if tone is not None else "")
         + (request_quote(note) if note else "")
         + (RATING_CANDIDATES_RETRY_NOTE if regenerate else "")
     )

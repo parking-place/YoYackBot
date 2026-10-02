@@ -351,3 +351,16 @@ def test_casual_fixed_notices() -> None:
     for notice in notices:
         assert emoji.match(notice), notice
         assert not re.search(r"(?:소|오|시오|이오)[.!?]*(?:\s*\S+)?$", notice.rstrip(" 🙏🔧✂️🔒⏰💬🔎🤔🧘")), notice
+
+
+def test_after_the_retry_valid_terms_are_kept_if_two_or_more_remain(tmp_path) -> None:
+    stray = FOUR.replace("점심고민", "재도전")
+    assert parse_candidates(stray) is None
+    assert [c.term for c in parse_candidates(stray, salvage=True)] == ["안하무인", "우왕좌왕", "동문서답"]
+    result, runner = engine_run(tmp_path, [stray, stray, '{"selected_index": 3, "emoji": "😅"}'])
+    assert result.text == "말하자면 동문서답? 😅" and result.calls == 3
+    assert [r["term"] for r in runner.calls[2][1] if r["type"] == "idiom_candidate"] == [
+        "안하무인", "우왕좌왕", "동문서답"]
+    lonely = '{"candidates": [{"term": "작심삼일", "kind": "idiom"}, {"term": "재도전", "kind": "word"}]}'
+    with pytest.raises(IdiomFailed):
+        engine_run(tmp_path, [lonely, lonely])

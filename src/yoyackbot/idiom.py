@@ -13,6 +13,7 @@ from yoyackbot.output_quality import narrator_uses_hate_term
 
 RECENT_MESSAGES = 30
 CANDIDATES = 4
+MIN_SALVAGED = 2
 EMOJI = ("🤔", "🙃", "😅", "😏", "🤝", "🧩", "💡", "🎯")
 DEFAULT_EMOJI = "🤔"
 
@@ -99,28 +100,41 @@ def _json(text: str) -> object | None:
         return None
 
 
-def parse_candidates(text: str, names: Sequence[str] = ()) -> list[Candidate] | None:
-    """Exactly four distinct NFC four-syllable Hangul terms of kind idiom/word, or None."""
+def parse_candidates(
+    text: str, names: Sequence[str] = (), *, salvage: bool = False,
+) -> list[Candidate] | None:
+    """Exactly four distinct NFC four-syllable Hangul terms of kind idiom/word, or None.
+
+    With `salvage` (only after the one regeneration), the valid distinct terms are kept when
+    at least two remain, so one stray three-syllable word does not throw away a fitting idiom.
+    """
     data = _json(text)
     items = data.get("candidates") if isinstance(data, dict) else None
-    if not isinstance(items, list) or len(items) != CANDIDATES:
+    if not isinstance(items, list) or not items or len(items) > CANDIDATES + 2:
         return None
     found: list[Candidate] = []
+    broken = len(items) != CANDIDATES
     for item in items:
-        if not isinstance(item, dict) or set(item) - {"term", "kind"}:
-            return None
-        term, kind = item.get("term"), item.get("kind")
-        if not isinstance(term, str) or kind not in ("idiom", "word"):
-            return None
+        term = item.get("term") if isinstance(item, dict) else None
+        kind = item.get("kind") if isinstance(item, dict) else None
+        if (
+            not isinstance(item, dict) or set(item) - {"term", "kind"}
+            or not isinstance(term, str) or kind not in ("idiom", "word")
+        ):
+            broken = True
+            continue
         term = unicodedata.normalize("NFC", term)
         if (
             not _TERM.fullmatch(term) or any(c.term == term for c in found)
             or any(len(name) >= 2 and name in term for name in names)
             or narrator_uses_hate_term(term)
         ):
-            return None
+            broken = True
+            continue
         found.append(Candidate(term, kind))
-    return found
+    if not broken:
+        return found
+    return found[:CANDIDATES] if salvage and len(found) >= MIN_SALVAGED else None
 
 
 def parse_choice(text: str, count: int) -> tuple[int, str] | None:

@@ -190,7 +190,7 @@ class CodexSummaryEngine:
                 answer = await self.runner.execute(
                     InputWorkspace.create(root, data), idiom_candidates_prompt(retry=retry),
                 )
-                found = parse_idiom_candidates(answer, names)
+                found = parse_idiom_candidates(answer, names, salvage=retry)
                 if found is not None:
                     break
             if found is None:

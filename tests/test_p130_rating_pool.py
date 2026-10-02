@@ -191,3 +191,13 @@ def test_unwatch_guild_removal_orphans_backup_and_f02_f10_coexistence(tmp_path) 
         connection.execute("DELETE FROM watched_channels WHERE guild_id=3")
     SQLiteWatchStore(path)
     assert count(path, "recent_ratings") == 0
+
+
+def test_emoji_before_the_label_and_bold_wrapped_lines() -> None:
+    found = parse_candidates("1. 🛠️ **요약창섭의 떡밥 한줄 평가** : 롤백 질문 하나에 빈칸이 드러났구려\n"
+                             "2. **🤷 모르겠다 한마디로 결정을 떠넘겼구려**")
+    assert found == [RATING_LABEL + "🛠️ 롤백 질문 하나에 빈칸이 드러났구려",
+                     RATING_LABEL + "🤷 모르겠다 한마디로 결정을 떠넘겼구려"]
+    custom = rating_candidates_prompt(tone="보고서체로 쓰시오")
+    assert "하오체로 끝내시오" not in custom and "서버 말투·성격의 문체와 어미로 끝내시오" in custom
+    assert "하오체로 끝내시오" in rating_candidates_prompt()
