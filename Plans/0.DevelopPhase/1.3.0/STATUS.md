@@ -1,6 +1,6 @@
 # 1.3.0 진행 상태
 
-기준일: 2026-10-02. **계획 7단계·16검사 / 구현 완료 4단계.** 2026-10-02 사용자 지시(“1.3.0까지 바로 개발”)로 1.2.0의 Discord 확인·태그·`main` 통합을 기다리지 않고 `develop/1.3.0`을 1.2.0 후보 위에서 시작했다. 1.2.0 출시 마무리(P7-C/D)는 별도로 남아 있으며, 1.3.0 출시(P7)는 1.2.0 출시 뒤에만 한다. 사자성어 기능을 P5로 추가하고 기존 실제 평가·출시를 P6·P7로 이동했다. 이관 시점의 출시 코드 근거는 [`v1.1.3a`](../1.1.3a/STATUS.md)다. 1.3.0 착수는 새 [1.2.0](../1.2.0/STATUS.md)의 7단계 완료·출시·`main` 통합 뒤이며, 실행·복귀 대상의 정확한 SHA는 아직 미정이다. 이 문서의 GitHub 게시는 두 버전의 구현·검증 완료를 뜻하지 않는다.
+기준일: 2026-10-02. **계획 7단계·16검사 / 구현 완료 5단계.** 2026-10-02 사용자 지시(“1.3.0까지 바로 개발”)로 1.2.0의 Discord 확인·태그·`main` 통합을 기다리지 않고 `develop/1.3.0`을 1.2.0 후보 위에서 시작했다. 1.2.0 출시 마무리(P7-C/D)는 별도로 남아 있으며, 1.3.0 출시(P7)는 1.2.0 출시 뒤에만 한다. 사자성어 기능을 P5로 추가하고 기존 실제 평가·출시를 P6·P7로 이동했다. 이관 시점의 출시 코드 근거는 [`v1.1.3a`](../1.1.3a/STATUS.md)다. 1.3.0 착수는 새 [1.2.0](../1.2.0/STATUS.md)의 7단계 완료·출시·`main` 통합 뒤이며, 실행·복귀 대상의 정확한 SHA는 아직 미정이다. 이 문서의 GitHub 게시는 두 버전의 구현·검증 완료를 뜻하지 않는다.
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
@@ -8,7 +8,7 @@
 | [1.3.0-P2](02-rating-judge.md) | luna 심사로 1개 선택 | DONE | C `569dab421a811ff063d0c164f2604981cc7d16e6` / E [`a4c0c2b`](https://github.com/parking-place/YoYackBot/commit/a4c0c2b65523f5b5a71c386d7a2719756a9c17eb) | P1 D `bcd2ae3`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37002941471), 종료 D push 확인 |
 | [1.3.0-P3](03-reply-range.md) | 답장으로 범위 지정 | DONE | C `4e47de4e50c46dba83e78f4c04644d6376425585` / E [`e16b9eb`](https://github.com/parking-place/YoYackBot/commit/e16b9ebbe276b4d6e3f6f23540f59c2b9252f115) | P2 D `1d1829f`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37003556701), 종료 D push 확인 |
 | [1.3.0-P4](04-tone-command.md) | `/말투` 명령 | DONE | C `462f46227cca2e661b7b4f827fbacd4c9dda85ac` / E [`5e47151`](https://github.com/parking-place/YoYackBot/commit/5e471513079cc922c0cfa303270e93fa14f0aa2c) | P3 D `2c0721d`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37004569991), 종료 D push 확인 |
-| [1.3.0-P5](05-idiom.md) | 최근 30개·후보 4개·사자성어 한마디 | PUSH_PENDING | C `402fc881d494cd8959883d6411d4579eb3196294` / E push 대기 | P4 종료 D `b0da646`, 서버 말투와 분리 |
+| [1.3.0-P5](05-idiom.md) | 최근 30개·후보 4개·사자성어 한마디 | DONE | C `402fc881d494cd8959883d6411d4579eb3196294` / E [`2443b3a`](https://github.com/parking-place/YoYackBot/commit/2443b3a270c517e9ca69b3355ea204b661feca35) | P4 D `b0da646`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37005468627), 종료 D push 확인 |
 | [1.3.0-P6](06-evaluation.md) | 기존 요약 16건 + 사자성어 4건 실제 평가 | PLANNED | — | P5 원격 완료, 계정 한도 확인 |
 | [1.3.0-P7](07-release.md) | 도움말·통합·배포·출시 | PLANNED | — | P1~P6 원격 증거 선행 |
 
