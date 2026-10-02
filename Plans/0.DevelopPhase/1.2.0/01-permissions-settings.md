@@ -1,6 +1,6 @@
 # 1.2.0-P1 — 권한·설정 경계
 
-- 상태: **PUSH_PENDING** · 구현 완료 **0** · 검사: `T120-P1-A`~`D` **PASS**
+- 상태: **DONE** · 구현 완료 **1** · 검사: `T120-P1-A`~`D` **PASS**
 - 대상: **B01·B02·B09·B14** · 환경: 개발 LXC, 합성 Discord 상호작용·격리 SQLite
 - 근거: [계약 2절](CONTRACT.md), [범위 추적표](SCOPE_MAP.md), [감사 결함](../../1.Improvements/02-bug-findings.md)
 

@@ -1,10 +1,10 @@
 # 1.2.0 진행 상태
 
-기준일: 2026-10-02. **계획 7단계 / 구현 완료 0단계.** 현재 출시 코드는 [v1.1.3a](../1.1.3a/STATUS.md)다. 기존 1.2.0 계획은 [1.3.0](../1.3.0/README.md)으로 이동했고, 이 문서는 버그 수정과 F02/F10의 새 계획이다.
+기준일: 2026-10-02. **계획 7단계 / 구현 완료 1단계.** 현재 출시 코드는 [v1.1.3a](../1.1.3a/STATUS.md)다. 기존 1.2.0 계획은 [1.3.0](../1.3.0/README.md)으로 이동했고, 이 문서는 버그 수정과 F02/F10의 새 계획이다.
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
-| [1.2.0-P1](01-permissions-settings.md) | B01·B02·B09·B14 권한·설정 | PUSH_PENDING | C `1f47eff1e20a1b5bda770a9f0d22255555baf402` / E pending | PR #44 main 통합 `b987a17`, `develop/1.2.0` 착수·LXC 격리 검증 |
+| [1.2.0-P1](01-permissions-settings.md) | B01·B02·B09·B14 권한·설정 | DONE | C `1f47eff1e20a1b5bda770a9f0d22255555baf402` / E [`f26c60c`](https://github.com/parking-place/YoYackBot/commit/f26c60c75ae8f37cd56655fd675fc53c94ba9186) | PR #44 main 통합 `b987a17`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36992669254), 종료 D push 확인 |
 | [1.2.0-P2](02-cache-consistency.md) | B03·B04·B06·B07 캐시 정합성 | PLANNED | — | P1 원격 완료 |
 | [1.2.0-P3](03-worker-memory.md) | B05·B08 worker·메모리 | PLANNED | — | P2 원격 완료 |
 | [1.2.0-P4](04-output-runtime.md) | B10~B13 출력·실행 | PLANNED | — | P3 원격 완료 |
