@@ -28,8 +28,8 @@
 | `T120-P6-B` | P6 F10 | LXC 대역 | 범위 밖/삭제/필터 제외/다른 채널/미확인은 null, 추가 fetch·raw ID·키 누출 없음, byte·호출 상한 유지 | PASS |
 | `T120-P6-C` | P6 F10 | LXC 복귀 DB | 기존 캐시·복원·경합·구버전 writer·정리·재업그레이드의 참조 무효화와 백업 제외 | PASS |
 | `T120-P6-D` | P6 F10 | LXC 실제 모델 | 합성 8건의 화자/대상 귀속·허구·키 누출 오류 0, 호출 수·지연 기록 | PASS |
-| `T120-P7-A` | [P7](07-integration-release.md) 전체 | LXC/CI | 정확 후보 SHA의 전체 회귀·집계·범위·설정·비밀정보·문서 검사 | NOT_RUN |
-| `T120-P7-B` | P7 설치·복귀 | LXC 격리 | 1.1.3a↔1.2.0 재업그레이드, 선택 테이블·설정 백업/복원·깨끗한 설치 | NOT_RUN |
+| `T120-P7-A` | [P7](07-integration-release.md) 전체 | LXC/CI | 정확 후보 SHA의 전체 회귀·집계·범위·설정·비밀정보·문서 검사 | PASS |
+| `T120-P7-B` | P7 설치·복귀 | LXC 격리 | 1.1.3a↔1.2.0 재업그레이드, 선택 테이블·설정 백업/복원·깨끗한 설치 | PASS |
 | `T120-P7-C` | P7 사용자 확인 | 시험 Discord/LXC | DM 목록/실패·역할·F02·F10·기존 명령의 사용자 확인과 로그 일치, 미확인 명시 | NOT_RUN |
 | `T120-P7-D` | P7 출시 이력 | GitHub/LXC | 후보·서비스·패키지 SHA, C/E/D·main CI·태그·Release 일치 | NOT_RUN |
 
