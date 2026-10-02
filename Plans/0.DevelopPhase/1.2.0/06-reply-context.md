@@ -1,6 +1,6 @@
 # 1.2.0-P6 — F10 범위 안 답글 연결
 
-- 상태: **PUSH_PENDING** · 검사: `T120-P6-A`~`D` **PASS** ([증거](../evidence/1.2.0-P6.md))
+- 상태: **DONE** · 검사: `T120-P6-A`~`D` **PASS** ([증거](../evidence/1.2.0-P6.md))
 - 환경: 개발 LXC의 합성 입력·임시 DB, 실제 모델은 아래 8건만
 - 선행: [P5](05-collection-progress.md) 원격 완료, P2 삭제·편집 순서와 P4 최종 출력 계약
 - 대상: `domain.py`, `message_store.py`, Gateway/History record 변환, `input_files.py`, `summary_prompt.py`, 출력 검사·관련 회귀
