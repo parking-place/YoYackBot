@@ -70,6 +70,7 @@ class OptionKind(Enum):
     WEEKS = "weeks"
     COUNT = "count"
     TODAY = "today"
+    REPLY = "reply"  # 1.3.0: from the replied-to message; never produced by parse_option
 
 
 @dataclass(frozen=True)

@@ -59,6 +59,7 @@ from yoyackbot.parser import (
     route_trigger,
 )
 from yoyackbot.range_request import resolve_range
+from yoyackbot.reply_range import ReplyRangeRefused, reply_reference, resolve_reply_range
 from yoyackbot.reply_refs import reply_target
 from yoyackbot.role_config import install_role_commands
 from yoyackbot.scope import RangeScope, describe_range
@@ -725,18 +726,30 @@ class YoYackClient(discord.Client):
                             message.guild.id, message.channel.id,
                         ))
                         return
+                reference = reply_reference(message)
                 try:
                     command = parse_summary_command(route.options)
                     range_text, mode = command.range_text, command.mode
-                    scope = describe_range(range_text, self.settings)
-                    request = resolve_range(
-                        range_text,
-                        self.settings,
-                        accepted_at,
-                        trigger_message_id=getattr(message, "id", None),
-                    )
-                except (CommandSyntaxError, CommandLimitError) as exc:
+                    if reference is not None:
+                        # A reply sets the start; a range written with it is ignored (1.3.0).
+                        request, scope = await resolve_reply_range(
+                            message, reference, store=self.message_store,
+                            settings=self.settings, accepted_at=accepted_at,
+                            ignored_range=bool(range_text),
+                        )
+                    else:
+                        scope = describe_range(range_text, self.settings)
+                        request = resolve_range(
+                            range_text,
+                            self.settings,
+                            accepted_at,
+                            trigger_message_id=getattr(message, "id", None),
+                        )
+                except (CommandSyntaxError, CommandLimitError, ReplyRangeRefused) as exc:
                     await send_notice(str(exc))
+                    return
+                except MessageStoreError:
+                    await send_notice(UNAVAILABLE_NOTICE)
                     return
                 await self.on_summary_request(
                     message, request, lease, mode=mode, scope=scope, note=command.note,
@@ -871,8 +884,9 @@ class YoYackClient(discord.Client):
     ) -> None:
         """Run the model path when the persistent runtime is configured."""
         LOGGER.info(
-            "summary_request_parsed kind=%s mode=%s has_request=%s request_chars=%d",
-            request.kind.value, mode.value, note is not None, len(note or ""),
+            "summary_request_parsed kind=%s mode=%s reply=%s has_request=%s request_chars=%d",
+            request.kind.value, mode.value, request.anchor_message_id is not None,
+            note is not None, len(note or ""),
         )
         if (
             self.summary_workflow is None

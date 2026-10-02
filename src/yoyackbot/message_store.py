@@ -482,6 +482,34 @@ class SQLiteMessageStore:
             failure="Message read failed", max_bytes=max_bytes, on_rows=on_rows,
         )
 
+    def created_at(self, guild_id: int, channel_id: int, message_id: int) -> datetime | None:
+        """A cached message's creation time in this channel (1.3.0 reply range)."""
+        try:
+            with self._connection() as connection:
+                row = connection.execute(
+                    "SELECT created_at_us FROM messages WHERE guild_id=? AND channel_id=? "
+                    "AND message_id=? AND created_at_us>=?",
+                    (guild_id, channel_id, message_id, self._cutoff_us()),
+                ).fetchone()
+        except sqlite3.Error as exc:
+            raise _store_error("Message lookup failed", exc) from exc
+        return _datetime(row[0]) if row is not None else None
+
+    def count_between(
+        self, guild_id: int, channel_id: int, start: datetime, end: datetime,
+        *, exclude_id: int | None = None,
+    ) -> int:
+        try:
+            with self._connection() as connection:
+                return connection.execute(
+                    "SELECT COUNT(*) FROM messages WHERE guild_id=? AND channel_id=? "
+                    "AND created_at_us>=? AND created_at_us<? AND (? IS NULL OR message_id!=?)",
+                    (guild_id, channel_id, max(_microseconds(start), self._cutoff_us()),
+                     _microseconds(end), exclude_id, exclude_id),
+                ).fetchone()[0]
+        except sqlite3.Error as exc:
+            raise _store_error("Message count failed", exc) from exc
+
     def latest(
         self,
         guild_id: int,
