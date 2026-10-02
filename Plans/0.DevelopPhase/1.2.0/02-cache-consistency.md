@@ -1,6 +1,6 @@
 # 1.2.0-P2 — 캐시 정합성·보존
 
-- 상태: **IN_PROGRESS** · 구현 완료 **0** · 검사: `T120-P2-A`~`D` **NOT_RUN**
+- 상태: **PUSH_PENDING** · 구현 완료 **0** · 검사: `T120-P2-A`~`D` **PASS**
 - 대상: **B03·B04·B06·B07** · 환경: 개발 LXC, 시간 제어·합성 History·격리 SQLite
 - 근거: [계약 3절](CONTRACT.md), [범위 추적표](SCOPE_MAP.md), [감사 결함](../../1.Improvements/02-bug-findings.md)
 
@@ -30,10 +30,10 @@ timestamp가 없거나 잘못된 raw edit는 보관기간 안의 알려진 주�
 
 | 검사 | 실행과 합격 기준 | 결과 |
 |---|---|---|
-| `T120-P2-A` | 현행 workflow에서 오프라인 삭제와 생성 시각이 단절보다 오래된 메시지의 편집을 복구한다. 완전한 빈 History는 삭제를 반영하고 부분/실패 조회는 삭제하지 않는다. 대조 중 live edit/delete와 오래된 페이지의 교차 순서에서도 최신 내용·tombstone이 유지된다. | NOT_RUN |
-| `T120-P2-B` | history/overlap/ready 각각에서 중단하고 T1 이후 메시지를 넣은 뒤 T2에 store를 재오픈한다. overlap 중 두 번째 단절, 빈 구간, 경계 직전/동일/직후를 포함한다. 새 공백이 모두 검증되기 전 ready가 되지 않고 대상 메시지가 누락·중복되지 않는다. | NOT_RUN |
-| `T120-P2-C` | retention 1/7/30일, 기간 축소, 장기 중단 후 재개, cleanup 직후 오래된 cached/raw edit를 검사한다. fetch 범위에 현재 cutoff를 적용하고 응답 도착·저장 때 다시 필터링한다. 새 저장·요약 선택에 현재 cutoff 밖 원문이 0개다. cutoff의 포함/제외 규칙을 고정하고 경계 직전/동일/직후를 검증한다. | NOT_RUN |
-| `T120-P2-D` | raw T1→T2와 T2→T1, 동시각 중복, timestamp 없음, raw/cached 교차, 삭제 후 편집을 시험한다. 최신 본문과 수정 시각이 역행하지 않고 삭제가 부활하지 않는다. 모호한 이벤트는 정한 재검증 정책으로 처리하며 종료 시 pending 상태가 사실과 일치한다. | NOT_RUN |
+| `T120-P2-A` | 현행 workflow에서 오프라인 삭제와 생성 시각이 단절보다 오래된 메시지의 편집을 복구한다. 완전한 빈 History는 삭제를 반영하고 부분/실패 조회는 삭제하지 않는다. 대조 중 live edit/delete와 오래된 페이지의 교차 순서에서도 최신 내용·tombstone이 유지된다. | PASS |
+| `T120-P2-B` | history/overlap/ready 각각에서 중단하고 T1 이후 메시지를 넣은 뒤 T2에 store를 재오픈한다. overlap 중 두 번째 단절, 빈 구간, 경계 직전/동일/직후를 포함한다. 새 공백이 모두 검증되기 전 ready가 되지 않고 대상 메시지가 누락·중복되지 않는다. | PASS |
+| `T120-P2-C` | retention 1/7/30일, 기간 축소, 장기 중단 후 재개, cleanup 직후 오래된 cached/raw edit를 검사한다. fetch 범위에 현재 cutoff를 적용하고 응답 도착·저장 때 다시 필터링한다. 새 저장·요약 선택에 현재 cutoff 밖 원문이 0개다. cutoff의 포함/제외 규칙을 고정하고 경계 직전/동일/직후를 검증한다. | PASS |
+| `T120-P2-D` | raw T1→T2와 T2→T1, 동시각 중복, timestamp 없음, raw/cached 교차, 삭제 후 편집을 시험한다. 최신 본문과 수정 시각이 역행하지 않고 삭제가 부활하지 않는다. 모호한 이벤트는 정한 재검증 정책으로 처리하며 종료 시 pending 상태가 사실과 일치한다. | PASS |
 
 시간을 전진하지 않은 단순 store 재생성은 B04 재시작 증거가 아니다. 같은 구현 C를 LXC에서 검증하고 `evidence/1.2.0-P2.md`에 조회 구간·합성 이벤트 순서·DB 결과·SHA를 남긴다. **C → 증거 E push·원격 확인 → E CI 성공 → 종료 D push·원격 및 필요한 CI 확인** 뒤 DONE 처리한다. 실패·미실행은 [STATUS](STATUS.md)에 보존하고 [Git 완료 규칙](../GIT_WORKFLOW.md)을 따른다.
 

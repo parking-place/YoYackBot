@@ -8,10 +8,10 @@
 | `T120-P1-B` | P1 B02 | LXC 임시 DB | 역할 삭제와 추가·해제·전체 해제의 모든 결정적 교차 순서에서 권한 부활·변경 유실 없음 | PASS |
 | `T120-P1-C` | P1 B09 | LXC 잠금 주입 | 실제 UI callback의 DB 대기 전 defer, event-loop tick 유지, 저장 결과·revision·권한 일치 | PASS |
 | `T120-P1-D` | P1 B14 | LXC 대역 | 오프라인 삭제·cleanup 실패 후 유효한 draft 저장, 사라진 ID만 정리, 전체 회귀 | PASS |
-| `T120-P2-A` | [P2](02-cache-consistency.md) B03 | LXC 임시 DB·History | 현행 workflow에서 오프라인 삭제·오래된 편집 복구, 실패 구간 삭제/ready 금지, live 경합 보존 | NOT_RUN |
-| `T120-P2-B` | P2 B04 | LXC 시계·재시작 | history/overlap/ready 중단·시간 전진·재단절의 공백 해소 전 ready 금지 | NOT_RUN |
-| `T120-P2-C` | P2 B06 | LXC 임시 DB | retention 1/7/30일·축소·장기중단·cached edit의 모든 쓰기에 현재 cutoff 적용 | NOT_RUN |
-| `T120-P2-D` | P2 B07 | LXC 임시 DB | T1/T2·동시각·timestamp 없음·raw/cached 교차에서 시간 역행·삭제 부활 없음, 전체 회귀 | NOT_RUN |
+| `T120-P2-A` | [P2](02-cache-consistency.md) B03 | LXC 임시 DB·History | 현행 workflow에서 오프라인 삭제·오래된 편집 복구, 실패 구간 삭제/ready 금지, live 경합 보존 | PASS |
+| `T120-P2-B` | P2 B04 | LXC 시계·재시작 | history/overlap/ready 중단·시간 전진·재단절의 공백 해소 전 ready 금지 | PASS |
+| `T120-P2-C` | P2 B06 | LXC 임시 DB | retention 1/7/30일·축소·장기중단·cached edit의 모든 쓰기에 현재 cutoff 적용 | PASS |
+| `T120-P2-D` | P2 B07 | LXC 임시 DB | T1/T2·동시각·timestamp 없음·raw/cached 교차에서 시간 역행·삭제 부활 없음, 전체 회귀 | PASS |
 | `T120-P3-A` | [P3](03-worker-memory.md) B05 | LXC 오류 주입 | 페이지 오류 뒤 defer/block 오류가 전체 loop를 종료하지 않고 다른 채널 처리 유지 | NOT_RUN |
 | `T120-P3-B` | P3 B05 | LXC 오류·취소 | DB 복구 후 재개, worker 종료 감지, backoff·정상 취소·슬롯/파일 정리 | NOT_RUN |
 | `T120-P3-C` | P3 B08 | LXC 실제 collector·합성 입력 | bounded batch·최종 JSONL budget 준수, 초과 시 모델/게시/성공 쿨타임 없음, F10 추가 후 재검사 | NOT_RUN |
