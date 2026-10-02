@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Self
 
@@ -49,6 +49,25 @@ def _mentions(content: str, names: dict[int, str]) -> str:
     return MENTION.sub(replace, content)
 
 
+def _message_line(item: MessageRecord, speaker: str, name: str, body: str) -> str:
+    return json.dumps({
+        "type": "message",
+        "time": item.created_at.astimezone(UTC).isoformat(),
+        "speaker": speaker,
+        "display_name": name,
+        "body": body,
+        "reply": item.is_reply,
+        "attachment_present": item.has_attachment,
+    }, ensure_ascii=False)
+
+
+# The smallest possible message line (empty name and body, first speaker, whole second);
+# reading stops once this many bytes per row can no longer fit the model input.
+MIN_MESSAGE_LINE_BYTES = len(_message_line(
+    MessageRecord(1, 1, 1, 1, "", "", datetime(2000, 1, 1, tzinfo=UTC)), "P1", "", "",
+).encode("utf-8")) + 1
+
+
 def serialize_conversation(
     messages: Sequence[MessageRecord],
     *,
@@ -75,15 +94,9 @@ def serialize_conversation(
         scope["request_note"] = request_note
     lines = [json.dumps(scope, ensure_ascii=False)]
     for item in ordered:
-        lines.append(json.dumps({
-            "type": "message",
-            "time": item.created_at.astimezone(UTC).isoformat(),
-            "speaker": speakers[item.author_id],
-            "display_name": names[item.author_id],
-            "body": _mentions(item.content, names),
-            "reply": item.is_reply,
-            "attachment_present": item.has_attachment,
-        }, ensure_ascii=False))
+        lines.append(_message_line(
+            item, speakers[item.author_id], names[item.author_id], _mentions(item.content, names),
+        ))
     data = ("\n".join(lines) + "\n").encode("utf-8")
     if on_size is not None:
         on_size(len(data))

@@ -56,6 +56,43 @@ class BackfillPageScheduler:
             return await work()
 
 
+class RetryHolds:
+    """In-memory backoff for channels whose retry state could not be saved.
+
+    A failed defer/block leaves the database row runnable. Without a hold the worker
+    would retry that channel on every tick instead of waiting for the database.
+    """
+
+    def __init__(self, *, first_seconds: float = 5, max_seconds: float = 300) -> None:
+        if not 0 < first_seconds <= max_seconds:
+            raise ValueError("Backoff must be positive and bounded")
+        self.first_seconds = first_seconds
+        self.max_seconds = max_seconds
+        self._holds: dict[tuple[int, int], tuple[datetime, int]] = {}
+
+    def __len__(self) -> int:
+        return len(self._holds)
+
+    def fail(self, state: BackfillState, now: datetime) -> float:
+        key = (state.guild_id, state.channel_id)
+        failures = self._holds.get(key, (now, 0))[1] + 1
+        delay = min(self.max_seconds, self.first_seconds * 2 ** min(failures - 1, 16))
+        self._holds[key] = (now + timedelta(seconds=delay), failures)
+        return delay
+
+    def clear(self, state: BackfillState) -> None:
+        self._holds.pop((state.guild_id, state.channel_id), None)
+
+    def held(self, state: BackfillState, now: datetime) -> bool:
+        hold = self._holds.get((state.guild_id, state.channel_id))
+        return hold is not None and now < hold[0]
+
+    def wait_seconds(self, now: datetime) -> float | None:
+        """Seconds until the earliest active hold ends, or None without active holds."""
+        waits = [(until - now).total_seconds() for until, _ in self._holds.values() if now < until]
+        return min(waits) if waits else None
+
+
 def round_robin_backfills(states: Sequence[BackfillState]) -> tuple[BackfillState, ...]:
     """Give each Guild an initial scheduling turn while preserving its channel order."""
     groups: dict[int, deque[BackfillState]] = defaultdict(deque)

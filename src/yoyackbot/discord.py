@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import signal
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -19,6 +20,7 @@ from yoyackbot.backfill import (
     BackfillPageScheduler,
     BackfillState,
     InitialBackfill,
+    RetryHolds,
     SQLiteBackfillStore,
     round_robin_backfills,
     summary_ready,
@@ -65,6 +67,10 @@ from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 from yoyackbot.workflow import SummaryWorkflow, build_workflow
 
 LOGGER = logging.getLogger(__name__)
+# A loop that survived this long starts its restart backoff from the beginning again.
+WORKER_STABLE_SECONDS = 300
+# One pass handles at most 20 channels, each page or notice bounded by 60 seconds.
+WORKER_STALL_SECONDS = 900
 PREVIEW_NOTICE = "🚧 요약 요청을 해석했소. 실제 요약 기능은 아직 준비 중이오. 🛠️"
 
 
@@ -164,6 +170,12 @@ class YoYackClient(discord.Client):
             ) if self.backfill_store is not None else None
         )
         self.backfill_scheduler = BackfillPageScheduler() if self.backfill_store else None
+        self.backfill_holds = RetryHolds()
+        self.backfill_retry_seconds: tuple[float, float] = (5, 60)
+        self.backfill_restart_seconds: tuple[float, float] = (1, 60)
+        self.collection_worker = "starting"
+        self.collection_restarts = 0
+        self._collection_tick = time.monotonic()
         self._backfill_task: asyncio.Task[None] | None = None
         self._cleanup_task: asyncio.Task[None] | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
@@ -188,7 +200,7 @@ class YoYackClient(discord.Client):
             LOGGER.info("initial_backfill_seeded count=%d", seeded)
             self._cache_recheck_pending = True
             await self._schedule_backfill_gap(self.clock())
-            self._backfill_task = asyncio.create_task(self._backfill_loop())
+            self._backfill_task = asyncio.create_task(self._supervise_backfill())
         if self.dev_guild_id is not None:
             await self._sync_guild_commands(discord.Object(id=self.dev_guild_id))
         else:
@@ -271,7 +283,10 @@ class YoYackClient(discord.Client):
     def _write_heartbeat(self) -> None:
         if self.settings is not None:
             try:
-                write_heartbeat(self.settings.input_directory, gateway_ready=self.ready_event.is_set())
+                write_heartbeat(
+                    self.settings.input_directory, gateway_ready=self.ready_event.is_set(),
+                    collection_worker=self.collection_worker_state(),
+                )
             except OSError:
                 LOGGER.warning("gateway_health_write_failed")
 
@@ -377,26 +392,105 @@ class YoYackClient(discord.Client):
             await asyncio.sleep(self.settings.cache_cleanup_interval_seconds)
             await self._prune_once()
 
+    async def _supervise_backfill(self) -> None:
+        """Restart the collection loop after an unexpected exit; cancellation ends it."""
+        failures = 0
+        while True:
+            started = time.monotonic()
+            try:
+                await self._backfill_loop()
+                raise RuntimeError("Collection loop returned")
+            except asyncio.CancelledError:
+                self.collection_worker = "stopped"
+                raise
+            except Exception:  # noqa: BLE001 - a defect must not silently end collection
+                if time.monotonic() - started >= WORKER_STABLE_SECONDS:
+                    failures = 0
+                failures += 1
+                self.collection_worker = "restarting"
+                self.collection_restarts += 1
+                LOGGER.warning("backfill_worker_restarting failures=%d", failures)
+                self._write_heartbeat()
+                first, cap = self.backfill_restart_seconds
+                await asyncio.sleep(min(cap, first * 2 ** min(failures - 1, 16)))
+
+    def collection_worker_state(self) -> str:
+        """Report what the worker is doing; a live Gateway alone never means collecting."""
+        if self.backfill_store is None:
+            return "disabled"
+        task = self._backfill_task
+        if task is None:
+            return "stopped"
+        if task.done():
+            return "failed"
+        if (
+            self.collection_worker == "running"
+            and time.monotonic() - self._collection_tick > WORKER_STALL_SECONDS
+        ):
+            return "stalled"
+        return self.collection_worker
+
     async def _backfill_loop(self) -> None:
         assert self.backfill_store is not None and self.initial_backfill is not None
         assert self.backfill_notifier is not None and self.backfill_scheduler is not None
+        failures = 0
         while True:
-            await self.ready_event.wait()
+            if not self.ready_event.is_set():
+                self.collection_worker = "waiting"
+                await self.ready_event.wait()
+            self.collection_worker = "running"
+            self._collection_tick = time.monotonic()
             if self._cache_recheck_pending and not await self._schedule_backfill_gap(
                 self._disconnected_at or self.clock()
             ):
-                await asyncio.sleep(5)
+                failures += 1
+                await self._loop_backoff(failures)
                 continue
             try:
                 pending = await asyncio.to_thread(self.backfill_store.pending, self.clock())
             except BackfillError:
                 LOGGER.warning("initial_backfill_state_unavailable")
-                await asyncio.sleep(5)
+                failures += 1
+                await self._loop_backoff(failures)
                 continue
-            await asyncio.gather(*(
-                self._backfill_one(state) for state in round_robin_backfills(pending)
-            ))
-            await asyncio.sleep(0.05 if pending else 3)
+            failures = 0
+            now = self.clock()
+            runnable = [
+                state for state in round_robin_backfills(pending)
+                if not self.backfill_holds.held(state, now)
+            ]
+            results = await asyncio.gather(
+                *(self._backfill_one(state) for state in runnable), return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, asyncio.CancelledError):
+                    raise result
+                if isinstance(result, BaseException):
+                    # Isolated to that channel; the exception text may carry message data.
+                    LOGGER.warning("initial_backfill_channel_failed kind=unexpected")
+            if runnable:
+                await asyncio.sleep(0.05)
+            else:
+                held = self.backfill_holds.wait_seconds(self.clock())
+                await asyncio.sleep(3 if held is None else min(3, max(0.05, held)))
+
+    async def _loop_backoff(self, failures: int) -> None:
+        """Bounded wait while the shared collection state cannot be read or reserved."""
+        self.collection_worker = "backoff"
+        self._write_heartbeat()
+        first, cap = self.backfill_retry_seconds
+        await asyncio.sleep(min(cap, first * 2 ** min(failures - 1, 16)))
+
+    async def _retry_backfill_later(self, state: BackfillState, delay: timedelta) -> None:
+        """Persist the retry time; if even that fails, hold the channel in memory."""
+        assert self.backfill_store is not None
+        try:
+            await asyncio.to_thread(self.backfill_store.defer, state, until=self.clock() + delay)
+        except BackfillError:
+            self.backfill_holds.fail(state, self.clock())
+            LOGGER.warning("initial_backfill_state_write_failed action=defer")
+            return
+        self.backfill_holds.clear(state)
 
     async def _backfill_one(self, state: BackfillState) -> bool:
         assert self.backfill_store is not None and self.initial_backfill is not None
@@ -411,38 +505,47 @@ class YoYackClient(discord.Client):
                 or channel.guild.id != state.guild_id
                 or not valid_channel(channel.guild, channel.id)
             ):
-                await asyncio.to_thread(
-                    self.backfill_store.defer, state,
-                    until=self.clock() + timedelta(minutes=1),
-                )
+                await self._retry_backfill_later(state, timedelta(minutes=1))
                 return False
             try:
                 if state.first_watch and state.started_notice_id is None and not state.ready:
-                    return await self.backfill_notifier.ensure(channel, state, ready=False)
-                if state.ready:
-                    if state.first_watch and state.ready_notice_id is None:
-                        return await self.backfill_notifier.ensure(channel, state, ready=True)
-                    return True
-                return await asyncio.wait_for(
-                    self.initial_backfill.step(
-                        channel, state,
-                        can_continue=lambda: valid_channel(channel.guild, channel.id),
-                    ), timeout=60,
-                )
+                    done = await asyncio.wait_for(
+                        self.backfill_notifier.ensure(channel, state, ready=False), timeout=60,
+                    )
+                elif state.ready and state.first_watch and state.ready_notice_id is None:
+                    done = await asyncio.wait_for(
+                        self.backfill_notifier.ensure(channel, state, ready=True), timeout=60,
+                    )
+                elif state.ready:
+                    done = True
+                else:
+                    done = await asyncio.wait_for(
+                        self.initial_backfill.step(
+                            channel, state,
+                            can_continue=lambda: valid_channel(channel.guild, channel.id),
+                        ), timeout=60,
+                    )
+                self.backfill_holds.clear(state)
+                return done
             except BackfillError as exc:
                 if not exc.retryable:
                     LOGGER.warning("initial_backfill_blocked kind=%s", exc.kind)
-                    await asyncio.to_thread(
-                        self.backfill_store.block, state, reason=exc.kind
-                    )
+                    try:
+                        await asyncio.to_thread(
+                            self.backfill_store.block, state, reason=exc.kind
+                        )
+                    except BackfillError:
+                        self.backfill_holds.fail(state, self.clock())
+                        LOGGER.warning("initial_backfill_state_write_failed action=block")
+                        return False
+                    self.backfill_holds.clear(state)
                     return False
                 LOGGER.warning("initial_backfill_page_deferred")
             except (MessageStoreError, TimeoutError):
                 LOGGER.warning("initial_backfill_page_deferred")
-            await asyncio.to_thread(
-                self.backfill_store.defer, state,
-                until=self.clock() + timedelta(seconds=30),
-            )
+            except Exception:  # noqa: BLE001 - one channel's defect must not stop the others
+                LOGGER.warning("initial_backfill_page_failed kind=unexpected")
+            await self._retry_backfill_later(state, timedelta(seconds=30))
             return False
 
         return await self.backfill_scheduler.run(state.guild_id, process)

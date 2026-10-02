@@ -2,7 +2,7 @@
 
 ## 상태 확인
 
-전용 계정 환경에서 `python -m yoyackbot health`는 다섯 개의 불리언만 JSON으로 출력한다. `process_alive`는 30초 이내에 갱신된 전용 heartbeat의 PID가 살아 있는지, `gateway_ready`는 그 프로세스가 Discord 연결을 준비했는지, `local_ready`는 고정 CLI/인증·SQLite·비공개 입력 경로의 준비 상태를 뜻한다. `ready`는 셋 모두 참일 때만 참이다. `model_auth_attention`은 모델 준비 검사 실패 시 인증 또는 CLI 상태 점검이 필요함을 알리며 값이나 인증 파일 내용은 출력하지 않는다. 실제 모델 호출 성공을 보장하는 상태는 아니다.
+전용 계정 환경에서 `python -m yoyackbot health`는 다섯 개의 불리언과 고정 분류 문자열 `collection_worker` 하나만 JSON으로 출력한다. `process_alive`는 30초 이내에 갱신된 전용 heartbeat의 PID가 살아 있는지, `gateway_ready`는 그 프로세스가 Discord 연결을 준비했는지, `local_ready`는 고정 CLI/인증·SQLite·비공개 입력 경로의 준비 상태를 뜻한다. `collection_worker`는 수집 worker 상태로 `running`·`waiting`(Gateway 대기)·`disabled`만 정상이고 `starting`·`backoff`(공용 수집 상태 DB 대기)·`restarting`·`stalled`(15분 넘게 진행 없음)·`failed`·`stopped`·`unknown`(이전 버전 heartbeat)은 비정상이다. `ready`는 프로세스·Gateway·수집 worker·로컬 준비가 모두 정상일 때만 참이다. Gateway 연결만 살아 있다고 수집이 정상이라고 보고하지 않는다. `model_auth_attention`은 모델 준비 검사 실패 시 인증 또는 CLI 상태 점검이 필요함을 알리며 값이나 인증 파일 내용은 출력하지 않는다. 실제 모델 호출 성공을 보장하는 상태는 아니다.
 
 서비스가 멈추거나 heartbeat가 30초 넘게 갱신되지 않으면 `process_alive=false`와 `ready=false`로 보고한다. Discord 연결만 끊기면 프로세스는 살아 있어도 `gateway_ready=false`가 된다. DB 잠금/권한·모델 인증 문제가 생기면 `local_ready=false`로 분리한다. `health` 종료 코드는 준비되면 0, 그렇지 않으면 2다. heartbeat 파일은 요청 입력 경로의 `gateway-health.json`이며 0600 권한으로 원자적으로 교체한다.
 
@@ -12,7 +12,7 @@
 
 기존 개별 `message_cached`, `cache_cleanup`, `gateway_ready` 등은 이벤트명과 개수만 남긴다. Discord 라이브러리의 일반 로그는 오류 수준으로 낮추고, 애플리케이션 실패 로그에서 예외 스택과 메시지를 제거했다. 오류 분류는 요청 JSON과 상태 검사로 판단한다.
 
-1.0.0c의 기본 모델 작업 정책은 실행 1건·대기 8건·대기 최대 600초다. `collection_ms`, `queue_ms`, `model_ms`, `duration_ms`와 `queue_full`·`queue_timeout`을 함께 보면 수집·모델·게시 중 병목을 구분할 수 있다. 첫 수집은 한 번에 전체 3페이지·서버당 2페이지로 제한하고 서버별 순번으로 진행한다. 병렬 수집에서도 권한 거부·429·DB 잠금은 채널별로 분리 기록한다. 실제 운영값이 환경 변수에 명시돼 있으면 이 기본값과 다를 수 있다.
+1.0.0c의 기본 모델 작업 정책은 실행 1건·대기 8건·대기 최대 600초다. `collection_ms`, `queue_ms`, `model_ms`, `duration_ms`와 `queue_full`·`queue_timeout`을 함께 보면 수집·모델·게시 중 병목을 구분할 수 있다. 첫 수집은 한 번에 전체 3페이지·서버당 2페이지로 제한하고 서버별 순번으로 진행한다. 병렬 수집에서도 권한 거부·429·DB 잠금은 채널별로 분리 기록한다. 1.2.0부터 재시도 시각 저장(`defer`)이나 영구 차단 기록(`block`)마저 실패하면 `initial_backfill_state_write_failed action=defer|block`을 남기고 그 채널만 메모리에서 5초부터 최대 300초까지 지수 backoff로 보류한다. 다른 채널은 계속 진행한다. 수집 loop가 예기치 않게 끝나면 `backfill_worker_restarting failures=N`과 함께 1초부터 최대 60초 간격으로 다시 시작한다. 예외 문자열은 기록하지 않는다. 실제 운영값이 환경 변수에 명시돼 있으면 이 기본값과 다를 수 있다.
 
 ## 보존 및 알림
 

@@ -1,6 +1,6 @@
 # 1.2.0-P3 — 백필 복구·조회 한도
 
-- 상태: **PLANNED** · 구현 완료 **0** · 검사: `T120-P3-A`~`D` **NOT_RUN**
+- 상태: **IN_PROGRESS** · 구현 완료 **0** · 검사: `T120-P3-A`~`D` **NOT_RUN**
 - 대상: **B05·B08** · 환경: 개발 LXC, 오류 주입·격리 DB·한정 합성 부하
 - 근거: [계약 4절](CONTRACT.md), [범위 추적표](SCOPE_MAP.md), [감사 결함](../../1.Improvements/02-bug-findings.md)
 

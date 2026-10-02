@@ -10,9 +10,14 @@ from pathlib import Path
 from yoyackbot.backfill_state import reset_recheck
 from yoyackbot.coverage import missing_intervals
 from yoyackbot.domain import CoverageInterval, MessageRecord
+from yoyackbot.input_files import MIN_MESSAGE_LINE_BYTES, ConversationTooLarge
 from yoyackbot.watch_store import SQLiteWatchStore
 
 EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+# Rows materialized per SQLite fetch while a selection is checked against the input budget.
+READ_BATCH_ROWS = 128
 
 
 class CacheFailureKind(Enum):
@@ -435,27 +440,27 @@ class SQLiteMessageStore:
             raise _store_error("Cache cleanup failed", exc) from exc
 
     def recent(
-        self, guild_id: int, channel_id: int, start: datetime, end: datetime
+        self, guild_id: int, channel_id: int, start: datetime, end: datetime,
+        *, exclude_id: int | None = None, max_bytes: int | None = None,
+        on_rows: Callable[[int], None] | None = None,
     ) -> Sequence[MessageRecord]:
+        """Oldest first; with max_bytes, stop reading as soon as the input cannot fit."""
         start_us, end_us = _microseconds(start), _microseconds(end)
         if start_us > end_us:
             raise ValueError("start must not follow end")
         start_us = max(start_us, self._cutoff_us())
         if start_us >= end_us:
             return []
-        try:
-            with self._connection() as connection:
-                rows = connection.execute(
-                    "SELECT message_id, guild_id, channel_id, author_id, author_name, content, "
-                    "created_at_us, edited_at_us, cached_at_us, has_attachment, is_reply "
-                    "FROM messages "
-                    "WHERE guild_id=? AND channel_id=? AND created_at_us>=? AND created_at_us<? "
-                    "ORDER BY created_at_us, message_id",
-                    (guild_id, channel_id, start_us, end_us),
-                ).fetchall()
-        except sqlite3.Error as exc:
-            raise _store_error("Message read failed", exc) from exc
-        return [_record(row) for row in rows]
+        return self._read(
+            "SELECT message_id, guild_id, channel_id, author_id, author_name, content, "
+            "created_at_us, edited_at_us, cached_at_us, has_attachment, is_reply "
+            "FROM messages "
+            "WHERE guild_id=? AND channel_id=? AND created_at_us>=? AND created_at_us<? "
+            "AND (? IS NULL OR message_id!=?) "
+            "ORDER BY created_at_us, message_id",
+            (guild_id, channel_id, start_us, end_us, exclude_id, exclude_id),
+            failure="Message read failed", max_bytes=max_bytes, on_rows=on_rows,
+        )
 
     def latest(
         self,
@@ -466,6 +471,8 @@ class SQLiteMessageStore:
         limit: int,
         *,
         exclude_id: int | None = None,
+        max_bytes: int | None = None,
+        on_rows: Callable[[int], None] | None = None,
     ) -> Sequence[MessageRecord]:
         """Return at most limit cached messages, newest first, for a count request."""
         if limit < 1:
@@ -476,20 +483,53 @@ class SQLiteMessageStore:
         start_us = max(start_us, self._cutoff_us())
         if start_us >= end_us:
             return []
+        return self._read(
+            "SELECT message_id, guild_id, channel_id, author_id, author_name, content, "
+            "created_at_us, edited_at_us, cached_at_us, has_attachment, is_reply "
+            "FROM messages "
+            "WHERE guild_id=? AND channel_id=? AND created_at_us>=? AND created_at_us<? "
+            "AND (? IS NULL OR message_id!=?) "
+            "ORDER BY created_at_us DESC, message_id DESC LIMIT ?",
+            (guild_id, channel_id, start_us, end_us, exclude_id, exclude_id, limit),
+            failure="Latest message read failed", max_bytes=max_bytes, on_rows=on_rows,
+        )
+
+    def _read(
+        self, query: str, parameters: tuple, *, failure: str, max_bytes: int | None,
+        on_rows: Callable[[int], None] | None,
+    ) -> list[MessageRecord]:
+        """Fetch bounded batches; the byte check runs before the next batch is materialized.
+
+        Each row costs at least its body and the smallest serialized message line, so a
+        selection over max_bytes can never become a model input and is refused early.
+        """
+        if max_bytes is not None and max_bytes < 1:
+            raise ValueError("max_bytes must be positive")
+        records: list[MessageRecord] = []
+        content_bytes = 0
         try:
             with self._connection() as connection:
-                rows = connection.execute(
-                    "SELECT message_id, guild_id, channel_id, author_id, author_name, content, "
-                    "created_at_us, edited_at_us, cached_at_us, has_attachment, is_reply "
-                    "FROM messages "
-                    "WHERE guild_id=? AND channel_id=? AND created_at_us>=? AND created_at_us<? "
-                    "AND (? IS NULL OR message_id!=?) "
-                    "ORDER BY created_at_us DESC, message_id DESC LIMIT ?",
-                    (guild_id, channel_id, start_us, end_us, exclude_id, exclude_id, limit),
-                ).fetchall()
+                cursor = connection.execute(query, parameters)
+                try:
+                    while batch := cursor.fetchmany(READ_BATCH_ROWS):
+                        if on_rows is not None:
+                            on_rows(len(batch))
+                        for row in batch:
+                            record = _record(row)
+                            if max_bytes is not None:
+                                content_bytes += len(record.content.encode("utf-8"))
+                                if max(
+                                    content_bytes, (len(records) + 1) * MIN_MESSAGE_LINE_BYTES,
+                                ) > max_bytes:
+                                    raise ConversationTooLarge(
+                                        "Cached conversation exceeds configured input size"
+                                    )
+                            records.append(record)
+                finally:
+                    cursor.close()
         except sqlite3.Error as exc:
-            raise _store_error("Latest message read failed", exc) from exc
-        return [_record(row) for row in rows]
+            raise _store_error(failure, exc) from exc
+        return records
 
     def mark_covered(
         self, guild_id: int, interval: CoverageInterval, *, verified_at: datetime
