@@ -233,6 +233,22 @@ class SQLiteWatchStore:
                         "AND m.guild_id=message_reply_refs.guild_id "
                         "AND m.channel_id=message_reply_refs.channel_id)"
                     )
+                    # 1.3.0: the last posted ratings per channel (model text only), not backed up.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS recent_ratings ("
+                        "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
+                        "posted_us INTEGER NOT NULL, text TEXT NOT NULL)"
+                    )
+                    connection.execute(
+                        "CREATE INDEX IF NOT EXISTS recent_ratings_channel "
+                        "ON recent_ratings(guild_id, channel_id, posted_us)"
+                    )
+                    # An older release may unwatch or leave without knowing this table.
+                    connection.execute(
+                        "DELETE FROM recent_ratings WHERE NOT EXISTS (SELECT 1 FROM watched_channels w "
+                        "WHERE w.guild_id=recent_ratings.guild_id "
+                        "AND w.channel_id=recent_ratings.channel_id)"
+                    )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS deleted_messages ("
                         "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
@@ -336,6 +352,10 @@ class SQLiteWatchStore:
                         (guild_id, removed_id),
                     )
                     connection.execute(
+                        "DELETE FROM recent_ratings WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
                         "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
@@ -388,6 +408,10 @@ class SQLiteWatchStore:
                         (guild_id, channel_id),
                     )
                     connection.execute(
+                        "DELETE FROM recent_ratings WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
                         "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
                         (guild_id, channel_id),
                     )
@@ -422,6 +446,7 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM backfill_state WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM backfill_progress WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM message_reply_refs WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM recent_ratings WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

@@ -4,11 +4,11 @@ import pytest
 
 from yoyackbot.domain import SummaryMode
 from yoyackbot.summary_prompt import (
-    RATING_PROMPT,
+    RATING_CANDIDATES_PROMPT,
     REQUEST_PRIORITY_NOTE,
     SUMMARY_PROMPT,
     prompt_for,
-    rating_prompt,
+    rating_candidates_prompt,
 )
 
 PROMPTS = [
@@ -47,9 +47,9 @@ def test_short_marks_ongoing_inline() -> None:
 
 
 def test_rating_prompt_does_not_mock_unfinished_talk() -> None:
-    for prompt in (RATING_PROMPT, rating_prompt("욕 빼고")):
+    for prompt in (RATING_CANDIDATES_PROMPT, rating_candidates_prompt("욕 빼고")):
         text = flat(prompt)
-        assert "결론이 안 났다· 미뤘다·제자리다·끝맺음이 없다는 식으로 평가하지 마시오." in text
+        assert "결론이 안 났다·미뤘다·제자리다·끝맺음이 없다는 식의 미결·미룸은 어느 후보에도 쓰지 마시오." in text
         for phrase in OLD_PHRASES:
             assert phrase not in prompt, phrase
 
