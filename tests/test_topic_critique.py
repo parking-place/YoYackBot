@@ -8,6 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
+from rating_fakes import skip_rating_step
 
 from yoyackbot.codex import CodexContract
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -25,7 +26,7 @@ from yoyackbot.output_quality import (
 )
 from yoyackbot.summary_format import format_summary, split_body, utf16_length
 
-RATING = f"{RATING_LABEL}달력 한 장에 요란 떨 일이오? 🔥"
+RATING = f"{RATING_LABEL}달력 한 장에 청문회까지 열 일이오? 🔥"
 SHORT = """**🚀 배포 날짜** 🗓️
 금요일 안이 막히자 가람이 목요일 오후 2시로 바로잡았소. ✅ **결정**: 목요일 오후 2시 🎉
 ↳ *요일 하나에 판을 한 바퀴 돌렸구려* 🙄
@@ -106,6 +107,7 @@ def test_engine_reports_topic_critique_without_retrying(tmp_path: Path, answer, 
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             seen.append([json.loads(line) for line in workspace.log_file.read_text().splitlines()])
             workspace.close()
             return answer
@@ -169,6 +171,7 @@ def test_engine_strips_emoji_when_asked(tmp_path: Path) -> None:
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             workspace.close()
             return f"{SHORT}\n\n{RATING}"
 
@@ -177,5 +180,5 @@ def test_engine_strips_emoji_when_asked(tmp_path: Path) -> None:
     kept = asyncio.run(engine.summarize(ROWS, request_note="시간순으로 해줘"))
     assert "✅" not in plain.text and "⏳" not in plain.text and "🚀" not in plain.text
     assert plain.text.startswith("**배포 날짜**\n") and "**결정**: 목요일 오후 2시" in plain.text
-    assert plain.topic_critique == "all" and plain.rating == "present"
+    assert plain.topic_critique == "all" and plain.rating == "fallback_summary"
     assert kept.text == f"{SHORT}\n\n{RATING}"

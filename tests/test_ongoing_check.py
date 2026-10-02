@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from rating_fakes import candidates, is_rating_step, skip_rating_step
 
 from yoyackbot.codex import CodexContract
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -20,12 +21,7 @@ from yoyackbot.output_quality import (
     inspect_output,
     narrator_mocks_ongoing,
 )
-from yoyackbot.summary_prompt import (
-    ONGOING_RATING_RETRY_NOTE,
-    ONGOING_RETRY_NOTE,
-    RATING_LABEL,
-    rating_prompt,
-)
+from yoyackbot.summary_prompt import ONGOING_RETRY_NOTE, RATING_LABEL
 
 BODY = "**🗳️ 규칙 투표**\n- **서하**: 투표를 누가 여는지 물었소.\n- **이안**: 내일 열겠다고 했소."
 JAB_BODY = BODY + "\n↳ *투표 하나 여는 것도 질질 끄는구려.*"
@@ -86,49 +82,58 @@ def settings(tmp_path: Path) -> Settings:
     })
 
 
-def run(tmp_path: Path, answers: list[str], **kwargs):
+def run(tmp_path: Path, answers: list[str], *, ratings: list[str] | None = None, **kwargs):
+    """Summary calls answer from `answers`; the rating step answers from `ratings` or is
+    unavailable, in which case the summary's own (usable) rating line is kept."""
     seen: list[tuple[str, list]] = []
 
     class Runner:
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            if ratings is None:
+                skip_rating_step(workspace, prompt)
             records = [json.loads(line) for line in workspace.log_file.read_text().splitlines()]
             seen.append((prompt, records))
             workspace.close()
+            if is_rating_step(prompt):
+                return ratings.pop(0)  # type: ignore[union-attr]
             return answers.pop(0)
 
     engine = CodexSummaryEngine(settings(tmp_path), Runner())  # type: ignore[arg-type]
     return asyncio.run(engine.summarize(ROWS, **kwargs)), seen
 
 
-def test_clean_summary_needs_one_call(tmp_path: Path) -> None:
+def test_clean_summary_needs_one_summary_call(tmp_path: Path) -> None:
     result, seen = run(tmp_path, [f"{BODY}\n\n{RATING}"])
-    assert (result.ongoing_jab, result.rating, len(seen)) == ("none", "present", 1)
+    assert (result.ongoing_jab, result.rating, len(seen)) == ("none", "fallback_summary", 1)
 
 
 def test_body_jab_retries_the_whole_summary_once(tmp_path: Path) -> None:
     result, seen = run(tmp_path, [f"{JAB_BODY}\n\n{RATING}", f"{BODY}\n\n{RATING}"],
                        request_note="시간순으로 해줘")
     assert result.text == f"{BODY}\n\n{RATING}" and len(seen) == 2
-    assert (result.ongoing_jab, result.rating) == ("retried", "present")
+    assert (result.ongoing_jab, result.rating) == ("retried", "fallback_summary")
     assert seen[1][0].endswith(ONGOING_RETRY_NOTE) and "«시간순으로 해줘»" in seen[1][0]
     assert seen[0][1] == seen[1][1]
 
 
-def test_rating_jab_retries_only_the_rating(tmp_path: Path) -> None:
-    result, seen = run(tmp_path, [f"{BODY}\n\n{JAB_RATING}", RATING])
-    assert result.text == f"{BODY}\n\n{RATING}" and len(seen) == 2
-    assert (result.ongoing_jab, result.rating) == ("retried", "retried")
-    assert seen[1][0] == rating_prompt(ongoing_retry=True)
-    assert seen[1][0].endswith(ONGOING_RATING_RETRY_NOTE)
+def test_a_mocking_rating_is_never_posted(tmp_path: Path) -> None:
+    # The summary's own line mocks unfinished talk; candidates drop the jab and the judge picks.
+    result, seen = run(
+        tmp_path, [f"{BODY}\n\n{JAB_RATING}"],
+        ratings=[candidates(JAB_RATING.removeprefix(RATING_LABEL), "투표 하나에 웅변대회를 열었구려."),
+                 "비슷함: 없음\n선택: 1"],
+    )
+    assert result.text == f"{BODY}\n\n{RATING_LABEL}투표 하나에 웅변대회를 열었구려."
+    assert result.rating == "picked" and len(seen) == 3
+    assert result.rating_candidates == 1
 
 
-def test_jab_left_after_retries_is_posted_and_counted(tmp_path: Path) -> None:
-    result, seen = run(tmp_path, [f"{JAB_BODY}\n\n{JAB_RATING}", f"{JAB_BODY}\n\n{JAB_RATING}",
-                                  JAB_RATING])
-    assert len(seen) == 3 and result.text == f"{JAB_BODY}\n\n{JAB_RATING}"
-    assert result.ongoing_jab == "retried_left"
+def test_jab_left_after_retries_is_counted_and_its_rating_dropped(tmp_path: Path) -> None:
+    result, seen = run(tmp_path, [f"{JAB_BODY}\n\n{JAB_RATING}", f"{JAB_BODY}\n\n{JAB_RATING}"])
+    assert len(seen) == 2 and result.text == JAB_BODY
+    assert (result.ongoing_jab, result.rating) == ("retried_left", "missing")
 
 
 def test_invalid_retry_keeps_the_first_answer(tmp_path: Path) -> None:
@@ -137,16 +142,15 @@ def test_invalid_retry_keeps_the_first_answer(tmp_path: Path) -> None:
     assert result.ongoing_jab == "retried_left"
 
 
-def test_hate_retry_takes_the_slot_and_calls_stay_at_three(tmp_path: Path) -> None:
-    answers = ["가람이 병신같이 굴었소.", JAB_BODY, JAB_RATING]
-    result, seen = run(tmp_path, answers)
-    assert len(seen) == 3 and "앞선 응답에 집단을 비하하는 말" in seen[1][0]
-    assert ONGOING_RETRY_NOTE not in seen[1][0] and seen[2][0] == rating_prompt()
-    assert (result.rating, result.ongoing_jab) == ("retried", "retried_left")
+def test_hate_retry_takes_the_slot(tmp_path: Path) -> None:
+    result, seen = run(tmp_path, ["가람이 병신같이 굴었소.", JAB_BODY])
+    assert len(seen) == 2 and "앞선 응답에 집단을 비하하는 말" in seen[1][0]
+    assert ONGOING_RETRY_NOTE not in seen[1][0]
+    assert (result.rating, result.ongoing_jab) == ("missing", "retried_left")
 
 
-def test_skipped_rating_never_retries_a_rating(tmp_path: Path) -> None:
-    result, seen = run(tmp_path, [f"{BODY}\n\n{JAB_RATING}"], request_note="평가 빼줘")
+def test_skipped_rating_never_asks_for_candidates(tmp_path: Path) -> None:
+    result, seen = run(tmp_path, [f"{BODY}\n\n{JAB_RATING}"], request_note="평가 빼줘", ratings=[])
     assert result.text == BODY and len(seen) == 1
     assert (result.rating, result.ongoing_jab) == ("skipped", "none")
 

@@ -104,6 +104,10 @@ class SummaryResult:
     ongoing_jab: str = "none"
     topic_critique: str = "na"
     name_underline: str = "na"
+    # 1.3.0: the posted rating line (remembered per channel) and candidate/judge counts.
+    rating_text: str | None = None
+    rating_candidates: int = 0
+    rating_similar: int = 0
 
 
 @dataclass(frozen=True)

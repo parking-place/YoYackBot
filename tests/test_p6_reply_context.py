@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, Mock
 
 import discord
 import pytest
+from rating_fakes import skip_rating_step
 
 from yoyackbot.codex import CodexContract, CodexFailure
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -203,6 +204,7 @@ def test_message_keys_in_output_are_retried_unless_the_chat_says_them(tmp_path) 
             self.answers, self.calls = answers, 0
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             self.calls += 1
             self.last_prompt = prompt
             workspace.close()

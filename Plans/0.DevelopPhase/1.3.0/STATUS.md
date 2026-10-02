@@ -5,7 +5,7 @@
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
 | [1.3.0-P1](01-rating-candidates.md) | 평가 후보 10개·금지 소재 | DONE | C `9e7036aaf5275f4d57e32e9b72972e03e2bc15f6` / E [`a7b5ea6`](https://github.com/parking-place/YoYackBot/commit/a7b5ea653d2d3e3a10450d2b1a701a398ff49db8) | 기준 1.2.0 후보 `613856e`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37002470823), 종료 D push 확인 |
-| [1.3.0-P2](02-rating-judge.md) | luna 심사로 1개 선택 | PLANNED | — | P1 원격 완료 |
+| [1.3.0-P2](02-rating-judge.md) | luna 심사로 1개 선택 | IN_PROGRESS | — | P1 종료 D `bcd2ae3` |
 | [1.3.0-P3](03-reply-range.md) | 답장으로 범위 지정 | PLANNED | — | P2 원격 완료 |
 | [1.3.0-P4](04-tone-command.md) | `/말투` 명령 | PLANNED | — | P3 원격 완료 |
 | [1.3.0-P5](05-idiom.md) | 최근 30개·후보 4개·사자성어 한마디 | PLANNED | — | P4 원격 완료, 서버 말투와 분리 |

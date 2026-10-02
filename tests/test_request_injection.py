@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from rating_fakes import candidates, is_rating_step, skip_rating_step
 
 from yoyackbot.codex import CodexContract
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -17,7 +18,7 @@ from yoyackbot.input_files import InputWorkspace, serialize_conversation
 from yoyackbot.ops import RequestMetrics
 from yoyackbot.output_quality import RATING_LABEL
 from yoyackbot.parser import parse_summary_command, wants_no_rating
-from yoyackbot.summary_prompt import NO_RATING_NOTE, prompt_for, rating_prompt
+from yoyackbot.summary_prompt import NO_RATING_NOTE, prompt_for, rating_candidates_prompt
 
 ROWS = [MessageRecord(1, 1, 10, 100, "가람", "금요일 배포 어때요?",
                       datetime(2026, 10, 1, 12, tzinfo=UTC))]
@@ -75,14 +76,17 @@ def settings(tmp_path: Path) -> Settings:
     })
 
 
-def engine(tmp_path: Path, answers: list[str], prompts: list[str]) -> CodexSummaryEngine:
+def engine(tmp_path: Path, answers: list[str], prompts: list[str],
+           ratings: list[str] | None = None) -> CodexSummaryEngine:
     class Runner:
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            if ratings is None:
+                skip_rating_step(workspace, prompt)
             prompts.append(prompt)
             workspace.close()
-            return answers.pop(0)
+            return ratings.pop(0) if is_rating_step(prompt) else answers.pop(0)  # type: ignore[union-attr]
 
     return CodexSummaryEngine(settings(tmp_path), Runner())  # type: ignore[arg-type]
 
@@ -111,10 +115,11 @@ def test_skipped_rating_without_a_line_needs_no_retry(tmp_path: Path) -> None:
 
 def test_other_notes_keep_the_rating_flow(tmp_path: Path) -> None:
     prompts: list[str] = []
-    result = asyncio.run(engine(tmp_path, [BODY, f"{RATING_LABEL}참 장하오."], prompts)
+    result = asyncio.run(engine(tmp_path, [BODY], prompts, [candidates("참 장하오."), "비슷함: 없음\n선택: 1"])
                          .summarize(ROWS, request_note="시간순으로 해줘"))
-    assert result.rating == "retried" and len(prompts) == 2
-    assert prompts[1] == rating_prompt("시간순으로 해줘")
+    assert result.rating == "picked" and len(prompts) == 3
+    assert prompts[1] == rating_candidates_prompt("시간순으로 해줘")
+    assert "«시간순으로 해줘»" in prompts[1]
 
 
 def test_retries_keep_the_note_and_skip(tmp_path: Path) -> None:

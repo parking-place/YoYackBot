@@ -8,6 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
+from rating_fakes import skip_rating_step
 
 from yoyackbot.codex import CodexContract
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -170,6 +171,7 @@ def test_engine_reports_name_underline_without_retrying(tmp_path: Path, answer, 
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             seen.append([json.loads(line) for line in workspace.log_file.read_text().splitlines()])
             workspace.close()
             return f"{answer}\n\n{RATING}"

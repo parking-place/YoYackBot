@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from rating_fakes import skip_rating_step
 
 from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -37,6 +38,7 @@ def test_engine_excludes_trigger_and_returns_selected_count(tmp_path: Path) -> N
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             seen["rows"] = [json.loads(line) for line in workspace.log_file.read_bytes().splitlines()]
             seen["prompt"] = prompt
             seen["directory"] = workspace.directory
@@ -49,7 +51,7 @@ def test_engine_excludes_trigger_and_returns_selected_count(tmp_path: Path) -> N
         channel_name="시험 채널", range_label="최근 1시간",
     ))
     assert result.text == "시험 대화를 정리하였소.\n\n**요약창섭의 떡밥 한줄 평가** : 호들갑이 장관이오."
-    assert result.rating == "present"
+    assert result.rating == "fallback_summary"
     assert result.model == "gpt-6-luna" and result.request_message_count == 1
     assert len(seen["rows"]) == 2
     assert seen["rows"][1]["body"] == "합성 대화"
@@ -63,7 +65,8 @@ def test_engine_failure_does_not_block_next_request(tmp_path: Path) -> None:
     class FlakyRunner:
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
-        async def execute(self, workspace: InputWorkspace, _prompt: str) -> str:
+        async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             paths.append(workspace.directory)
             workspace.close()
             if len(paths) == 1:
@@ -88,7 +91,8 @@ def test_model_account_runs_at_most_four_simultaneous_calls(tmp_path: Path) -> N
             self.active = 0
             self.peak = 0
 
-        async def execute(self, workspace: InputWorkspace, _prompt: str) -> str:
+        async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             self.active += 1
             self.peak = max(self.peak, self.active)
             try:
@@ -115,7 +119,8 @@ def test_engine_rejects_unusable_model_output(tmp_path: Path) -> None:
     class InvalidRunner:
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
-        async def execute(self, workspace: InputWorkspace, _prompt: str) -> str:
+        async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             workspace.close()
             return "English-only output"
 
@@ -132,6 +137,7 @@ def test_internal_speaker_heading_retries_with_same_private_input(tmp_path: Path
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             calls.append((prompt, workspace.log_file.read_bytes()))
             workspace.close()
             return "P1은 회의를 제안했소." if len(calls) == 1 else "시험 사용자가 회의를 제안했소.\n\n**요약창섭의 떡밥 한줄 평가** : 호들갑이 장관이오."
@@ -149,7 +155,8 @@ def test_repeated_internal_speaker_heading_fails_without_unsafe_replacement(tmp_
     class Runner:
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
-        async def execute(self, workspace: InputWorkspace, _prompt: str) -> str:
+        async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             nonlocal count
             count += 1
             workspace.close()

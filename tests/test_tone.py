@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from rating_fakes import skip_rating_step
 
 from yoyackbot.backfill import NOT_READY_NOTICE
 from yoyackbot.channel_list import EMPTY_NOTICE as CHANNEL_EMPTY_NOTICE
@@ -117,6 +118,7 @@ def engine_with(tmp_path: Path, outputs: list[str], prompts: list[str]) -> Codex
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+            skip_rating_step(workspace, prompt)
             prompts.append(prompt)
             workspace.close()
             return outputs.pop(0)

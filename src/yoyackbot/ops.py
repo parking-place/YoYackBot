@@ -32,6 +32,8 @@ class RequestMetrics:
     error_kind: str = "none"
     failure_detail: str = "none"
     rating: str = "none"
+    rating_candidates: int = 0
+    rating_similar: int = 0
     ongoing_jab: str = "none"
     topic_critique: str = "na"
     name_underline: str = "na"
@@ -70,8 +72,11 @@ class RequestMetrics:
                 "none", "history", "input", "model", "send", "queue", "permission", "unexpected"
             } else "unexpected",
             "rating": self.rating if self.rating in {
-                "none", "present", "retried", "missing", "skipped"
+                "none", "picked", "regenerated", "fallback_summary", "fallback_first",
+                "missing", "skipped",
             } else "none",
+            "rating_candidates": min(10, max(0, self.rating_candidates)),
+            "rating_similar": min(10, max(0, self.rating_similar)),
             "ongoing_jab": self.ongoing_jab if self.ongoing_jab in {
                 "none", "retried", "retried_left"
             } else "none",

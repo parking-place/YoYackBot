@@ -40,7 +40,7 @@ def test_request_metrics_are_allowlisted_and_contain_no_user_text(caplog) -> Non
             record["queue_ms"], record["model_ms"]) == (1234, 8, 5, 12)
     assert record["duration_ms"] >= 0
     assert set(record) == {
-        "event", "request_id", "kind", "mode", "rating", "ongoing_jab", "topic_critique", "name_underline", "selected_count", "cache_count", "history_count",
+        "event", "request_id", "kind", "mode", "rating", "rating_candidates", "rating_similar", "ongoing_jab", "topic_critique", "name_underline", "selected_count", "cache_count", "history_count",
         "history_pages", "cache_fallback",
         "input_bytes", "collection_ms", "queue_ms", "model_ms", "failure_detail",
         "duration_ms", "model_result", "post_result", "outcome", "error_kind",

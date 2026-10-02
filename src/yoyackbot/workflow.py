@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import sqlite3
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
@@ -28,6 +29,7 @@ from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.ops import RequestMetrics
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError
+from yoyackbot.rating_pool import SQLiteRecentRatings
 from yoyackbot.scope import busy_notice, start_notice
 from yoyackbot.state import AdmissionKind, ChannelStates
 from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
@@ -55,6 +57,7 @@ class SummaryWorkflow:
     states: ChannelStates = field(default_factory=ChannelStates)
     queue: SummaryJobQueue | None = None
     readiness: Callable[[int, int], Awaitable[bool]] | None = None
+    ratings: SQLiteRecentRatings | None = None
     closing: bool = False
     _jobs: set[asyncio.Task] = field(default_factory=set, init=False, repr=False)
 
@@ -66,7 +69,7 @@ class SummaryWorkflow:
         self, messages: Sequence[MessageRecord], *, channel_name: str,
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
-        can_continue: Callable[[], Awaitable[bool]],
+        can_continue: Callable[[], Awaitable[bool]], recent_ratings: Sequence[str] = (),
     ) -> SummaryResult:
         if self.queue is not None:
             waiting_since = time.monotonic()
@@ -82,19 +85,19 @@ class SummaryWorkflow:
                 return await self._run_model_guarded(
                     messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
                     mode=mode, request_note=request_note, channel=channel, lease=lease,
-                    metrics=metrics, can_continue=can_continue,
+                    metrics=metrics, can_continue=can_continue, recent_ratings=recent_ratings,
                 )
         return await self._run_model_guarded(
             messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
             mode=mode, request_note=request_note, channel=channel, lease=lease,
-            metrics=metrics, can_continue=can_continue,
+            metrics=metrics, can_continue=can_continue, recent_ratings=recent_ratings,
         )
 
     async def _run_model_guarded(
         self, messages: Sequence[MessageRecord], *, channel_name: str,
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
-        can_continue: Callable[[], Awaitable[bool]],
+        can_continue: Callable[[], Awaitable[bool]], recent_ratings: Sequence[str] = (),
     ) -> SummaryResult:
         if not await can_continue():
             raise JobInvalidated
@@ -103,6 +106,7 @@ class SummaryWorkflow:
             messages, channel_name=channel_name, range_label="선택한 대화",
             trigger_message_id=trigger_message_id, mode=mode, request_note=request_note,
             on_input_size=lambda size: setattr(metrics, "input_bytes", size),
+            recent_ratings=tuple(recent_ratings),
         ))
         try:
             while True:
@@ -116,6 +120,16 @@ class SummaryWorkflow:
             if not model.done():
                 model.cancel()
                 await asyncio.gather(model, return_exceptions=True)
+
+    async def _recent_ratings(self, guild_id: int, channel_id: int) -> tuple[str, ...]:
+        """The channel's last posted ratings; an unreadable store just means none."""
+        if self.ratings is None:
+            return ()
+        try:
+            return tuple(await asyncio.to_thread(self.ratings.recent, guild_id, channel_id))
+        except sqlite3.Error:
+            LOGGER.warning("recent_rating_read_failed")
+            return ()
 
     async def shutdown(self) -> None:
         self.closing = True
@@ -252,9 +266,12 @@ class SummaryWorkflow:
                 trigger_message_id=request.requested_range.trigger_message_id,
                 mode=request.mode, request_note=request.request_note, channel=channel,
                 lease=lease, metrics=metrics, can_continue=can_continue,
+                recent_ratings=await self._recent_ratings(guild_id, channel_id),
             )
             metrics.model_result = "success"
             metrics.rating = result.rating
+            metrics.rating_candidates = result.rating_candidates
+            metrics.rating_similar = result.rating_similar
             metrics.ongoing_jab = result.ongoing_jab
             metrics.topic_critique = result.topic_critique
             metrics.name_underline = result.name_underline
@@ -268,6 +285,14 @@ class SummaryWorkflow:
                 receipt = await self.publisher.publish(request, result, outcome.messages)
             metrics.post_result = "success"
             await self.states.finish_success(guild_id, channel_id, receipt.last_success_at)
+            if result.rating_text is not None and self.ratings is not None:
+                try:
+                    await asyncio.to_thread(
+                        self.ratings.add, guild_id, channel_id, result.rating_text,
+                        posted_at=receipt.last_success_at,
+                    )
+                except sqlite3.Error:
+                    LOGGER.warning("recent_rating_save_failed")
             metrics.outcome = "success"
             completed = True
         except JobInvalidated:
@@ -372,4 +397,7 @@ def build_workflow(
             wait_seconds=settings.queue_wait_seconds,
         ),
         readiness=ready,
+        ratings=SQLiteRecentRatings(
+            settings.database_path, retention_days=settings.cache_retention_days, clock=clock,
+        ),
     )

@@ -24,8 +24,19 @@ from yoyackbot.output_quality import (
     topic_critique,
 )
 from yoyackbot.parser import wants_no_emoji, wants_no_rating, wants_refusal_notice
+from yoyackbot.rating_pool import (
+    filter_candidates,
+    parse_candidates,
+    parse_judgement,
+    usable_rating,
+)
 from yoyackbot.speaker_names import speaker_labels
-from yoyackbot.summary_prompt import REFUSAL_NOTICE, prompt_for, rating_prompt
+from yoyackbot.summary_prompt import (
+    REFUSAL_NOTICE,
+    prompt_for,
+    rating_candidates_prompt,
+    rating_judge_prompt,
+)
 
 
 @dataclass(frozen=True)
@@ -56,6 +67,7 @@ class CodexSummaryEngine:
         on_input_size: Callable[[int], None] | None = None,
         mode: SummaryMode = SummaryMode.SHORT,
         request_note: str | None = None,
+        recent_ratings: Sequence[str] = (),
     ) -> SummaryResult:
         included = [item for item in messages if item.message_id != trigger_message_id]
         if not included:
@@ -110,21 +122,19 @@ class CodexSummaryEngine:
                 and REFUSAL_NOTICE not in body
             ):
                 body = f"{body}\n\n{REFUSAL_NOTICE}"
-            status = "present"
+            names = [*speaker_labels(included).values(), *(item.author_name for item in included)]
+            candidates = similar = 0
             if skip_rating:
                 rating, status = None, "skipped"
-            elif rating is None or narrator_mocks_ongoing(rating):
-                mocked = rating is not None
-                if mocked:
-                    ongoing = "retried"
-                status = "missing"
-                again = await self._rating_only(
-                    root, data, body, source_bodies, keys, request_note, ongoing_retry=mocked,
+            else:
+                # The summary's own line is only a fallback; ten candidates and a judge pick it.
+                own = rating if rating is not None and usable_rating(
+                    rating, source_bodies, names, keys,
+                ) else None
+                rating, status, candidates, similar = await self._pick_rating(
+                    root, data, body, source_bodies, names, keys, request_note,
+                    recent_ratings, own,
                 )
-                if again is not None:
-                    rating, status = again, "retried"
-                elif mocked:
-                    status = "present"
         text = self._compose(body, rating, request_note)
         if inspect_output(text, source_bodies, keys) is not None:
             # The composed result passes the same checks; a rating that breaks it is left out.
@@ -136,10 +146,11 @@ class CodexSummaryEngine:
                 raise CodexRunError(CodexFailure.OUTPUT_INVALID)
         if narrator_mocks_ongoing(text):
             ongoing = "retried_left"
-        names = list(speaker_labels(included).values())
+        posted = split_rating(text)[1] if rating is not None else None
         return SummaryResult(
             text, self.runner.contract.model, len(included), status, ongoing, topic_critique(text),
-            name_underline(text, names),
+            name_underline(text, list(speaker_labels(included).values())),
+            rating_text=posted, rating_candidates=candidates, rating_similar=similar,
         )
 
     @staticmethod
@@ -147,21 +158,62 @@ class CodexSummaryEngine:
         text = body if rating is None else f"{body}\n\n{rating}"
         return strip_emoji(text) if note is not None and wants_no_emoji(note) else text
 
-    async def _rating_only(
-        self, root: Path, data: bytes, body: str, source_bodies: Sequence[str],
-        keys: frozenset[str], note: str | None = None, *, ongoing_retry: bool = False,
-    ) -> str | None:
-        """Ask once for the closing rating alone; a bad or failed answer leaves it out."""
-        summary = json.dumps({"type": "summary", "body": body}, ensure_ascii=False).encode()
-        workspace = InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + summary + b"\n")
+    async def _ask(self, root: Path, data: bytes, extra: Sequence[dict], prompt: str) -> str | None:
+        """One auxiliary call over the conversation plus data lines; failures return None."""
+        lines = b"".join(json.dumps(item, ensure_ascii=False).encode() + b"\n" for item in extra)
+        workspace = InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + lines)
         try:
-            answer = await self.runner.execute(workspace, rating_prompt(note, ongoing_retry=ongoing_retry))
+            return await self.runner.execute(workspace, prompt)
         except CodexRunError:
             return None
-        _rest, rating = split_rating(answer)
-        if rating is None or rating_issue(rating, source_bodies, keys) is not None:
+
+    async def _candidates(
+        self, root: Path, data: bytes, context: Sequence[dict], source_bodies: Sequence[str],
+        names: Sequence[str], keys: frozenset[str], note: str | None, *, regenerate: bool,
+    ) -> list[str] | None:
+        answer = await self._ask(
+            root, data, context, rating_candidates_prompt(note, regenerate=regenerate),
+        )
+        if answer is None:
             return None
-        return rating
+        return filter_candidates(parse_candidates(answer), source_bodies, names, keys)
+
+    async def _pick_rating(
+        self, root: Path, data: bytes, body: str, source_bodies: Sequence[str],
+        names: Sequence[str], keys: frozenset[str], note: str | None,
+        recent: Sequence[str], own: str | None,
+    ) -> tuple[str | None, str, int, int]:
+        """(rating, status, valid candidates, similar). At most three calls are added here."""
+        context = [{"type": "summary", "body": body},
+                   *({"type": "recent_rating", "text": item} for item in recent)]
+        found = await self._candidates(
+            root, data, context, source_bodies, names, keys, note, regenerate=False,
+        )
+        fallback = (own, "fallback_summary") if own is not None else (None, "missing")
+        if found is None:
+            return (*fallback, 0, 0)
+        similar = 0
+        if found:
+            answer = await self._ask(root, data, [*context, *(
+                {"type": "candidate", "number": index, "text": item}
+                for index, item in enumerate(found, start=1)
+            )], rating_judge_prompt())
+            verdict = parse_judgement(answer, len(found)) if answer is not None else None
+            if verdict is None:
+                return found[0], "fallback_first", len(found), 0
+            marked, chosen = verdict
+            similar = len(marked)
+            if chosen is not None:
+                return found[chosen - 1], "picked", len(found), similar
+            if similar < len(found):
+                remaining = [item for index, item in enumerate(found, 1) if index not in marked]
+                return remaining[0], "fallback_first", len(found), similar
+        again = await self._candidates(
+            root, data, context, source_bodies, names, keys, note, regenerate=True,
+        )
+        if again:
+            return again[0], "regenerated", len(again), similar
+        return (*fallback, len(found), similar)
 
 
 def summary_issue(

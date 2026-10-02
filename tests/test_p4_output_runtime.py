@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock
 
 import discord
 import pytest
+from rating_fakes import candidates, is_rating_step, skip_rating_step
 
 from yoyackbot.__main__ import main
 from yoyackbot.codex import (
@@ -28,7 +29,7 @@ from yoyackbot.domain import MessageRecord, RangeRequest, RequestKind, SummaryRe
 from yoyackbot.errors import FailureKind, message_for
 from yoyackbot.input_files import InputWorkspace
 from yoyackbot.message_store import SQLiteMessageStore
-from yoyackbot.output_quality import OutputIssue, inspect_output
+from yoyackbot.output_quality import RATING_LABEL, OutputIssue, inspect_output
 from yoyackbot.readiness import ReadinessError, ReadinessKind, check_ready
 from yoyackbot.state import ChannelStatus
 from yoyackbot.summary_prompt import REFUSAL_NOTICE
@@ -58,21 +59,25 @@ def settings(tmp_path: Path, **extra: str) -> Settings:
 class Runner:
     contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
-    def __init__(self, answers: list[object]) -> None:
+    def __init__(self, answers: list[object], ratings: list[object] | None = None) -> None:
         self.answers = answers
+        self.ratings = ratings
         self.prompts: list[str] = []
 
     async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
+        if self.ratings is None:
+            skip_rating_step(workspace, prompt)
         self.prompts.append(prompt)
         workspace.close()
-        answer = self.answers.pop(0)
+        answer = (self.ratings if is_rating_step(prompt) else self.answers).pop(0)  # type: ignore[union-attr]
         if isinstance(answer, Exception):
             raise answer
         return answer  # type: ignore[return-value]
 
 
-def summarize(tmp_path: Path, answers: list[object], note: str | None = None):
-    runner = Runner(answers)
+def summarize(tmp_path: Path, answers: list[object], note: str | None = None,
+              ratings: list[object] | None = None):
+    runner = Runner(answers, ratings)
     engine = CodexSummaryEngine(settings(tmp_path), runner)  # type: ignore[arg-type]
     return asyncio.run(engine.summarize(ROWS, request_note=note)), runner
 
@@ -189,31 +194,29 @@ def test_workflow_publishes_and_cools_down_only_with_a_body(tmp_path, monkeypatc
 
 # T120-P4-C ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("bad", [
-    "**요약창섭의 떡밥 한줄 평가** : YOYACK_INPUT_UNAVAILABLE 요란하오.",
-    "**요약창섭의 떡밥 한줄 평가** : /work/conversation.jsonl 을 다 읽었소.",
-    "**요약창섭의 떡밥 한줄 평가** : P1의 떡밥이 제일 요란하오.",
-    "**요약창섭의 떡밥 한줄 평가** : 병신같은 떡밥이오.",
-    "평가: 요란하오.",
-    "Too loud.",
-    CodexRunError(CodexFailure.TIMEOUT),
-])
-def test_bad_regenerated_rating_is_left_out_and_the_body_kept(tmp_path, bad) -> None:
-    result, runner = summarize(tmp_path, [BODY, bad])
-    assert result.text == BODY and result.rating == "missing" and len(runner.prompts) == 2
+# 1.3.0: the rating comes from ten candidates and a judge; every candidate gets the core checks.
+BAD_CONTENTS = [
+    "YOYACK_INPUT_UNAVAILABLE 웃기오.", "/work/conversation.jsonl 을 다 읽었소.", "P1의 떡밥이 제일 웃기오.",
+    "병신같은 떡밥이오.", "Too loud.",
+]
 
 
-@pytest.mark.parametrize("marker", ["YOYACK_INPUT_UNAVAILABLE", "/auth/auth.json"])
-def test_first_answer_with_a_bad_rating_keeps_the_body_and_asks_again(tmp_path, marker) -> None:
-    first = f"{BODY}\n\n**요약창섭의 떡밥 한줄 평가** : {marker} 요란하오."
-    result, runner = summarize(tmp_path, [first, RATING])
-    assert result.text == GOOD and result.rating == "retried" and len(runner.prompts) == 2
+@pytest.mark.parametrize("bad", [*BAD_CONTENTS, CodexRunError(CodexFailure.TIMEOUT)])
+def test_bad_candidates_are_left_out_and_the_body_kept(tmp_path, bad) -> None:
+    answer = bad if isinstance(bad, Exception) else candidates(bad)
+    again = bad if isinstance(bad, Exception) else candidates(bad) + "\n평가: 어긋난 형식"
+    result, runner = summarize(tmp_path, [BODY], ratings=[answer, again])
+    assert result.text == BODY and result.rating == "missing"
+    # A failed candidate call stops at once; filtered-out candidates are regenerated once.
+    assert len(runner.prompts) == (2 if isinstance(bad, Exception) else 3)
 
 
-def test_first_answer_rating_with_an_internal_key_is_regenerated(tmp_path) -> None:
-    first = f"{BODY}\n\n**요약창섭의 떡밥 한줄 평가** : P2의 떡밥이 요란하오."
-    result, runner = summarize(tmp_path, [first, RATING])
-    assert result.text == GOOD and len(runner.prompts) == 2
+@pytest.mark.parametrize("marker", ["YOYACK_INPUT_UNAVAILABLE", "/auth/auth.json", "P2의"])
+def test_first_answer_with_a_bad_rating_keeps_the_body_and_picks_a_candidate(tmp_path, marker) -> None:
+    first = f"{BODY}\n\n**요약창섭의 떡밥 한줄 평가** : {marker} 떡밥이 웃기오."
+    good = RATING.removeprefix(RATING_LABEL)
+    result, runner = summarize(tmp_path, [first], ratings=[candidates(good), "비슷함: 없음\n선택: 1"])
+    assert result.text == GOOD and result.rating == "picked" and len(runner.prompts) == 3
 
 
 @pytest.mark.parametrize("bad_body", [
@@ -224,13 +227,17 @@ def test_bad_body_is_never_published_because_the_rating_is_fine(tmp_path, bad_bo
     assert len(fails(tmp_path, [f"{bad_body}\n\n{RATING}"]).prompts) == 1
 
 
-def test_skip_request_and_three_call_cap(tmp_path) -> None:
-    result, runner = summarize(tmp_path, [GOOD], "평가 빼줘")
+def test_skip_request_and_five_call_cap(tmp_path) -> None:
+    result, runner = summarize(tmp_path, [GOOD], "평가 빼줘", ratings=[])
     assert result.text == BODY and result.rating == "skipped" and len(runner.prompts) == 1
     leaked = "- **__P1__**: 금요일 배포를 제안했소."
-    bad_rating = "**요약창섭의 떡밥 한줄 평가** : P1의 떡밥이오."
-    result, runner = summarize(tmp_path, [leaked, f"{BODY}\n\n{bad_rating}", bad_rating])
-    assert result.text == BODY and result.rating == "missing" and len(runner.prompts) == 3
+    good = RATING.removeprefix(RATING_LABEL)
+    result, runner = summarize(
+        tmp_path, [leaked, f"{BODY}\n\n**요약창섭의 떡밥 한줄 평가** : P1의 떡밥이오."],
+        ratings=[candidates("말만 많고 알맹이는 빈 깡통이오.", "새 떡밥에 침 흘리는 꼴이오."),
+                 "비슷함: 1, 2\n선택: 없음", candidates(good)],
+    )
+    assert result.text == GOOD and result.rating == "regenerated" and len(runner.prompts) == 5
 
 
 # T120-P4-D ---------------------------------------------------------------------------
