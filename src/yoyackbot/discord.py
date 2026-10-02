@@ -59,6 +59,7 @@ from yoyackbot.parser import (
     route_trigger,
 )
 from yoyackbot.range_request import resolve_range
+from yoyackbot.reply_refs import reply_target
 from yoyackbot.role_config import install_role_commands
 from yoyackbot.scope import RangeScope, describe_range
 from yoyackbot.status_report import StatusReport, collect_status, status_message
@@ -850,6 +851,7 @@ class YoYackClient(discord.Client):
             edited_at=message.edited_at,
             has_attachment=bool(getattr(message, "attachments", ())),
             is_reply=message.type is discord.MessageType.reply,
+            reply_to_message_id=reply_target(message, message.guild.id, message.channel.id),
         )
         try:
             if await asyncio.to_thread(

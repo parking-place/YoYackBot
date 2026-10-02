@@ -36,10 +36,16 @@ class MessageRecord:
     cached_at: datetime | None = None
     has_attachment: bool = False
     is_reply: bool = False
+    # 1.2.0 F10: the replied-to message in the same Guild and channel, when it is known.
+    reply_to_message_id: int | None = None
 
     def __post_init__(self) -> None:
         if self.created_at.tzinfo is None:
             raise ValueError("created_at must have a timezone")
+        if self.reply_to_message_id is not None and (
+            not self.is_reply or not 0 < self.reply_to_message_id < self.message_id
+        ):
+            raise ValueError("a reply target must be an earlier message of a reply")
         if self.edited_at is not None and self.edited_at.tzinfo is None:
             raise ValueError("edited_at must have a timezone")
         if self.cached_at is not None and self.cached_at.tzinfo is None:

@@ -18,6 +18,12 @@ EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 # Rows materialized per SQLite fetch while a selection is checked against the input budget.
 READ_BATCH_ROWS = 128
+_SELECT_WITH_REPLY = (
+    "SELECT m.message_id, m.guild_id, m.channel_id, m.author_id, m.author_name, m.content, "
+    "m.created_at_us, m.edited_at_us, m.cached_at_us, m.has_attachment, m.is_reply, r.target_id "
+    "FROM messages m LEFT JOIN message_reply_refs r ON r.guild_id=m.guild_id "
+    "AND r.channel_id=m.channel_id AND r.message_id=m.message_id "
+)
 
 
 class CacheFailureKind(Enum):
@@ -76,6 +82,10 @@ def _record(row: tuple) -> MessageRecord:
         cached_at=_datetime(row[8]),
         has_attachment=bool(row[9]),
         is_reply=bool(row[10]),
+        reply_to_message_id=(
+            row[11] if len(row) > 11 and row[10] and row[11] is not None
+            and 0 < row[11] < row[0] else None
+        ),
     )
 
 
@@ -187,6 +197,18 @@ class SQLiteMessageStore:
             "AND excluded.content=messages.content))",
             values,
         )
+        if record.reply_to_message_id is not None:
+            # Reply targets never change; link only a stored, undeleted message to a live target.
+            connection.execute(
+                "INSERT OR IGNORE INTO message_reply_refs (guild_id, channel_id, message_id, "
+                "target_id, observed_us) SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM messages "
+                "WHERE message_id=? AND guild_id=? AND channel_id=?) AND NOT EXISTS (SELECT 1 FROM "
+                "deleted_messages WHERE guild_id=? AND channel_id=? AND message_id=?)",
+                (record.guild_id, record.channel_id, record.message_id,
+                 record.reply_to_message_id, _microseconds(cached_at),
+                 record.message_id, record.guild_id, record.channel_id,
+                 record.guild_id, record.channel_id, record.reply_to_message_id),
+            )
         if cursor.rowcount != 1:
             existing = connection.execute(
                 "SELECT guild_id, channel_id FROM messages WHERE message_id=?",
@@ -452,12 +474,10 @@ class SQLiteMessageStore:
         if start_us >= end_us:
             return []
         return self._read(
-            "SELECT message_id, guild_id, channel_id, author_id, author_name, content, "
-            "created_at_us, edited_at_us, cached_at_us, has_attachment, is_reply "
-            "FROM messages "
-            "WHERE guild_id=? AND channel_id=? AND created_at_us>=? AND created_at_us<? "
-            "AND (? IS NULL OR message_id!=?) "
-            "ORDER BY created_at_us, message_id",
+            _SELECT_WITH_REPLY
+            + "WHERE m.guild_id=? AND m.channel_id=? AND m.created_at_us>=? "
+            "AND m.created_at_us<? AND (? IS NULL OR m.message_id!=?) "
+            "ORDER BY m.created_at_us, m.message_id",
             (guild_id, channel_id, start_us, end_us, exclude_id, exclude_id),
             failure="Message read failed", max_bytes=max_bytes, on_rows=on_rows,
         )
@@ -484,12 +504,10 @@ class SQLiteMessageStore:
         if start_us >= end_us:
             return []
         return self._read(
-            "SELECT message_id, guild_id, channel_id, author_id, author_name, content, "
-            "created_at_us, edited_at_us, cached_at_us, has_attachment, is_reply "
-            "FROM messages "
-            "WHERE guild_id=? AND channel_id=? AND created_at_us>=? AND created_at_us<? "
-            "AND (? IS NULL OR message_id!=?) "
-            "ORDER BY created_at_us DESC, message_id DESC LIMIT ?",
+            _SELECT_WITH_REPLY
+            + "WHERE m.guild_id=? AND m.channel_id=? AND m.created_at_us>=? "
+            "AND m.created_at_us<? AND (? IS NULL OR m.message_id!=?) "
+            "ORDER BY m.created_at_us DESC, m.message_id DESC LIMIT ?",
             (guild_id, channel_id, start_us, end_us, exclude_id, exclude_id, limit),
             failure="Latest message read failed", max_bytes=max_bytes, on_rows=on_rows,
         )

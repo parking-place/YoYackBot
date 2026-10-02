@@ -19,6 +19,7 @@ from yoyackbot.domain import MessageRecord
 from yoyackbot.history import DiscordHistorySource, HistoryPageSource
 from yoyackbot.message_store import SQLiteMessageStore, _microseconds
 from yoyackbot.parser import RouteKind, route_trigger
+from yoyackbot.reply_refs import reply_target
 from yoyackbot.watch_store import SQLiteWatchStore, _new_backfill, insert_backfills
 
 
@@ -543,6 +544,7 @@ def _record(message: discord.Message, guild_id: int, channel_id: int) -> Message
         message.content, message.created_at, message.edited_at,
         has_attachment=bool(getattr(message, "attachments", ())),
         is_reply=message.type is discord.MessageType.reply,
+        reply_to_message_id=reply_target(message, guild_id, channel_id),
     )
 
 

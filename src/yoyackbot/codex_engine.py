@@ -11,7 +11,7 @@ from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
 from yoyackbot.codex_runner import CodexRunError, SandboxedCodex
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode, SummaryResult
-from yoyackbot.input_files import InputWorkspace, serialize_conversation
+from yoyackbot.input_files import InputWorkspace, message_keys, serialize_conversation
 from yoyackbot.output_quality import (
     OutputIssue,
     inspect_output,
@@ -73,14 +73,21 @@ class CodexSummaryEngine:
                 workspace, prompt_for(mode, note=request_note, skip_rating=skip_rating)
             )
             source_bodies = [item.content for item in included]
-            issue = summary_issue(result, source_bodies)
+            keys = frozenset(message_keys(sorted(
+                included, key=lambda item: (item.created_at, item.message_id),
+            )).values())
+            issue = summary_issue(result, source_bodies, keys)
             ongoing = "none"
-            if issue in (OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM, OutputIssue.NO_BODY):
+            if issue in (
+                OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM, OutputIssue.NO_BODY,
+                OutputIssue.MESSAGE_KEY,
+            ):
                 retry_workspace = InputWorkspace.create(root, data)
                 result = await self.runner.execute(retry_workspace, prompt_for(
                     mode, note=request_note, skip_rating=skip_rating,
                     speaker_retry=issue is OutputIssue.SPEAKER_KEY,
                     hate_retry=issue is OutputIssue.HATE_TERM,
+                    message_key_retry=issue is OutputIssue.MESSAGE_KEY,
                 ))
             elif issue is None and narrator_mocks_ongoing(split_rating(result)[0]):
                 ongoing = "retried"
@@ -88,15 +95,15 @@ class CodexSummaryEngine:
                 retried = await self.runner.execute(retry_workspace, prompt_for(
                     mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True,
                 ))
-                if summary_issue(retried, source_bodies) is None:
+                if summary_issue(retried, source_bodies, keys) is None:
                     result = retried
             body, rating = split_rating(result)
-            if summary_issue(result, source_bodies) is not None:
+            if summary_issue(result, source_bodies, keys) is not None:
                 # Only an unusable rating may be dropped; a bad body is never published.
-                if rating is None or summary_issue(body, source_bodies) is not None:
+                if rating is None or summary_issue(body, source_bodies, keys) is not None:
                     raise CodexRunError(CodexFailure.OUTPUT_INVALID)
                 rating = None
-            elif rating is not None and rating_issue(rating, source_bodies) is not None:
+            elif rating is not None and rating_issue(rating, source_bodies, keys) is not None:
                 rating = None
             if (
                 request_note is not None and wants_refusal_notice(request_note)
@@ -112,20 +119,20 @@ class CodexSummaryEngine:
                     ongoing = "retried"
                 status = "missing"
                 again = await self._rating_only(
-                    root, data, body, source_bodies, request_note, ongoing_retry=mocked,
+                    root, data, body, source_bodies, keys, request_note, ongoing_retry=mocked,
                 )
                 if again is not None:
                     rating, status = again, "retried"
                 elif mocked:
                     status = "present"
         text = self._compose(body, rating, request_note)
-        if inspect_output(text, source_bodies) is not None:
+        if inspect_output(text, source_bodies, keys) is not None:
             # The composed result passes the same checks; a rating that breaks it is left out.
             if rating is None:
                 raise CodexRunError(CodexFailure.OUTPUT_INVALID)
             rating, status = None, "missing"
             text = self._compose(body, None, request_note)
-            if inspect_output(text, source_bodies) is not None:
+            if inspect_output(text, source_bodies, keys) is not None:
                 raise CodexRunError(CodexFailure.OUTPUT_INVALID)
         if narrator_mocks_ongoing(text):
             ongoing = "retried_left"
@@ -142,7 +149,7 @@ class CodexSummaryEngine:
 
     async def _rating_only(
         self, root: Path, data: bytes, body: str, source_bodies: Sequence[str],
-        note: str | None = None, *, ongoing_retry: bool = False,
+        keys: frozenset[str], note: str | None = None, *, ongoing_retry: bool = False,
     ) -> str | None:
         """Ask once for the closing rating alone; a bad or failed answer leaves it out."""
         summary = json.dumps({"type": "summary", "body": body}, ensure_ascii=False).encode()
@@ -152,14 +159,16 @@ class CodexSummaryEngine:
         except CodexRunError:
             return None
         _rest, rating = split_rating(answer)
-        if rating is None or rating_issue(rating, source_bodies) is not None:
+        if rating is None or rating_issue(rating, source_bodies, keys) is not None:
             return None
         return rating
 
 
-def summary_issue(text: str, source_bodies: Sequence[str]) -> OutputIssue | None:
+def summary_issue(
+    text: str, source_bodies: Sequence[str], keys: frozenset[str] = frozenset(),
+) -> OutputIssue | None:
     """Core checks on the whole answer, then a real summary must remain beside the rating."""
-    issue = inspect_output(text, source_bodies)
+    issue = inspect_output(text, source_bodies, keys)
     if issue is None and summary_body_missing(split_rating(text)[0], (REFUSAL_NOTICE,)):
         return OutputIssue.NO_BODY
     return issue

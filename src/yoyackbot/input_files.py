@@ -49,16 +49,42 @@ def _mentions(content: str, names: dict[int, str]) -> str:
     return MENTION.sub(replace, content)
 
 
-def _message_line(item: MessageRecord, speaker: str, name: str, body: str) -> str:
-    return json.dumps({
-        "type": "message",
+def _message_line(
+    item: MessageRecord, speaker: str, name: str, body: str,
+    *, key: str | None = None, reply_to: str | None = None,
+) -> str:
+    line: dict[str, object] = {"type": "message"}
+    if key is not None:
+        line["id"] = key
+    line.update({
         "time": item.created_at.astimezone(UTC).isoformat(),
         "speaker": speaker,
         "display_name": name,
         "body": body,
         "reply": item.is_reply,
-        "attachment_present": item.has_attachment,
-    }, ensure_ascii=False)
+    })
+    if reply_to is not None:
+        line["reply_to"] = reply_to
+    line["attachment_present"] = item.has_attachment
+    return json.dumps(line, ensure_ascii=False)
+
+
+def message_keys(ordered: Sequence[MessageRecord]) -> dict[int, str]:
+    """Per-request keys M1, M2… only for messages that a reply in this same selection targets.
+
+    Targets outside the selection (out of range, deleted, filtered, unknown) get no key, so the
+    reply is sent with `reply: true` and no `reply_to`. Discord IDs never reach the model.
+    """
+    present = {item.message_id for item in ordered}
+    targets = {
+        item.reply_to_message_id for item in ordered
+        if item.reply_to_message_id is not None and item.reply_to_message_id in present
+    }
+    keys: dict[int, str] = {}
+    for item in ordered:
+        if item.message_id in targets:
+            keys[item.message_id] = f"M{len(keys) + 1}"
+    return keys
 
 
 # The smallest possible message line (empty name and body, first speaker, whole second);
@@ -93,9 +119,12 @@ def serialize_conversation(
         # Untrusted requester text travels as data beside the conversation, never in the prompt.
         scope["request_note"] = request_note
     lines = [json.dumps(scope, ensure_ascii=False)]
+    keys = message_keys(ordered)
     for item in ordered:
         lines.append(_message_line(
             item, speakers[item.author_id], names[item.author_id], _mentions(item.content, names),
+            key=keys.get(item.message_id),
+            reply_to=keys.get(item.reply_to_message_id) if item.reply_to_message_id else None,
         ))
     data = ("\n".join(lines) + "\n").encode("utf-8")
     if on_size is not None:

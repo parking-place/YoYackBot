@@ -205,6 +205,34 @@ class SQLiteWatchStore:
                         "AND b.channel_id=backfill_progress.channel_id "
                         "AND b.token=backfill_progress.token)"
                     )
+                    # 1.2.0 F10: reply links (IDs only). The trigger also runs for older
+                    # releases' deletes, so a removed message never leaves a link behind.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS message_reply_refs ("
+                        "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
+                        "message_id INTEGER NOT NULL, target_id INTEGER NOT NULL, "
+                        "observed_us INTEGER NOT NULL, "
+                        "PRIMARY KEY(guild_id, channel_id, message_id), "
+                        "CHECK(0 < target_id AND target_id < message_id))"
+                    )
+                    connection.execute(
+                        "CREATE INDEX IF NOT EXISTS message_reply_refs_target "
+                        "ON message_reply_refs(guild_id, channel_id, target_id)"
+                    )
+                    connection.execute(
+                        "CREATE TRIGGER IF NOT EXISTS message_reply_refs_cleanup "
+                        "AFTER DELETE ON messages BEGIN "
+                        "DELETE FROM message_reply_refs WHERE guild_id=OLD.guild_id "
+                        "AND channel_id=OLD.channel_id "
+                        "AND (message_id=OLD.message_id OR target_id=OLD.message_id); END"
+                    )
+                    # Links whose message is gone (written before the trigger existed).
+                    connection.execute(
+                        "DELETE FROM message_reply_refs WHERE NOT EXISTS (SELECT 1 FROM messages m "
+                        "WHERE m.message_id=message_reply_refs.message_id "
+                        "AND m.guild_id=message_reply_refs.guild_id "
+                        "AND m.channel_id=message_reply_refs.channel_id)"
+                    )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS deleted_messages ("
                         "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
@@ -304,6 +332,10 @@ class SQLiteWatchStore:
                         (guild_id, removed_id),
                     )
                     connection.execute(
+                        "DELETE FROM message_reply_refs WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
                         "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
@@ -352,6 +384,10 @@ class SQLiteWatchStore:
                         (guild_id, channel_id),
                     )
                     connection.execute(
+                        "DELETE FROM message_reply_refs WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
                         "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
                         (guild_id, channel_id),
                     )
@@ -385,6 +421,7 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM deleted_messages WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM backfill_state WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM backfill_progress WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM message_reply_refs WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

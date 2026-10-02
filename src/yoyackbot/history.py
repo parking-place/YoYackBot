@@ -12,6 +12,7 @@ import discord
 from aiohttp import ClientError
 
 from yoyackbot.domain import MessageRecord
+from yoyackbot.reply_refs import reply_target
 
 
 class HistoryFailure(Enum):
@@ -178,6 +179,7 @@ class HistoryAdapter:
                             edited_at=message.edited_at,
                             has_attachment=bool(getattr(message, "attachments", ())),
                             is_reply=message.type is discord.MessageType.reply,
+                            reply_to_message_id=reply_target(message, guild_id, channel_id),
                         )
                         previous = records.get(message.id)
                         if previous is not None:

@@ -14,6 +14,7 @@ class OutputIssue(Enum):
     SPEAKER_KEY = "speaker_key"
     HATE_TERM = "hate_term"
     NO_BODY = "no_body"
+    MESSAGE_KEY = "message_key"
 
 
 # Group-targeted slurs only. Ordinary profanity (존나, 시발, 좆, 개판) is allowed by 1.0.2c.
@@ -155,7 +156,22 @@ def uses_internal_speaker_as_attribution(text: str) -> bool:
     return False
 
 
-def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | None:
+_MESSAGE_KEY = re.compile(r"(?<![A-Za-z0-9])M[1-9][0-9]*(?![0-9])")
+
+
+def leaks_message_key(
+    text: str, message_keys: frozenset[str], source_bodies: Sequence[str],
+) -> bool:
+    """A reply key of this request in the output, unless the conversation itself says it."""
+    if not message_keys:
+        return False
+    spoken = {key for body in source_bodies for key in _MESSAGE_KEY.findall(body)}
+    return any(key in message_keys and key not in spoken for key in _MESSAGE_KEY.findall(text))
+
+
+def inspect_output(
+    text: str, source_bodies: Sequence[str], message_keys: frozenset[str] = frozenset(),
+) -> OutputIssue | None:
     """Catch mechanical failures; a human must still review attribution and facts."""
     clean = text.strip()
     if not clean or clean == "YOYACK_INPUT_UNAVAILABLE":
@@ -173,12 +189,16 @@ def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | Non
         return OutputIssue.HATE_TERM
     if uses_internal_speaker_as_attribution(clean):
         return OutputIssue.SPEAKER_KEY
+    if leaks_message_key(clean, message_keys, bodies):
+        return OutputIssue.MESSAGE_KEY
     return None
 
 
-def rating_issue(rating: str, source_bodies: Sequence[str]) -> OutputIssue | None:
+def rating_issue(
+    rating: str, source_bodies: Sequence[str], message_keys: frozenset[str] = frozenset(),
+) -> OutputIssue | None:
     """The same core checks for a rating line; it names no one, so any internal key fails."""
-    issue = inspect_output(rating, source_bodies)
+    issue = inspect_output(rating, source_bodies, message_keys)
     if issue is None and _INTERNAL_KEY.search(rating):
         return OutputIssue.SPEAKER_KEY
     return issue
