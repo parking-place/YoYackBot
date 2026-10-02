@@ -1,6 +1,7 @@
 """Missing-range collection against a disposable SQLite cache."""
 
 import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -56,7 +57,7 @@ def setup_store(tmp_path):
     path = tmp_path / "messages.db"
     watches = SQLiteWatchStore(path)
     watches.replace(1, frozenset({10}))
-    return SQLiteMessageStore(path, clock=lambda: NOW), watches
+    return SQLiteMessageStore(path, clock=lambda: FETCHED), watches
 
 
 def test_overlap_fetches_only_two_gaps_then_zero(tmp_path) -> None:
@@ -108,7 +109,7 @@ def test_recheck_replaces_stale_edit_and_deleted_row(tmp_path) -> None:
         store.upsert(record(101, 20, "deleted"), cached_at=START)
         store.mark_covered(1, span(0, 120), verified_at=START)
         store.mark_all_watched_recheck(START, END, reason="gateway_gap")
-        history = FakeHistory([record(100, 10, "edited")])
+        history = FakeHistory([replace(record(100, 10, "edited"), edited_at=END)])
         result = await TimeRangeCollector(store, watches, history, clock=lambda: FETCHED).collect(
             channel(), guild_id=1, channel_id=10, start=START, end=END
         )

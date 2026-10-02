@@ -108,7 +108,9 @@ def test_gateway_startup_and_reconnect_require_history_recheck(tmp_path) -> None
         watched = SQLiteWatchStore(path)
         version = watched.replace(1, frozenset({10}))
         store = SQLiteMessageStore(path)
-        settings = Settings.from_environment({"DISCORD_BOT_TOKEN": "test-token"})
+        settings = Settings.from_environment({
+            "DISCORD_BOT_TOKEN": "test-token", "YOYACK_DB_PATH": str(path),
+        })
         current = [NOW]
         client = YoYackClient(
             watch_store=watched, message_store=store, settings=settings,

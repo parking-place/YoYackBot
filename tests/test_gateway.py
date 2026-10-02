@@ -211,6 +211,7 @@ def test_startup_and_periodic_cleanup_use_created_at_retention(tmp_path) -> None
         settings = Settings.from_environment(
             {
                 "DISCORD_BOT_TOKEN": "test-token",
+                "YOYACK_DB_PATH": str(path),
                 "YOYACK_CACHE_CLEANUP_INTERVAL_SECONDS": "1",
             }
         )
