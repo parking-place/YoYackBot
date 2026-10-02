@@ -21,11 +21,13 @@ class StatusReport:
     model: str | None
     last_success: datetime | None
     last_success_known: bool
+    # A live Gateway alone is not health: the collection worker must be running too (1.2.0).
+    collection_ok: bool = True
 
     @property
     def healthy(self) -> bool:
         return (
-            self.gateway_ready and self.watched_channels is not None
+            self.gateway_ready and self.collection_ok and self.watched_channels is not None
             and self.cached_messages is not None and self.database_bytes is not None
             and self.model is not None and self.last_success_known
         )
@@ -87,7 +89,7 @@ def model_label(settings: Settings) -> str | None:
 
 def collect_status(
     settings: Settings, guild_id: int, *, gateway_ready: bool,
-    model_reader: Callable[[Settings], str | None] = model_label,
+    model_reader: Callable[[Settings], str | None] = model_label, collection_ok: bool = True,
 ) -> StatusReport:
     try:
         watched, cached, last = read_guild_counts(settings.database_path, guild_id)
@@ -101,7 +103,7 @@ def collect_status(
         model = None
     return StatusReport(
         gateway_ready, watched, cached, database_bytes(settings.database_path), model,
-        last, known,
+        last, known, collection_ok,
     )
 
 

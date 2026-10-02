@@ -14,12 +14,12 @@ from pathlib import Path
 import discord
 from aiohttp import ClientError
 
-from yoyackbot.backfill_state import reset_recheck
+from yoyackbot.backfill_state import advance_progress, reset_recheck
 from yoyackbot.domain import MessageRecord
 from yoyackbot.history import DiscordHistorySource, HistoryPageSource
 from yoyackbot.message_store import SQLiteMessageStore, _microseconds
 from yoyackbot.parser import RouteKind, route_trigger
-from yoyackbot.watch_store import SQLiteWatchStore, _new_backfill
+from yoyackbot.watch_store import SQLiteWatchStore, _new_backfill, insert_backfills
 
 
 class BackfillError(RuntimeError):
@@ -148,6 +148,17 @@ class BackfillState:
         return self.before_id
 
 
+@dataclass(frozen=True)
+class CollectionProgress:
+    """One channel's collection state read in a single snapshot; None means unknown."""
+
+    state: BackfillState | None
+    recheck_pending: bool
+    pages: int | None
+    last_progress: datetime | None
+    stored_messages: int
+
+
 def summary_ready(state: BackfillState | None) -> bool:
     """Ready only after the full collection or gap recheck and any first-watch ready notice."""
     return state is not None and state.ready and state.blocked_reason is None and not (
@@ -196,13 +207,10 @@ class SQLiteBackfillStore:
                     "LEFT JOIN backfill_state b ON b.guild_id=w.guild_id "
                     "AND b.channel_id=w.channel_id WHERE b.channel_id IS NULL"
                 ).fetchall()
-                connection.executemany(
-                    "INSERT INTO backfill_state "
-                    "(guild_id, channel_id, token, first_watch, started_us, cutoff_us, "
-                    "before_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (_new_backfill(guild_id, channel_id, first_watch=False)
-                     for guild_id, channel_id in missing),
-                )
+                insert_backfills(connection, (
+                    _new_backfill(guild_id, channel_id, first_watch=False)
+                    for guild_id, channel_id in missing
+                ))
                 return len(missing)
         except sqlite3.Error as exc:
             raise BackfillError("Unable to prepare existing watched channels") from exc
@@ -263,6 +271,40 @@ class SQLiteBackfillStore:
                 return state, state.started_us if state is not None else 0, pending
         except sqlite3.Error as exc:
             raise BackfillError("Unable to read collection readiness") from exc
+
+    def progress_snapshot(
+        self, guild_id: int, channel_id: int, *, cutoff: datetime,
+    ) -> CollectionProgress:
+        """Counts and times only; message bodies are never read."""
+        try:
+            with self.watches._connection() as connection, connection:
+                connection.execute("BEGIN")
+                row = connection.execute(
+                    self._select() + "WHERE guild_id=? AND channel_id=?", (guild_id, channel_id),
+                ).fetchone()
+                state = self._state(row) if row is not None else None
+                pending = connection.execute(
+                    "SELECT 1 FROM coverage_recheck WHERE guild_id=? AND channel_id=? "
+                    "AND end_us>? LIMIT 1", (guild_id, channel_id, _us(cutoff)),
+                ).fetchone() is not None
+                progress = connection.execute(
+                    "SELECT token, run_started_us, pages, last_cursor, last_progress_us "
+                    "FROM backfill_progress WHERE guild_id=? AND channel_id=?",
+                    (guild_id, channel_id),
+                ).fetchone()
+                stored = connection.execute(
+                    "SELECT COUNT(*) FROM messages WHERE guild_id=? AND channel_id=?",
+                    (guild_id, channel_id),
+                ).fetchone()[0]
+        except sqlite3.Error as exc:
+            raise BackfillError("Unable to read collection progress") from exc
+        pages = last = None
+        if state is not None and progress is not None:
+            cursor = state.before_id if state.phase == "history" else state.overlap_before_id
+            if progress[:2] == (state.token, state.started_us) and progress[3] == cursor:
+                pages = progress[2]
+                last = _at(progress[4]) if pages is not None and progress[4] is not None else None
+        return CollectionProgress(state, pending, pages, last, stored)
 
     def defer(self, state: BackfillState, *, until: datetime) -> None:
         try:
@@ -434,6 +476,7 @@ class SQLiteBackfillStore:
                     # Compatibility for direct import adapters; the worker always reconciles.
                     for record in retained:
                         SQLiteMessageStore._upsert(connection, record, cached_at)
+                resumed_cursor = next_cursor
                 if state.phase == "history":
                     if next_phase == "overlap":
                         assert finished_at is not None
@@ -450,6 +493,7 @@ class SQLiteBackfillStore:
                             (next_cursor, finished_us, history_end_us, overlap_before,
                              state.guild_id, state.channel_id, state.token),
                         )
+                        resumed_cursor = overlap_before
                     else:
                         connection.execute(
                             "UPDATE backfill_state SET before_id=?, retry_at_us=0 "
@@ -474,6 +518,12 @@ class SQLiteBackfillStore:
                         "WHERE guild_id=? AND channel_id=? AND token=?",
                         (next_cursor, state.guild_id, state.channel_id, state.token),
                     )
+                # Same transaction as the page and cursor: a failed commit counts nothing.
+                advance_progress(
+                    connection, state.guild_id, state.channel_id, token=state.token,
+                    started_us=state.started_us, cursor=state.cursor,
+                    next_cursor=resumed_cursor, at_us=_us(cached_at),
+                )
                 return True
         except sqlite3.Error as exc:
             raise BackfillError("Unable to store initial collection page") from exc

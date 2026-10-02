@@ -221,7 +221,9 @@ def test_summary_waits_without_model_or_cooldown_while_help_remains_available(tm
         try:
             for command in ("!!요약좀", "!!요약좀 5분", "!!요약좀 100개"):
                 await send_command(command)
-            assert [item.content for item in channel.sent] == [NOT_READY_NOTICE] * 3
+            assert [item.content.split("\n")[:2] for item in channel.sent] == [
+                [NOT_READY_NOTICE, "📥 처음 수집하는 중이오."]
+            ] * 3
             assert workflow.calls == 0
             await send_command("!!요약좀 도움")
             assert "`30일` 지원" in channel.sent[-1].content

@@ -154,6 +154,7 @@ def test_gateway_sends_not_ready_or_admits(
             assert len(admitted) == 1 and channel.send.await_count == 0
         else:
             assert admitted == []
-            assert channel.send.await_args.args == (NOT_READY_NOTICE,)
+            # 1.2.0 F02 appends this channel's stage under the unchanged first line.
+            assert channel.send.await_args.args[0].startswith(NOT_READY_NOTICE + "\n")
 
     asyncio.run(scenario())

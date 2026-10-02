@@ -6,13 +6,14 @@ import os
 import secrets
 import sqlite3
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
 import discord
 
+from yoyackbot.backfill_state import start_progress
 from yoyackbot.channel_config import ConcurrentUpdate
 
 _RETENTION_US = 30 * 24 * 60 * 60 * 1_000_000
@@ -27,6 +28,20 @@ def _new_backfill(guild_id: int, channel_id: int, *, first_watch: bool) -> tuple
         guild_id, channel_id, secrets.token_hex(16), int(first_watch),
         started_us, started_us - _RETENTION_US, before_id,
     )
+
+
+def insert_backfills(connection: sqlite3.Connection, rows: Iterable[tuple]) -> None:
+    """Create initial collection runs and start counting their pages in one transaction."""
+    for row in rows:
+        connection.execute(
+            "INSERT INTO backfill_state (guild_id, channel_id, token, first_watch, started_us, "
+            "cutoff_us, before_id) VALUES (?, ?, ?, ?, ?, ?, ?)", row,
+        )
+        guild_id, channel_id, token, _first, started_us, _cutoff, before_id = row
+        start_progress(
+            connection, guild_id, channel_id, token=token, started_us=started_us,
+            kind="initial", cursor=before_id,
+        )
 
 
 class WatchStoreError(RuntimeError):
@@ -175,6 +190,21 @@ class SQLiteWatchStore:
                         "guild_id INTEGER NOT NULL, role_id INTEGER NOT NULL, "
                         "updated_at INTEGER NOT NULL, PRIMARY KEY(guild_id, role_id))"
                     )
+                    # 1.2.0 F02: per-run page progress. Counts and times only; never backed up.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS backfill_progress ("
+                        "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
+                        "token TEXT NOT NULL, run_started_us INTEGER NOT NULL, "
+                        "kind TEXT NOT NULL, pages INTEGER, last_cursor INTEGER NOT NULL, "
+                        "last_progress_us INTEGER, PRIMARY KEY(guild_id, channel_id))"
+                    )
+                    # An older release may have unwatched channels without knowing this table.
+                    connection.execute(
+                        "DELETE FROM backfill_progress WHERE NOT EXISTS (SELECT 1 FROM "
+                        "backfill_state b WHERE b.guild_id=backfill_progress.guild_id "
+                        "AND b.channel_id=backfill_progress.channel_id "
+                        "AND b.token=backfill_progress.token)"
+                    )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS deleted_messages ("
                         "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
@@ -270,6 +300,10 @@ class SQLiteWatchStore:
                         (guild_id, removed_id),
                     )
                     connection.execute(
+                        "DELETE FROM backfill_progress WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
                         "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
@@ -285,13 +319,10 @@ class SQLiteWatchStore:
                         "DELETE FROM coverage_recheck WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
-                connection.executemany(
-                    "INSERT INTO backfill_state "
-                    "(guild_id, channel_id, token, first_watch, started_us, cutoff_us, "
-                    "before_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (_new_backfill(guild_id, channel_id, first_watch=True)
-                     for channel_id in sorted(channel_ids - existing)),
-                )
+                insert_backfills(connection, (
+                    _new_backfill(guild_id, channel_id, first_watch=True)
+                    for channel_id in sorted(channel_ids - existing)
+                ))
                 connection.execute(
                     "UPDATE guild_watch_meta SET version=version+1 WHERE guild_id=?", (guild_id,)
                 )
@@ -314,6 +345,10 @@ class SQLiteWatchStore:
                     )
                     connection.execute(
                         "DELETE FROM backfill_state WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM backfill_progress WHERE guild_id=? AND channel_id=?",
                         (guild_id, channel_id),
                     )
                     connection.execute(
@@ -349,6 +384,7 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM summary_cooldowns WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM deleted_messages WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM backfill_state WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM backfill_progress WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

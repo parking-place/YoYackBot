@@ -19,6 +19,7 @@ from yoyackbot.backfill import (
     BackfillNotifier,
     BackfillPageScheduler,
     BackfillState,
+    CollectionProgress,
     InitialBackfill,
     RetryHolds,
     SQLiteBackfillStore,
@@ -33,9 +34,15 @@ from yoyackbot.channel_config import (
 )
 from yoyackbot.channel_list import deliver_channel_list
 from yoyackbot.codex import CodexContractError
+from yoyackbot.collection_status import (
+    CollectionStage,
+    collection_lines,
+    collection_stage,
+    not_ready_detail,
+)
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
-from yoyackbot.health import write_heartbeat
+from yoyackbot.health import COLLECTION_OK, write_heartbeat
 from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
 from yoyackbot.manager_roles import (
     ManagerRoleStore,
@@ -674,7 +681,7 @@ class YoYackClient(discord.Client):
                 if route.kind is RouteKind.USAGE:
                     await send_usage(await self.usage_reply())
                 elif route.kind is RouteKind.STATUS:
-                    await send_usage(await self.status_reply(message.guild.id))
+                    await send_usage(await self.status_reply(message.guild.id, message.channel.id))
                 else:
                     limit = self.settings.discord_message_limit if self.settings else 1900
                     await send_usage(await deliver_channel_list(
@@ -713,7 +720,9 @@ class YoYackClient(discord.Client):
                         await send_notice(UNAVAILABLE_NOTICE)
                         return
                     if not self.cache_available() or pending or not summary_ready(backfill):
-                        await send_notice(NOT_READY_NOTICE)
+                        await send_notice(await self._not_ready_notice(
+                            message.guild.id, message.channel.id,
+                        ))
                         return
                 try:
                     command = parse_summary_command(route.options)
@@ -772,17 +781,57 @@ class YoYackClient(discord.Client):
         LOGGER.info("usage_request outcome=ok warning=%s", snapshot.warning)
         return usage_message(snapshot)
 
-    async def status_reply(self, guild_id: int) -> str:
-        """Report this Guild only, read-only, without the summary queue, model, or cooldown."""
+    async def _collection_progress(
+        self, guild_id: int, channel_id: int,
+    ) -> CollectionProgress | None:
+        """This channel's progress, or None when it cannot be read (shown as unknown)."""
+        if self.backfill_store is None or self.settings is None:
+            return None
+        try:
+            return await asyncio.to_thread(
+                self.backfill_store.progress_snapshot, guild_id, channel_id,
+                cutoff=self.clock() - timedelta(days=self.settings.cache_retention_days),
+            )
+        except BackfillError:
+            LOGGER.warning("collection_progress_unavailable")
+            return None
+
+    async def _not_ready_notice(self, guild_id: int, channel_id: int) -> str:
+        progress = await self._collection_progress(guild_id, channel_id)
+        stage = collection_stage(progress, now=self.clock(), cache_available=self.cache_available())
+        if stage is CollectionStage.READY:
+            return NOT_READY_NOTICE  # it became ready between the two reads
+        detail = not_ready_detail(
+            progress, now=self.clock(), cache_available=self.cache_available(),
+            worker=self.collection_worker_state(),
+        )
+        return f"{NOT_READY_NOTICE}\n{detail}"
+
+    async def status_reply(self, guild_id: int, channel_id: int | None = None) -> str:
+        """Report this Guild and the asking channel only, without the queue, model, or cooldown."""
         gateway_ready = self.ready_event.is_set()
+        worker = self.collection_worker_state()
+        collecting = worker in COLLECTION_OK
         if self.settings is None:
-            report = StatusReport(gateway_ready, None, None, None, None, None, False)
+            report = StatusReport(gateway_ready, None, None, None, None, None, False, collecting)
         else:
             report = await asyncio.to_thread(
                 collect_status, self.settings, guild_id, gateway_ready=gateway_ready,
+                collection_ok=collecting,
             )
-        LOGGER.info("status_request healthy=%s", report.healthy)
-        return status_message(report, self.clock())
+        text = status_message(report, self.clock())
+        stage = "none"
+        if channel_id is not None and self.backfill_store is not None:
+            progress = await self._collection_progress(guild_id, channel_id)
+            stage = collection_stage(
+                progress, now=self.clock(), cache_available=self.cache_available(),
+            ).value
+            text += "\n\n" + "\n".join(collection_lines(
+                progress, now=self.clock(), cache_available=self.cache_available(),
+                worker=worker,
+            ))
+        LOGGER.info("status_request healthy=%s collection_stage=%s", report.healthy, stage)
+        return text
 
     async def on_watched_message(self, message: discord.Message, lease: ChannelLease) -> None:
         """Persist eligible human messages only while the watch revision still matches."""
