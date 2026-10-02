@@ -1,6 +1,6 @@
 # 1.3.0-P5 — 최근 30개 대화의 사자성어 한마디
 
-- 상태: **PLANNED** · 검사: `T130-P5-A/B/C` **NOT_RUN**
+- 상태: **IN_PROGRESS** · 검사: `T130-P5-A/B/C` **NOT_RUN**
 - 환경: 개발 LXC, 합성 메시지·임시 DB·FakeRunner; 실제 모델은 P6에서 평가
 - 선행: [P4](04-tone-command.md) 원격 완료, 1.2.0의 캐시·권한·입력 한도·출력 검증
 - 상세: [계약 5절](CONTRACT.md), [전체 검증 목록](TEST_MATRIX.md)

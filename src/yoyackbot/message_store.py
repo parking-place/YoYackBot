@@ -18,6 +18,11 @@ EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 # Rows materialized per SQLite fetch while a selection is checked against the input budget.
 READ_BATCH_ROWS = 128
+# 1.3.0: `!!말하자면` commands cached by an older release or by an edit are not conversation.
+# A filter only (the row stays), applied before any LIMIT.
+_NOT_IDIOM_COMMAND = (
+    "AND substr(ltrim(m.content, ' ' || char(9) || char(10) || char(13)), 1, 6)!='!!말하자면' "
+)
 _SELECT_WITH_REPLY = (
     "SELECT m.message_id, m.guild_id, m.channel_id, m.author_id, m.author_name, m.content, "
     "m.created_at_us, m.edited_at_us, m.cached_at_us, m.has_attachment, m.is_reply, r.target_id "
@@ -476,7 +481,7 @@ class SQLiteMessageStore:
         return self._read(
             _SELECT_WITH_REPLY
             + "WHERE m.guild_id=? AND m.channel_id=? AND m.created_at_us>=? "
-            "AND m.created_at_us<? AND (? IS NULL OR m.message_id!=?) "
+            "AND m.created_at_us<? AND (? IS NULL OR m.message_id!=?) " + _NOT_IDIOM_COMMAND +
             "ORDER BY m.created_at_us, m.message_id",
             (guild_id, channel_id, start_us, end_us, exclude_id, exclude_id),
             failure="Message read failed", max_bytes=max_bytes, on_rows=on_rows,
@@ -534,7 +539,7 @@ class SQLiteMessageStore:
         return self._read(
             _SELECT_WITH_REPLY
             + "WHERE m.guild_id=? AND m.channel_id=? AND m.created_at_us>=? "
-            "AND m.created_at_us<? AND (? IS NULL OR m.message_id!=?) "
+            "AND m.created_at_us<? AND (? IS NULL OR m.message_id!=?) " + _NOT_IDIOM_COMMAND +
             "ORDER BY m.created_at_us DESC, m.message_id DESC LIMIT ?",
             (guild_id, channel_id, start_us, end_us, exclude_id, exclude_id, limit),
             failure="Latest message read failed", max_bytes=max_bytes, on_rows=on_rows,

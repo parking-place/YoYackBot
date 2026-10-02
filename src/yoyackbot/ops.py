@@ -97,3 +97,39 @@ class RequestMetrics:
             } else "unexpected",
         }
         LOGGER.info("%s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+
+
+@dataclass
+class IdiomMetrics:
+    """`!!말하자면` (1.3.0): counts and fixed categories only, never candidates or text."""
+
+    request_id: str = field(default_factory=lambda: secrets.token_hex(8))
+    started: float = field(default_factory=time.monotonic, repr=False)
+    outcome: str = "unknown"
+    selected_count: int = 0
+    calls: int = 0
+    idioms: int = 0
+    words: int = 0
+    selected_kind: str = "none"
+    model_ms: int = 0
+
+    def emit(self) -> None:
+        outcomes = {
+            "success", "empty", "busy", "cooldown", "not_ready", "limit", "invalidated",
+            "history_error", "input_error", "model_error", "no_choice", "post_error",
+            "queue_full", "queue_timeout", "queue_closed", "notice_error", "cancelled",
+            "unexpected", "channel_unavailable",
+        }
+        payload = {
+            "event": "idiom_request",
+            "request_id": self.request_id,
+            "outcome": self.outcome if self.outcome in outcomes else "unexpected",
+            "selected_count": min(30, max(0, self.selected_count)),
+            "calls": min(3, max(0, self.calls)),
+            "idioms": min(4, max(0, self.idioms)),
+            "words": min(4, max(0, self.words)),
+            "selected_kind": self.selected_kind if self.selected_kind in {"idiom", "word"} else "none",
+            "model_ms": max(0, self.model_ms),
+            "duration_ms": max(0, round((time.monotonic() - self.started) * 1000)),
+        }
+        LOGGER.info("%s", json.dumps(payload, separators=(",", ":"), sort_keys=True))

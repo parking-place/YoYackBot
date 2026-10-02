@@ -12,7 +12,7 @@ from typing import Protocol
 import discord
 from discord import app_commands
 
-from yoyackbot import __version__
+from yoyackbot import __version__, idiom
 from yoyackbot.backfill import (
     NOT_READY_NOTICE,
     BackfillError,
@@ -707,6 +707,9 @@ class YoYackClient(discord.Client):
                 summarize=handle_usage,
             )
             return
+        if route.kind in (RouteKind.IDIOM, RouteKind.IDIOM_USAGE):
+            await self._on_idiom(message, usage=route.kind is RouteKind.IDIOM_USAGE)
+            return
         if route.kind is RouteKind.SUMMARY:
             accepted_at = self.clock()
 
@@ -776,6 +779,60 @@ class YoYackClient(discord.Client):
             message.channel.id,
             message,
             self.on_watched_message,
+        )
+
+    async def _on_idiom(self, message: discord.Message, *, usage: bool) -> None:
+        """`!!말하자면` (1.3.0): fixed casual notices; a reply never changes its range."""
+        assert message.guild is not None
+        accepted_at = self.clock()
+
+        async def send(notice: str) -> None:
+            await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
+
+        async def handle(lease: ChannelLease) -> None:
+            if usage:
+                await send(idiom.USAGE_NOTICE)
+                return
+            if (
+                self.settings is None or self.message_store is None
+                or not isinstance(self.watch_store, SQLiteWatchStore)
+            ):
+                await send(idiom.UNAVAILABLE_NOTICE)
+                return
+            if self.summary_workflow is None:
+                try:
+                    self.summary_workflow = build_workflow(
+                        self.settings, self, self.watch_store, self.message_store,
+                    )
+                except CodexContractError:
+                    LOGGER.warning("summary_workflow_unavailable type=CodexContractError")
+                    await send(idiom.FAILED_NOTICE)
+                    return
+            if self.backfill_store is not None:
+                try:
+                    backfill, _generation, pending = await asyncio.to_thread(
+                        self.backfill_store.readiness_snapshot,
+                        message.guild.id, message.channel.id,
+                        cutoff=self.clock() - timedelta(days=self.settings.cache_retention_days),
+                    )
+                except BackfillError:
+                    await send(idiom.UNAVAILABLE_NOTICE)
+                    return
+                if not self.cache_available() or pending or not summary_ready(backfill):
+                    await send(idiom.NOT_READY_NOTICE)
+                    return
+            LOGGER.info("idiom_request_parsed")
+            await self.summary_workflow.run_idiom(
+                message.guild.id, message.channel, lease, send,
+                accepted_at=accepted_at, trigger_message_id=getattr(message, "id", None),
+            )
+
+        await self.watch_gate.request(
+            message.guild.id, message.channel.id, is_help=False,
+            help_reply=lambda: send(idiom.USAGE_NOTICE),
+            unwatched_reply=lambda _notice: send(idiom.UNWATCHED_NOTICE),
+            unavailable_reply=lambda _notice: send(idiom.UNAVAILABLE_NOTICE),
+            summarize=handle,
         )
 
     async def _read_usage(self) -> UsageSnapshot:

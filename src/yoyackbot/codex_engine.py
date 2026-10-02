@@ -11,6 +11,15 @@ from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
 from yoyackbot.codex_runner import CodexRunError, SandboxedCodex
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode, SummaryResult
+from yoyackbot.idiom import (
+    IDIOM_SELECT_PROMPT,
+    IdiomFailed,
+    IdiomResult,
+    idiom_candidates_prompt,
+    idiom_line,
+)
+from yoyackbot.idiom import parse_candidates as parse_idiom_candidates
+from yoyackbot.idiom import parse_choice as parse_idiom_choice
 from yoyackbot.input_files import InputWorkspace, message_keys, serialize_conversation
 from yoyackbot.output_quality import (
     OutputIssue,
@@ -152,6 +161,57 @@ class CodexSummaryEngine:
             text, self.runner.contract.model, len(included), status, ongoing, topic_critique(text),
             name_underline(text, list(speaker_labels(included).values())),
             rating_text=posted, rating_candidates=candidates, rating_similar=similar,
+        )
+
+    async def idiom(
+        self, messages: Sequence[MessageRecord], *, channel_name: str = "현재 채널",
+        trigger_message_id: int | None = None,
+        on_input_size: Callable[[int], None] | None = None,
+    ) -> IdiomResult:
+        """`!!말하자면`: four candidates (once more if malformed), then one pick and emoji.
+
+        No tone, rating or request note reaches these calls; at most three calls.
+        """
+        included = [item for item in messages if item.message_id != trigger_message_id]
+        if not included:
+            raise ValueError("Idiom requires at least one eligible message")
+        data = serialize_conversation(
+            included, channel_name=channel_name, range_label="최근 대화",
+            trigger_message_id=trigger_message_id, max_bytes=self.settings.max_input_bytes,
+            on_size=on_input_size,
+        )
+        names = [*speaker_labels(included).values(), *(item.author_name for item in included)]
+        root = self.settings.input_directory.absolute()
+        calls = 0
+        async with self._slots:
+            found = None
+            for retry in (False, True):
+                calls += 1
+                answer = await self.runner.execute(
+                    InputWorkspace.create(root, data), idiom_candidates_prompt(retry=retry),
+                )
+                found = parse_idiom_candidates(answer, names)
+                if found is not None:
+                    break
+            if found is None:
+                raise IdiomFailed("No valid candidates")
+            lines = b"".join(json.dumps(
+                {"type": "idiom_candidate", "number": index, "term": item.term, "kind": item.kind},
+                ensure_ascii=False,
+            ).encode() + b"\n" for index, item in enumerate(found, start=1))
+            calls += 1
+            answer = await self.runner.execute(
+                InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + lines),
+                IDIOM_SELECT_PROMPT,
+            )
+        choice = parse_idiom_choice(answer, len(found))
+        if choice is None:
+            raise IdiomFailed("Invalid choice")
+        picked = found[choice[0] - 1]
+        return IdiomResult(
+            idiom_line(picked.term, choice[1]), calls,
+            sum(item.kind == "idiom" for item in found), sum(item.kind == "word" for item in found),
+            picked.kind, len(included),
         )
 
     @staticmethod

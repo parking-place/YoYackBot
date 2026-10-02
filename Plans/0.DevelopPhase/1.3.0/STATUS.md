@@ -8,7 +8,7 @@
 | [1.3.0-P2](02-rating-judge.md) | luna 심사로 1개 선택 | DONE | C `569dab421a811ff063d0c164f2604981cc7d16e6` / E [`a4c0c2b`](https://github.com/parking-place/YoYackBot/commit/a4c0c2b65523f5b5a71c386d7a2719756a9c17eb) | P1 D `bcd2ae3`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37002941471), 종료 D push 확인 |
 | [1.3.0-P3](03-reply-range.md) | 답장으로 범위 지정 | DONE | C `4e47de4e50c46dba83e78f4c04644d6376425585` / E [`e16b9eb`](https://github.com/parking-place/YoYackBot/commit/e16b9ebbe276b4d6e3f6f23540f59c2b9252f115) | P2 D `1d1829f`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37003556701), 종료 D push 확인 |
 | [1.3.0-P4](04-tone-command.md) | `/말투` 명령 | DONE | C `462f46227cca2e661b7b4f827fbacd4c9dda85ac` / E [`5e47151`](https://github.com/parking-place/YoYackBot/commit/5e471513079cc922c0cfa303270e93fa14f0aa2c) | P3 D `2c0721d`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37004569991), 종료 D push 확인 |
-| [1.3.0-P5](05-idiom.md) | 최근 30개·후보 4개·사자성어 한마디 | PLANNED | — | P4 원격 완료, 서버 말투와 분리 |
+| [1.3.0-P5](05-idiom.md) | 최근 30개·후보 4개·사자성어 한마디 | IN_PROGRESS | — | P4 종료 D `b0da646`, 서버 말투와 분리 |
 | [1.3.0-P6](06-evaluation.md) | 기존 요약 16건 + 사자성어 4건 실제 평가 | PLANNED | — | P5 원격 완료, 계정 한도 확인 |
 | [1.3.0-P7](07-release.md) | 도움말·통합·배포·출시 | PLANNED | — | P1~P6 원격 증거 선행 |
 
