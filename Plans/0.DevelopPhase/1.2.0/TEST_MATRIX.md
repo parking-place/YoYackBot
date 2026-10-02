@@ -20,10 +20,10 @@
 | `T120-P4-B` | P4 B11 | LXC FakeRunner | 평가/고지 단독·평가 제거 뒤 빈 본문은 성공·게시·쿨타임 불가 | PASS |
 | `T120-P4-C` | P4 B12 | LXC FakeRunner | 보조·최종 출력 공통 검증, 실패 표식/도구 경로 거절, 유효 본문+불량 평가의 안전한 생략 | PASS |
 | `T120-P4-D` | P4 B13 | LXC 합성 CLI | PATH/절대/누락/비실행/버전불일치의 config·ready·runner·usage 판정 일치, 전체 회귀 | PASS |
-| `T120-P5-A` | [P5](05-collection-progress.md) F02 | LXC 대역 | 단계·차단·retry·준비 안내 대기·공백·worker 상태와 표시 일치 | NOT_RUN |
-| `T120-P5-B` | P5 F02 | LXC 임시 DB | 페이지/cursor/진척 원자 commit, 실패·재시도·stale token 중복 집계 없음, 회차·재시작 일관 | NOT_RUN |
-| `T120-P5-C` | P5 F02 | LXC 대역 | 현재 채널만 표시, 원문·다른 채널·예외 미노출, 추정 ETA/퍼센트 없음, 모름과 0 구분 | NOT_RUN |
-| `T120-P5-D` | P5 F02 | LXC 복귀 DB | 선택 테이블 생성·백업 제외·해제/탈퇴 정리·구버전 복귀 후 재업그레이드, 전체 회귀 | NOT_RUN |
+| `T120-P5-A` | [P5](05-collection-progress.md) F02 | LXC 대역 | 단계·차단·retry·준비 안내 대기·공백·worker 상태와 표시 일치 | PASS |
+| `T120-P5-B` | P5 F02 | LXC 임시 DB | 페이지/cursor/진척 원자 commit, 실패·재시도·stale token 중복 집계 없음, 회차·재시작 일관 | PASS |
+| `T120-P5-C` | P5 F02 | LXC 대역 | 현재 채널만 표시, 원문·다른 채널·예외 미노출, 추정 ETA/퍼센트 없음, 모름과 0 구분 | PASS |
+| `T120-P5-D` | P5 F02 | LXC 복귀 DB | 선택 테이블 생성·백업 제외·해제/탈퇴 정리·구버전 복귀 후 재업그레이드, 전체 회귀 | PASS |
 | `T120-P6-A` | [P6](06-reply-context.md) F10 | LXC 합성 입력 | 단일/교차/동명/체인의 선택 집합 내부 참조 정확, 기존 범위·개수·순서 유지 | NOT_RUN |
 | `T120-P6-B` | P6 F10 | LXC 대역 | 범위 밖/삭제/필터 제외/다른 채널/미확인은 null, 추가 fetch·raw ID·키 누출 없음, byte·호출 상한 유지 | NOT_RUN |
 | `T120-P6-C` | P6 F10 | LXC 복귀 DB | 기존 캐시·복원·경합·구버전 writer·정리·재업그레이드의 참조 무효화와 백업 제외 | NOT_RUN |
