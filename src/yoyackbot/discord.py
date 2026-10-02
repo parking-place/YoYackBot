@@ -29,7 +29,7 @@ from yoyackbot.channel_config import (
     install_channel_commands,
     valid_channel,
 )
-from yoyackbot.channel_list import channel_list_messages, visible_watched_channels
+from yoyackbot.channel_list import deliver_channel_list
 from yoyackbot.codex import CodexContractError
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
@@ -516,7 +516,9 @@ class YoYackClient(discord.Client):
         assert message.guild is not None
         if route.kind in (RouteKind.USAGE, RouteKind.STATUS, RouteKind.CHANNELS):
             async def send_usage(notice: str) -> None:
-                await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
+                await message.channel.send(
+                    notice, allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True,
+                )
 
             async def handle_usage(_lease: ChannelLease) -> None:
                 if route.kind is RouteKind.USAGE:
@@ -524,8 +526,11 @@ class YoYackClient(discord.Client):
                 elif route.kind is RouteKind.STATUS:
                     await send_usage(await self.status_reply(message.guild.id))
                 else:
-                    for part in await self.channel_list_reply(message.guild, message.author):
-                        await send_usage(part)
+                    limit = self.settings.discord_message_limit if self.settings else 1900
+                    await send_usage(await deliver_channel_list(
+                        message.guild, message.author, self.watch_store,
+                        origin_channel_id=message.channel.id, limit=limit,
+                    ))
 
             await self.watch_gate.request(
                 message.guild.id,
@@ -614,18 +619,6 @@ class YoYackClient(discord.Client):
                 return USAGE_UNAVAILABLE_NOTICE
         LOGGER.info("usage_request outcome=ok warning=%s", snapshot.warning)
         return usage_message(snapshot)
-
-    async def channel_list_reply(self, guild: discord.Guild, requester: object) -> list[str]:
-        """Read-only list of this Guild's watched channels the requester can see."""
-        try:
-            _version, watched = await asyncio.to_thread(self.watch_store.snapshot, guild.id)
-        except Exception:  # noqa: BLE001 - never guess a list when settings are unreadable
-            LOGGER.warning("channel_list_settings_unavailable")
-            return [UNAVAILABLE_NOTICE]
-        channels = visible_watched_channels(guild, watched, requester)
-        LOGGER.info("channel_list_request count=%d", len(channels))
-        limit = self.settings.discord_message_limit if self.settings is not None else 1900
-        return channel_list_messages([channel.name for channel in channels], limit=limit)
 
     async def status_reply(self, guild_id: int) -> str:
         """Report this Guild only, read-only, without the summary queue, model, or cooldown."""

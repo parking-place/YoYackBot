@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from threading import Lock
 from typing import Protocol
 
 from yoyackbot.channel_config import ConcurrentUpdate
@@ -18,10 +19,13 @@ class ManagerRoleStore(Protocol):
     def get(self, guild_id: int) -> frozenset[int]: ...
 
     def replace(
-        self, guild_id: int, role_ids: frozenset[int], *, expected_version: int | None = None
+        self, guild_id: int, role_ids: frozenset[int], *, expected_version: int | None = None,
+        authorize: Callable[[frozenset[int] | None], bool] | None = None,
     ) -> int: ...
 
-    def remove_role(self, guild_id: int, role_id: int) -> bool: ...
+    def remove_role(self, guild_id: int, role_id: int) -> bool:
+        """Atomically remove only this role and advance the revision if it existed."""
+        ...
 
     def remove_guild(self, guild_id: int) -> None: ...
 
@@ -30,34 +34,47 @@ class MemoryManagerRoleStore:
     def __init__(self) -> None:
         self._roles: dict[int, frozenset[int]] = {}
         self._versions: dict[int, int] = {}
+        self._lock = Lock()
 
     def snapshot(self, guild_id: int) -> tuple[int, frozenset[int]]:
-        return self._versions.get(guild_id, 0), self.get(guild_id)
+        with self._lock:
+            return self._versions.get(guild_id, 0), self._roles.get(guild_id, frozenset())
 
     def get(self, guild_id: int) -> frozenset[int]:
-        return self._roles.get(guild_id, frozenset())
+        return self.snapshot(guild_id)[1]
 
     def replace(
-        self, guild_id: int, role_ids: frozenset[int], *, expected_version: int | None = None
+        self, guild_id: int, role_ids: frozenset[int], *, expected_version: int | None = None,
+        authorize: Callable[[frozenset[int] | None], bool] | None = None,
     ) -> int:
-        version = self._versions.get(guild_id, 0)
-        if expected_version is not None and expected_version != version:
-            raise ConcurrentUpdate
-        if self.get(guild_id) == role_ids:
-            return version
-        self._roles[guild_id] = frozenset(role_ids)
-        self._versions[guild_id] = version + 1
-        return version + 1
+        with self._lock:
+            existing = self._roles.get(guild_id, frozenset())
+            if authorize is not None and not authorize(existing):
+                raise PermissionError("Manager role update is no longer authorized")
+            version = self._versions.get(guild_id, 0)
+            if expected_version is not None and expected_version != version:
+                raise ConcurrentUpdate
+            if existing == role_ids:
+                return version
+            self._roles[guild_id] = frozenset(role_ids)
+            self._versions[guild_id] = version + 1
+            return version + 1
 
     def remove_role(self, guild_id: int, role_id: int) -> bool:
-        if role_id not in self.get(guild_id):
-            return False
-        self.replace(guild_id, self.get(guild_id) - {role_id})
-        return True
+        if guild_id < 1 or role_id < 1:
+            raise ValueError("Guild and role identifiers must be positive")
+        with self._lock:
+            current = self._roles.get(guild_id, frozenset())
+            if role_id not in current:
+                return False
+            self._roles[guild_id] = current - {role_id}
+            self._versions[guild_id] = self._versions.get(guild_id, 0) + 1
+            return True
 
     def remove_guild(self, guild_id: int) -> None:
-        self._roles.pop(guild_id, None)
-        self._versions.pop(guild_id, None)
+        with self._lock:
+            self._roles.pop(guild_id, None)
+            self._versions.pop(guild_id, None)
 
 
 class SQLiteManagerRoleStore:
@@ -99,21 +116,24 @@ class SQLiteManagerRoleStore:
         return self.snapshot(guild_id)[1]
 
     def replace(
-        self, guild_id: int, role_ids: frozenset[int], *, expected_version: int | None = None
+        self, guild_id: int, role_ids: frozenset[int], *, expected_version: int | None = None,
+        authorize: Callable[[frozenset[int] | None], bool] | None = None,
     ) -> int:
         if guild_id < 1 or any(role_id < 1 for role_id in role_ids):
             raise ValueError("Guild and role identifiers must be positive")
         try:
             with self._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
-                version = self._version(connection, guild_id)
-                if expected_version is not None and version != expected_version:
-                    raise ConcurrentUpdate
                 existing = frozenset(
                     row[0] for row in connection.execute(
                         "SELECT role_id FROM manager_roles WHERE guild_id=?", (guild_id,)
                     )
                 )
+                if authorize is not None and not authorize(existing):
+                    raise PermissionError("Manager role update is no longer authorized")
+                version = self._version(connection, guild_id)
+                if expected_version is not None and version != expected_version:
+                    raise ConcurrentUpdate
                 if existing == role_ids:
                     return version
                 connection.execute("DELETE FROM manager_roles WHERE guild_id=?", (guild_id,))
@@ -131,11 +151,24 @@ class SQLiteManagerRoleStore:
             raise WatchStoreError("Manager role write failed") from exc
 
     def remove_role(self, guild_id: int, role_id: int) -> bool:
-        current = self.get(guild_id)
-        if role_id not in current:
-            return False
-        self.replace(guild_id, current - {role_id})
-        return True
+        if guild_id < 1 or role_id < 1:
+            raise ValueError("Guild and role identifiers must be positive")
+        try:
+            with self._connection() as connection, connection:
+                connection.execute("BEGIN IMMEDIATE")
+                deleted = connection.execute(
+                    "DELETE FROM manager_roles WHERE guild_id=? AND role_id=?",
+                    (guild_id, role_id),
+                ).rowcount
+                if not deleted:
+                    return False
+                connection.execute(
+                    "INSERT INTO manager_role_meta(guild_id, version) VALUES (?, 1) "
+                    "ON CONFLICT(guild_id) DO UPDATE SET version=version+1", (guild_id,),
+                )
+                return True
+        except sqlite3.Error as exc:
+            raise WatchStoreError("Manager role cleanup failed") from exc
 
     def remove_guild(self, guild_id: int) -> None:
         try:

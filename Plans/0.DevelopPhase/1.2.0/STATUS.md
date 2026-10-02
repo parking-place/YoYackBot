@@ -4,7 +4,7 @@
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
-| [1.2.0-P1](01-permissions-settings.md) | B01·B02·B09·B14 권한·설정 | PLANNED | — | v1.1.3a와 계획 main 통합 기준 확인 |
+| [1.2.0-P1](01-permissions-settings.md) | B01·B02·B09·B14 권한·설정 | IN_PROGRESS | — | PR #44 main 통합 `b987a17`, `develop/1.2.0` 착수·LXC 격리 검증 |
 | [1.2.0-P2](02-cache-consistency.md) | B03·B04·B06·B07 캐시 정합성 | PLANNED | — | P1 원격 완료 |
 | [1.2.0-P3](03-worker-memory.md) | B05·B08 worker·메모리 | PLANNED | — | P2 원격 완료 |
 | [1.2.0-P4](04-output-runtime.md) | B10~B13 출력·실행 | PLANNED | — | P3 원격 완료 |

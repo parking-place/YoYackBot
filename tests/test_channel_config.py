@@ -19,6 +19,7 @@ from yoyackbot.channel_config import (
     SLASH_PERMISSIONS,
     ChannelSettingsView,
     MemoryWatchStore,
+    allowed,
     bot_command,
     command_group,
     gated,
@@ -100,12 +101,19 @@ def test_permission_rule(who: dict, expected: bool) -> None:
 
 
 def interaction(*, guild: object | None, user_id: int = 7, **who) -> SimpleNamespace:
+    response = SimpleNamespace(done=False, send_message=AsyncMock(), edit_message=AsyncMock())
+    response.is_done = lambda: response.done
+
+    async def defer(**kwargs) -> None:
+        response.done = True
+
+    response.defer = AsyncMock(side_effect=defer)
     return SimpleNamespace(
         guild=guild, guild_id=getattr(guild, "id", None),
         user=SimpleNamespace(id=user_id, **vars(member(**who))),
-        response=SimpleNamespace(is_done=lambda: False, send_message=AsyncMock(),
-                                 edit_message=AsyncMock()),
+        response=response,
         followup=SimpleNamespace(send=AsyncMock()),
+        edit_original_response=AsyncMock(),
         original_response=AsyncMock(return_value=SimpleNamespace(edit=AsyncMock())),
     )
 
@@ -135,9 +143,9 @@ def test_admins_and_manager_roles_can_open_and_save(who: dict, caplog) -> None:
         roles.replace(1, frozenset({MANAGER_ROLE}))
         opened = interaction(guild=guild, **who)
         await configure_command(store, roles).callback(opened)
-        view = opened.response.send_message.await_args.kwargs["view"]
+        view = opened.edit_original_response.await_args.kwargs["view"]
         assert isinstance(view, ChannelSettingsView) and view.owner_id == 7
-        assert opened.response.send_message.await_args.kwargs["ephemeral"] is True
+        assert opened.response.defer.await_args.kwargs["ephemeral"] is True
         click = interaction(guild=guild, **who)
         assert await view.interaction_check(click)
         view.draft.add(10)
@@ -158,8 +166,8 @@ def test_everyone_else_is_refused_privately(who: dict) -> None:
         roles.replace(1, frozenset({MANAGER_ROLE}))
         attempt = interaction(guild=text_guild(), **who)
         await configure_command(MemoryWatchStore(), roles).callback(attempt)
-        assert attempt.response.send_message.await_args.args == (NOT_ALLOWED,)
-        assert attempt.response.send_message.await_args.kwargs["ephemeral"] is True
+        assert attempt.followup.send.await_args.args == (NOT_ALLOWED,)
+        assert attempt.followup.send.await_args.kwargs["ephemeral"] is True
 
     asyncio.run(scenario())
 
@@ -188,7 +196,7 @@ def test_unreadable_role_table_still_lets_administrators_in() -> None:
         await run(interaction(guild=text_guild(), user_id=1, admin=True))
         member_only = interaction(guild=text_guild(), user_id=2, roles=(MANAGER_ROLE,))
         await run(member_only)
-        assert called == [1] and member_only.response.send_message.await_args.args == (NOT_ALLOWED,)
+        assert called == [1] and member_only.followup.send.await_args.args == (NOT_ALLOWED,)
 
     asyncio.run(scenario())
 
@@ -229,7 +237,9 @@ def test_view_stays_with_its_opener_and_rechecks_the_role_on_every_click() -> No
     async def scenario() -> None:
         roles = MemoryManagerRoleStore()
         roles.replace(1, frozenset({MANAGER_ROLE}))
-        view = ChannelSettingsView(MemoryWatchStore(), guild_id=1, owner_id=2, roles=roles)
+        view = ChannelSettingsView(
+            MemoryWatchStore(), guild_id=1, owner_id=2, roles=roles, snapshot=(0, frozenset()),
+        )
         home, other = text_guild(1), text_guild(2)
         for guild, user_id, who, allowed, message in [
             (home, 2, {"roles": (MANAGER_ROLE,)}, True, None),
@@ -241,9 +251,55 @@ def test_view_stays_with_its_opener_and_rechecks_the_role_on_every_click() -> No
             click = interaction(guild=guild, user_id=user_id, **who)
             assert await view.interaction_check(click) is allowed
             if message:
-                assert click.response.send_message.await_args.args[0] == message
+                sent = click.followup.send if click.response.is_done() else click.response.send_message
+                assert sent.await_args.args[0] == message
         roles.replace(1, frozenset())
         lost = interaction(guild=home, user_id=2, roles=(MANAGER_ROLE,))
         assert not await view.interaction_check(lost)
+
+    asyncio.run(scenario())
+
+
+def test_authorization_fetches_current_member_when_cache_is_disabled() -> None:
+    async def scenario() -> None:
+        roles = MemoryManagerRoleStore()
+        roles.replace(1, frozenset({MANAGER_ROLE}))
+        home = text_guild()
+        home.get_member = lambda _user_id: None
+        home.fetch_member = AsyncMock(return_value=member(roles=(MANAGER_ROLE,)))
+        request = interaction(guild=home, roles=(MANAGER_ROLE,))
+        assert await allowed(request, roles)
+        home.fetch_member.assert_awaited_once_with(7)
+        home.fetch_member.return_value = member()
+        assert not await allowed(request, roles)
+        assert request.followup.send.await_args.args == (NOT_ALLOWED,)
+
+    asyncio.run(scenario())
+
+
+def test_save_failure_and_stale_or_expired_views_do_not_report_success() -> None:
+    class Broken(MemoryWatchStore):
+        def replace(self, *args, **kwargs) -> int:
+            raise RuntimeError("synthetic write failure")
+
+    async def scenario() -> None:
+        roles = MemoryManagerRoleStore()
+        for reason in ("failed", "stale", "expired"):
+            store = Broken() if reason == "failed" else MemoryWatchStore()
+            view = ChannelSettingsView(store, 1, 7, roles, snapshot=store.snapshot(1))
+            view.draft.add(10)
+            if reason == "stale":
+                store.replace(1, frozenset({99}))
+            if reason == "expired":
+                await view.on_timeout()
+            request = interaction(guild=text_guild(), admin=True)
+            save = next(child for child in view.children if getattr(child, "label", None) == "저장")
+            await save.callback(request)
+            request.edit_original_response.assert_not_awaited()
+            assert store.get(1) == (frozenset({99}) if reason == "stale" else frozenset())
+            response = request.followup.send if request.response.is_done() else request.response.send_message
+            assert any(word in response.await_args.args[0] for word in (
+                "저장하지 못했소", "다른 사람이", "설정 시간이",
+            ))
 
     asyncio.run(scenario())

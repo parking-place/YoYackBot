@@ -7,6 +7,8 @@ import functools
 import logging
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
+from threading import RLock
+from time import monotonic
 from typing import TYPE_CHECKING, Any, Protocol
 
 import discord
@@ -14,6 +16,7 @@ from discord import app_commands
 
 if TYPE_CHECKING:
     from yoyackbot.manager_roles import ManagerRoleStore
+    from yoyackbot.role_config import RoleSettingsView
 
 LOGGER = logging.getLogger(__name__)
 DENIED = "🚫 이 설정 화면은 연 사람만 쓸 수 있소. `/채널 설정`을 직접 여시오. 🙅"
@@ -33,7 +36,8 @@ class WatchStore(Protocol):
     def version(self, guild_id: int) -> int: ...
 
     def replace(
-        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None
+        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None,
+        authorize: Callable[[frozenset[int] | None], bool] | None = None,
     ) -> int: ...
 
     def remove_channel(self, guild_id: int, channel_id: int) -> bool: ...
@@ -51,37 +55,47 @@ class MemoryWatchStore:
     def __init__(self) -> None:
         self._channels: dict[int, frozenset[int]] = {}
         self._versions: dict[int, int] = {}
+        self._lock = RLock()
 
     def get(self, guild_id: int) -> frozenset[int]:
-        return self._channels.get(guild_id, frozenset())
+        with self._lock:
+            return self._channels.get(guild_id, frozenset())
 
     def snapshot(self, guild_id: int) -> tuple[int, frozenset[int]]:
-        return self.version(guild_id), self.get(guild_id)
+        with self._lock:
+            return self.version(guild_id), self.get(guild_id)
 
     def version(self, guild_id: int) -> int:
-        return self._versions.get(guild_id, 0)
+        with self._lock:
+            return self._versions.get(guild_id, 0)
 
     def replace(
-        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None
+        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None,
+        authorize: Callable[[frozenset[int] | None], bool] | None = None,
     ) -> int:
-        if expected_version is not None and expected_version != self.version(guild_id):
-            raise ConcurrentUpdate
-        if self.get(guild_id) == channel_ids:
+        with self._lock:
+            if authorize is not None and not authorize(None):
+                raise PermissionError("Settings write authorization denied")
+            if expected_version is not None and expected_version != self.version(guild_id):
+                raise ConcurrentUpdate
+            if self.get(guild_id) == channel_ids:
+                return self.version(guild_id)
+            self._channels[guild_id] = channel_ids
+            self._versions[guild_id] = self.version(guild_id) + 1
             return self.version(guild_id)
-        self._channels[guild_id] = channel_ids
-        self._versions[guild_id] = self.version(guild_id) + 1
-        return self.version(guild_id)
 
     def remove_channel(self, guild_id: int, channel_id: int) -> bool:
-        current = self.get(guild_id)
-        if channel_id not in current:
-            return False
-        self.replace(guild_id, current - {channel_id})
-        return True
+        with self._lock:
+            current = self.get(guild_id)
+            if channel_id not in current:
+                return False
+            self.replace(guild_id, current - {channel_id})
+            return True
 
     def remove_guild(self, guild_id: int) -> None:
-        self._channels.pop(guild_id, None)
-        self._versions.pop(guild_id, None)
+        with self._lock:
+            self._channels.pop(guild_id, None)
+            self._versions.pop(guild_id, None)
 
 
 def may_manage(member: object, manager_roles: frozenset[int]) -> bool:
@@ -98,15 +112,76 @@ async def allowed(interaction: discord.Interaction, roles: ManagerRoleStore) -> 
     if guild is None:
         await reject(interaction, GUILD_ONLY)
         return False
+    # A SQLite writer can wait for seconds. Acknowledge before any store access.
+    if not interaction.response.is_done():
+        await interaction.response.defer(ephemeral=True)
     try:
         manager_roles = await asyncio.to_thread(roles.get, guild.id)
     except Exception:  # noqa: BLE001 - administrators keep working if the role table is unreadable
         LOGGER.warning("manager_roles_read_failed")
         manager_roles = frozenset()
-    if may_manage(interaction.user, manager_roles):
+    if await current_permission(interaction, manager_roles):
         return True
     await reject(interaction, NOT_ALLOWED)
     return False
+
+
+async def current_permission(
+    interaction: discord.Interaction, manager_roles: frozenset[int],
+) -> bool:
+    """Check current Discord membership without reading settings or sending a response."""
+    guild = interaction.guild
+    if guild is None:
+        return False
+    get_role = getattr(guild, "get_role", None)
+    if get_role is not None:
+        manager_roles = frozenset(role_id for role_id in manager_roles if get_role(role_id) is not None)
+    # This client disables its member cache; a cache miss does not mean the caller left.
+    fetch_member = getattr(guild, "fetch_member", None)
+    member = interaction.user
+    if fetch_member is not None:
+        try:
+            member = await fetch_member(interaction.user.id)
+        except discord.HTTPException:
+            return False
+    return member is not None and may_manage(member, manager_roles)
+
+
+def write_authorizer(
+    interaction: discord.Interaction, roles: ManagerRoleStore,
+    view: ChannelSettingsView | RoleSettingsView,
+    valid_draft: Callable[[], bool],
+) -> Callable[[frozenset[int] | None], bool]:
+    """Recheck permission after the worker acquired its write lock, with no SQLite reread."""
+    loop = asyncio.get_running_loop()
+
+    async def check(manager_roles: frozenset[int]) -> bool:
+        if (view.is_finished() or monotonic() >= view.expires_at
+                or interaction.guild_id != view.guild_id or interaction.user.id != view.owner_id):
+            return False
+        permitted = await current_permission(interaction, manager_roles)
+        if not permitted or view.is_finished() or monotonic() >= view.expires_at:
+            return False
+        if not valid_draft():
+            raise ConcurrentUpdate
+        return True
+
+    def authorize(manager_roles: frozenset[int] | None) -> bool:
+        # Only the development MemoryWatchStore lacks a roles table. Its separate role store
+        # can be read on this worker; SQLite and the locked role adapter always pass their set.
+        if manager_roles is None:
+            manager_roles = roles.get(view.guild_id)
+        future = asyncio.run_coroutine_threadsafe(check(manager_roles), loop)
+        try:
+            return future.result(timeout=10)
+        except ConcurrentUpdate:
+            raise
+        except Exception:  # noqa: BLE001 - fail closed; never keep a transaction waiting forever
+            future.cancel()
+            LOGGER.warning("settings_write_authorization_failed")
+            return False
+
+    return authorize
 
 
 def command_group(name: str, description: str) -> app_commands.Group:
@@ -195,9 +270,8 @@ class AddChannels(discord.ui.ChannelSelect):
             await reject(interaction, INVALID)
             return
         view.draft.update(chosen)
-        await interaction.response.send_message(
+        await reject(interaction,
             f"{selection_summary(guild, view.draft)}\n💾 저장을 눌러 확정하시오. 👇",
-            ephemeral=True,
         )
 
 
@@ -218,9 +292,8 @@ class RemoveChannels(discord.ui.ChannelSelect):
             await reject(interaction, INVALID)
             return
         view.draft.difference_update(channel.id for channel in self.values)
-        await interaction.response.send_message(
+        await reject(interaction,
             f"{selection_summary(guild, view.draft)}\n💾 저장을 눌러 확정하시오. 👇",
-            ephemeral=True,
         )
 
 
@@ -231,7 +304,7 @@ class ClearChannels(discord.ui.Button["ChannelSettingsView"]):
     async def callback(self, interaction: discord.Interaction) -> None:
         assert self.view is not None
         self.view.draft.clear()
-        await interaction.response.send_message("🧹 목록을 비웠소. 저장을 눌러 확정하시오. 👇", ephemeral=True)
+        await reject(interaction, "🧹 목록을 비웠소. 저장을 눌러 확정하시오. 👇")
 
 
 class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
@@ -241,14 +314,27 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
         assert view is not None
+        async with view.save_lock:
+            await self._save(interaction, view)
+
+    async def _save(self, interaction: discord.Interaction, view: ChannelSettingsView) -> None:
+        if not await view.interaction_check(interaction):
+            return
         guild = interaction.guild
-        if guild is None or not valid_selection(guild, view.draft):
+        draft = frozenset(view.draft)
+        if guild is None or not valid_selection(guild, draft):
             await reject(interaction, INVALID)
             return
         try:
-            view.store.replace(
-                view.guild_id, frozenset(view.draft), expected_version=view.original_version
+            await asyncio.to_thread(
+                view.store.replace, view.guild_id, draft, expected_version=view.original_version,
+                authorize=write_authorizer(
+                    interaction, view.roles, view, lambda: valid_selection(guild, draft),
+                ),
             )
+        except PermissionError:
+            await reject(interaction, NOT_ALLOWED)
+            return
         except ConcurrentUpdate:
             await reject(interaction, "🔄 다른 사람이 설정을 바꾸었소. 명령을 다시 열어 확인하시오. 👀")
             return
@@ -258,13 +344,14 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
             return
         LOGGER.info(
             "watched_channels_saved at=%s count=%d",
-            datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), len(view.draft),
+            datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), len(draft),
         )
+        view.draft = set(draft)
         view.stop()
         for item in view.children:
             item.disabled = True
-        await interaction.response.edit_message(
-            content=f"💾✅ 주시 채널 {len(view.draft)}개를 저장했소. 🎉\n{selection_summary(guild, view.draft)}",
+        await interaction.edit_original_response(
+            content=f"💾✅ 주시 채널 {len(draft)}개를 저장했소. 🎉\n{selection_summary(guild, draft)}",
             view=view,
         )
 
@@ -278,20 +365,26 @@ class CancelChannels(discord.ui.Button["ChannelSettingsView"]):
         self.view.stop()
         for item in self.view.children:
             item.disabled = True
-        await interaction.response.edit_message(content="↩️ 설정 변경을 취소했소. 🙆", view=self.view)
+        if interaction.response.is_done():
+            await interaction.edit_original_response(content="↩️ 설정 변경을 취소했소. 🙆", view=self.view)
+        else:
+            await interaction.response.edit_message(content="↩️ 설정 변경을 취소했소. 🙆", view=self.view)
 
 
 class ChannelSettingsView(discord.ui.View):
     def __init__(
         self, store: WatchStore, guild_id: int, owner_id: int, roles: ManagerRoleStore,
+        *, snapshot: tuple[int, frozenset[int]],
     ) -> None:
         super().__init__(timeout=120)
         self.store = store
         self.roles = roles
         self.guild_id = guild_id
         self.owner_id = owner_id
-        self.original_version, original = store.snapshot(guild_id)
+        self.original_version, original = snapshot
         self.draft = set(original)
+        self.expires_at = monotonic() + 120
+        self.save_lock = asyncio.Lock()
         self.message: discord.Message | None = None
         self.add_item(AddChannels())
         self.add_item(RemoveChannels())
@@ -300,6 +393,7 @@ class ChannelSettingsView(discord.ui.View):
         self.add_item(CancelChannels())
 
     async def on_timeout(self) -> None:
+        self.stop()
         for item in self.children:
             item.disabled = True
         if self.message is not None:
@@ -312,7 +406,14 @@ class ChannelSettingsView(discord.ui.View):
         if interaction.guild_id != self.guild_id or interaction.user.id != self.owner_id:
             await reject(interaction, DENIED)
             return False
-        return await allowed(interaction, self.roles)
+        if self.is_finished() or monotonic() >= self.expires_at:
+            await reject(interaction, "⌛ 설정 시간이 지났소. 명령을 다시 여시오. 🔁")
+            return False
+        permitted = await allowed(interaction, self.roles)
+        if permitted and (self.is_finished() or monotonic() >= self.expires_at):
+            await reject(interaction, "⌛ 설정 시간이 지났소. 명령을 다시 여시오. 🔁")
+            return False
+        return permitted
 
 
 def install_channel_commands(
@@ -326,15 +427,19 @@ def install_channel_commands(
         guild = interaction.guild
         assert guild is not None  # gated() answers outside servers
         try:
-            view = ChannelSettingsView(store, guild.id, interaction.user.id, roles)
+            snapshot = await asyncio.to_thread(store.snapshot, guild.id)
+            if not await allowed(interaction, roles):
+                return
+            view = ChannelSettingsView(
+                store, guild.id, interaction.user.id, roles, snapshot=snapshot,
+            )
         except Exception:  # noqa: BLE001
             LOGGER.warning("watched_channel_read_failed")
             await reject(interaction, "⚠️ 설정을 읽지 못했소. 잠시 후 다시 시도하시오. 🔧")
             return
-        await interaction.response.send_message(
-            f"{selection_summary(guild, view.draft)}\n🛠️ 추가·제거 후 저장하거나 전체 해제를 고르시오. 👇",
+        await interaction.edit_original_response(
+            content=f"{selection_summary(guild, view.draft)}\n🛠️ 추가·제거 후 저장하거나 전체 해제를 고르시오. 👇",
             view=view,
-            ephemeral=True,
         )
         view.message = await interaction.original_response()
 

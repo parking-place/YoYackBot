@@ -6,7 +6,7 @@ import os
 import secrets
 import sqlite3
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -212,13 +212,22 @@ class SQLiteWatchStore:
             raise WatchStoreError("Settings read failed") from exc
 
     def replace(
-        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None
+        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None,
+        authorize: Callable[[frozenset[int] | None], bool] | None = None,
     ) -> int:
         if guild_id < 1 or any(channel_id < 1 for channel_id in channel_ids):
             raise ValueError("Guild and channel identifiers must be positive")
         try:
             with self._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
+                if authorize is not None:
+                    manager_roles = frozenset(
+                        row[0] for row in connection.execute(
+                            "SELECT role_id FROM manager_roles WHERE guild_id=?", (guild_id,)
+                        )
+                    )
+                    if not authorize(manager_roles):
+                        raise PermissionError("Channel update is no longer authorized")
                 version = self._version(connection, guild_id)
                 if expected_version is not None and version != expected_version:
                     raise ConcurrentUpdate
