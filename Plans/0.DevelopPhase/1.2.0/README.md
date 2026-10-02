@@ -20,7 +20,7 @@ F10은 이미 선택된 대화 안에서 질문과 답변 관계를 전달하는
 | 1 | [P1 권한·설정 경계](01-permissions-settings.md) | B01·B02·B09·B14 | `T120-P1-A`~`D` | DONE |
 | 2 | [P2 캐시 정합성·보존](02-cache-consistency.md) | B03·B04·B06·B07 | `T120-P2-A`~`D` | DONE |
 | 3 | [P3 백필 복구·조회 한도](03-worker-memory.md) | B05·B08 | `T120-P3-A`~`D` | DONE |
-| 4 | [P4 출력·실행 계약](04-output-runtime.md) | B10·B11·B12·B13 | `T120-P4-A`~`D` | PLANNED |
+| 4 | [P4 출력·실행 계약](04-output-runtime.md) | B10·B11·B12·B13 | `T120-P4-A`~`D` | IN_PROGRESS |
 | 5 | [P5 수집 진행·차단 원인](05-collection-progress.md) | F02 | `T120-P5-A`~`D` | PLANNED |
 | 6 | [P6 범위 안 답글 연결](06-reply-context.md) | F10 | `T120-P6-A`~`D` | PLANNED |
 | 7 | [P7 통합·복귀·출시](07-integration-release.md) | 전체 회귀·운영 확인 | `T120-P7-A`~`D` | PLANNED |

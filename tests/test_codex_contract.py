@@ -16,7 +16,9 @@ from yoyackbot.config import Settings
 
 
 def contract() -> CodexContract:
-    settings = Settings.from_environment({"DISCORD_BOT_TOKEN": "synthetic"})
+    settings = Settings.from_environment({
+        "DISCORD_BOT_TOKEN": "synthetic", "YOYACK_CODEX_EXECUTABLE": "/synthetic/bin/codex",
+    })
     return CodexContract.from_settings(settings)
 
 
@@ -63,7 +65,8 @@ def test_version_and_authentication_probe_do_not_retain_diagnostics(monkeypatch:
     instance = contract()
     assert instance.version_matches()
     assert not instance.authentication_ready()
-    assert calls == [["codex", "--version"], ["codex", "login", "status"]]
+    assert calls == [["/synthetic/bin/codex", "--version"],
+                     ["/synthetic/bin/codex", "login", "status"]]
 
 
 def test_dedicated_auth_probe_is_read_only_and_checks_file_permissions(tmp_path: Path) -> None:

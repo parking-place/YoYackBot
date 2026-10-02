@@ -9,6 +9,7 @@ from pathlib import Path
 import discord
 
 from yoyackbot import __version__
+from yoyackbot.codex import pin_executable
 from yoyackbot.config import ConfigurationError, Settings
 from yoyackbot.discord import run_gateway
 from yoyackbot.health import COLLECTION_OK, read_heartbeat_details
@@ -62,7 +63,7 @@ def main() -> int:
         return 0
 
     try:
-        settings = Settings.from_environment()
+        settings = pin_executable(Settings.from_environment())
     except ConfigurationError as exc:
         print(f"Configuration error: {exc}")
         return 2
@@ -105,7 +106,8 @@ def main() -> int:
         try:
             check_ready(settings)
         except ReadinessError as exc:
-            print(f"Readiness failed: {exc.kind.value}")
+            detail = f" ({exc.reason})" if exc.reason else ""
+            print(f"Readiness failed: {exc.kind.value}{detail}")
             return 2
         print("Local resources are ready")
         return 0

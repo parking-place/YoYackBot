@@ -1,6 +1,6 @@
 # 1.2.0-P4 — 출력·실행 계약
 
-- 상태: **PLANNED** · 구현 완료 **0** · 검사: `T120-P4-A`~`D` **NOT_RUN**
+- 상태: **IN_PROGRESS** · 구현 완료 **0** · 검사: `T120-P4-A`~`D` **NOT_RUN**
 - 대상: **B10·B11·B12·B13** · 환경: 개발 LXC, FakeRunner·합성 실행파일/인증 형태
 - 근거: [계약 5절](CONTRACT.md), [범위 추적표](SCOPE_MAP.md), [감사 결함](../../1.Improvements/02-bug-findings.md)
 

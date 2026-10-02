@@ -13,6 +13,7 @@ class OutputIssue(Enum):
     TOOL_REPORT = "tool_report"
     SPEAKER_KEY = "speaker_key"
     HATE_TERM = "hate_term"
+    NO_BODY = "no_body"
 
 
 # Group-targeted slurs only. Ordinary profanity (존나, 시발, 좆, 개판) is allowed by 1.0.2c.
@@ -129,10 +130,14 @@ def strip_emoji(text: str) -> str:
     return "\n".join(lines)
 
 
+# Speaker position: an optional heading/list marker and emoji, then the key wrapped in any
+# nesting of bold, italic, underline or strikethrough (`**__P1__**`, `__**P1**__`, `*P1*`).
 _SPEAKER_HEADING = re.compile(
-    r"^[ \t]*(?:[-*•][ \t]+|[0-9]+[.)][ \t]+)?(?:\*\*|__)?P[1-9][0-9]*"
-    r"(?:\*\*|__)?(?:[ \t]*[:：-]|[은는이가](?=[ \t]))"
+    r"^[ \t]*(?:#{1,6}[ \t]+)?(?:[-*+•][ \t]+|[0-9]+[.)][ \t]+)?"
+    r"(?:[^\w\s*_~`>]+[ \t]*)?[*_~]*P[1-9][0-9]*[*_~]*"
+    r"(?:[ \t]*[:：\-–—]|[은는이가](?=[ \t]))"
 )
+_INTERNAL_KEY = re.compile(r"(?<![A-Za-z0-9])P[1-9][0-9]*(?![0-9])")
 
 
 def uses_internal_speaker_as_attribution(text: str) -> bool:
@@ -169,6 +174,27 @@ def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | Non
     if uses_internal_speaker_as_attribution(clean):
         return OutputIssue.SPEAKER_KEY
     return None
+
+
+def rating_issue(rating: str, source_bodies: Sequence[str]) -> OutputIssue | None:
+    """The same core checks for a rating line; it names no one, so any internal key fails."""
+    issue = inspect_output(rating, source_bodies)
+    if issue is None and _INTERNAL_KEY.search(rating):
+        return OutputIssue.SPEAKER_KEY
+    return issue
+
+
+_WORDS = re.compile(r"[\W_]+")
+
+
+def summary_body_missing(body: str, notices: Sequence[str] = ()) -> bool:
+    """True when only blank, decorative or notice lines remain once the rating is set aside."""
+    skip = {_WORDS.sub("", notice) for notice in notices}
+    for line in body.splitlines():
+        words = _WORDS.sub("", line)
+        if words and words not in skip and any("가" <= char <= "힣" for char in words):
+            return False
+    return True
 
 
 # A topic heading is a markdown title (### …) or, as before, a bold-only line with only emoji after it.
