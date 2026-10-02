@@ -10,7 +10,7 @@
 | [1.3.0-P4](04-tone-command.md) | `/말투` 명령 | DONE | C `462f46227cca2e661b7b4f827fbacd4c9dda85ac` / E [`5e47151`](https://github.com/parking-place/YoYackBot/commit/5e471513079cc922c0cfa303270e93fa14f0aa2c) | P3 D `2c0721d`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37004569991), 종료 D push 확인 |
 | [1.3.0-P5](05-idiom.md) | 최근 30개·후보 4개·사자성어 한마디 | DONE | C `402fc881d494cd8959883d6411d4579eb3196294` / E [`2443b3a`](https://github.com/parking-place/YoYackBot/commit/2443b3a270c517e9ca69b3355ea204b661feca35) | P4 D `b0da646`, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37005468627), 종료 D push 확인 |
 | [1.3.0-P6](06-evaluation.md) | 기존 요약 16건 + 사자성어 4건 실제 평가 | DONE | C `38cfeb6e73bc55a137930f8c9cfe7dcdbe1881a1` / E [`c62ad6d`](https://github.com/parking-place/YoYackBot/commit/c62ad6d9fc259cc3d89839f02a255776dc4ea15d) | P5 D `0529086`, 3회 실행 기록, 예시 사용자 확인 대기, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37011246729), 종료 D push 확인 |
-| [1.3.0-P7](07-release.md) | 도움말·통합·배포·출시 | PLANNED | — | P1~P6 원격 증거 선행 |
+| [1.3.0-P7](07-release.md) | 도움말·통합·배포·출시 | IN_PROGRESS | — | P6 종료 D `e288161`. 1.2.0 출시(P7-C/D)는 사용자 확인 대기 |
 
 실행 시 [검증 목록](TEST_MATRIX.md)의 결과와 대상 SHA·환경·원격 URL·남은 공백을 단계마다 기록한다. 구현 C 검증과 증거 E의 원격 반영·CI 성공 후 DONE을 기록하는 종료 D를 만들고, D의 원격 반영·필요 CI까지 확인해야 완료다. 마지막 P7의 출시 전·후 증거 순서는 해당 단계 문서를 따른다.
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yoyackbot"
-version = "1.2.0"
+version = "1.3.0"
 description = "Discord channel summarization bot"
 requires-python = ">=3.13,<3.14"
 dependencies = ["discord.py==2.7.1"]
