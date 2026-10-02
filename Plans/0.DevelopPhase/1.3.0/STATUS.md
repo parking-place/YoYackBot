@@ -4,7 +4,7 @@
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
-| [1.3.0-P1](01-rating-candidates.md) | 평가 후보 10개·금지 소재 | IN_PROGRESS | — | 기준: 1.2.0 후보 `613856e`(운영 배포, E_pre `90fb8d0`). 사용자 지시로 1.2.0 태그·main 통합 전 착수 |
+| [1.3.0-P1](01-rating-candidates.md) | 평가 후보 10개·금지 소재 | PUSH_PENDING | C `9e7036aaf5275f4d57e32e9b72972e03e2bc15f6` / E push 대기 | 기준: 1.2.0 후보 `613856e`(운영 배포, E_pre `90fb8d0`). 사용자 지시로 1.2.0 태그·main 통합 전 착수 |
 | [1.3.0-P2](02-rating-judge.md) | luna 심사로 1개 선택 | PLANNED | — | P1 원격 완료 |
 | [1.3.0-P3](03-reply-range.md) | 답장으로 범위 지정 | PLANNED | — | P2 원격 완료 |
 | [1.3.0-P4](04-tone-command.md) | `/말투` 명령 | PLANNED | — | P3 원격 완료 |

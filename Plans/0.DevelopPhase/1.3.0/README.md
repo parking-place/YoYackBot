@@ -20,7 +20,7 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 평가 후보 10개·금지 소재](01-rating-candidates.md) | `T130-P1-A/B` | IN_PROGRESS |
+| 1 | [P1 — 평가 후보 10개·금지 소재](01-rating-candidates.md) | `T130-P1-A/B` | PUSH_PENDING |
 | 2 | [P2 — luna 심사로 1개 선택](02-rating-judge.md) | `T130-P2-A/B` | PLANNED |
 | 3 | [P3 — 답장으로 범위 지정](03-reply-range.md) | `T130-P3-A/B` | PLANNED |
 | 4 | [P4 — `/말투` 명령](04-tone-command.md) | `T130-P4-A/B` | PLANNED |
