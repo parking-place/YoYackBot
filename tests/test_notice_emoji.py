@@ -75,7 +75,7 @@ SOURCE = Path(__file__).resolve().parents[1] / "src" / "yoyackbot"
 MESSAGE_MODULES = (
     "usage.py", "status_report.py", "channel_list.py", "scope.py", "workflow.py", "cooldown.py",
     "collection.py", "backfill.py", "watch_gate.py", "errors.py", "discord.py",
-    "channel_config.py", "role_config.py", "summary_format.py",
+    "channel_config.py", "role_config.py", "summary_format.py", "collection_status.py",
 )
 HANGUL = re.compile(r"[가-힣]")
 # Pieces that are glued into a line that already opens with an emoji, and Discord metadata.
@@ -89,6 +89,7 @@ FRAGMENTS = {
     "관리권한", "봇 관리 역할 관리", "요약봇 슬래시 명령어를 쓸 수 있는 역할을 고르오",
     "사용자", "현재 채널", "요청 범위", "선택한 대화", "#채널", "@역할", "@사용자",
     " (⏰ 기준: {} KST)", "다. ",
+    "곧이오.", "{}분 뒤이오.", "{}시간 뒤이오.", "아직 없소.", "{}쪽이오.", "확인 불가", "{}쪽",
 }
 
 

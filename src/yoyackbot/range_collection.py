@@ -10,7 +10,7 @@ import discord
 
 from yoyackbot.domain import CoverageInterval, MessageRecord
 from yoyackbot.history import HistoryAdapter
-from yoyackbot.message_store import SQLiteMessageStore
+from yoyackbot.message_store import SQLiteMessageStore, _datetime
 from yoyackbot.watch_store import SQLiteWatchStore
 
 
@@ -74,7 +74,9 @@ class TimeRangeCollector:
         pages = 0
         history_ids: set[int] = set()
         for gap in gaps:
-            fetched_after = self.clock()
+            fetched_after = _datetime(await asyncio.to_thread(
+                self.store.history_boundary, guild_id, channel_id, at=self.clock(),
+            ))
             result = await self.history.collect(
                 channel,
                 guild_id=guild_id,

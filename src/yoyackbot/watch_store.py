@@ -6,13 +6,14 @@ import os
 import secrets
 import sqlite3
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
 import discord
 
+from yoyackbot.backfill_state import start_progress
 from yoyackbot.channel_config import ConcurrentUpdate
 
 _RETENTION_US = 30 * 24 * 60 * 60 * 1_000_000
@@ -27,6 +28,20 @@ def _new_backfill(guild_id: int, channel_id: int, *, first_watch: bool) -> tuple
         guild_id, channel_id, secrets.token_hex(16), int(first_watch),
         started_us, started_us - _RETENTION_US, before_id,
     )
+
+
+def insert_backfills(connection: sqlite3.Connection, rows: Iterable[tuple]) -> None:
+    """Create initial collection runs and start counting their pages in one transaction."""
+    for row in rows:
+        connection.execute(
+            "INSERT INTO backfill_state (guild_id, channel_id, token, first_watch, started_us, "
+            "cutoff_us, before_id) VALUES (?, ?, ?, ?, ?, ?, ?)", row,
+        )
+        guild_id, channel_id, token, _first, started_us, _cutoff, before_id = row
+        start_progress(
+            connection, guild_id, channel_id, token=token, started_us=started_us,
+            kind="initial", cursor=before_id,
+        )
 
 
 class WatchStoreError(RuntimeError):
@@ -121,6 +136,17 @@ class SQLiteWatchStore:
                         connection.execute("PRAGMA user_version=5")
                 # Optional to schema 5 so the released 1.0.0a reader can be restored.
                 with connection:
+                    # A single logical observation clock survives deletion of the newest row.
+                    # It carries no message/channel data and is excluded from settings backups.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS cache_observation_clock ("
+                        "singleton INTEGER PRIMARY KEY CHECK(singleton=1), "
+                        "last_us INTEGER NOT NULL)"
+                    )
+                    connection.execute(
+                        "CREATE INDEX IF NOT EXISTS messages_guild_channel_observed "
+                        "ON messages(guild_id, channel_id, cached_at_us)"
+                    )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS backfill_state ("
                         "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
@@ -163,6 +189,49 @@ class SQLiteWatchStore:
                         "CREATE TABLE IF NOT EXISTS manager_roles ("
                         "guild_id INTEGER NOT NULL, role_id INTEGER NOT NULL, "
                         "updated_at INTEGER NOT NULL, PRIMARY KEY(guild_id, role_id))"
+                    )
+                    # 1.2.0 F02: per-run page progress. Counts and times only; never backed up.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS backfill_progress ("
+                        "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
+                        "token TEXT NOT NULL, run_started_us INTEGER NOT NULL, "
+                        "kind TEXT NOT NULL, pages INTEGER, last_cursor INTEGER NOT NULL, "
+                        "last_progress_us INTEGER, PRIMARY KEY(guild_id, channel_id))"
+                    )
+                    # An older release may have unwatched channels without knowing this table.
+                    connection.execute(
+                        "DELETE FROM backfill_progress WHERE NOT EXISTS (SELECT 1 FROM "
+                        "backfill_state b WHERE b.guild_id=backfill_progress.guild_id "
+                        "AND b.channel_id=backfill_progress.channel_id "
+                        "AND b.token=backfill_progress.token)"
+                    )
+                    # 1.2.0 F10: reply links (IDs only). The trigger also runs for older
+                    # releases' deletes, so a removed message never leaves a link behind.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS message_reply_refs ("
+                        "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
+                        "message_id INTEGER NOT NULL, target_id INTEGER NOT NULL, "
+                        "observed_us INTEGER NOT NULL, "
+                        "PRIMARY KEY(guild_id, channel_id, message_id), "
+                        "CHECK(0 < target_id AND target_id < message_id))"
+                    )
+                    connection.execute(
+                        "CREATE INDEX IF NOT EXISTS message_reply_refs_target "
+                        "ON message_reply_refs(guild_id, channel_id, target_id)"
+                    )
+                    connection.execute(
+                        "CREATE TRIGGER IF NOT EXISTS message_reply_refs_cleanup "
+                        "AFTER DELETE ON messages BEGIN "
+                        "DELETE FROM message_reply_refs WHERE guild_id=OLD.guild_id "
+                        "AND channel_id=OLD.channel_id "
+                        "AND (message_id=OLD.message_id OR target_id=OLD.message_id); END"
+                    )
+                    # Links whose message is gone (written before the trigger existed).
+                    connection.execute(
+                        "DELETE FROM message_reply_refs WHERE NOT EXISTS (SELECT 1 FROM messages m "
+                        "WHERE m.message_id=message_reply_refs.message_id "
+                        "AND m.guild_id=message_reply_refs.guild_id "
+                        "AND m.channel_id=message_reply_refs.channel_id)"
                     )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS deleted_messages ("
@@ -212,13 +281,22 @@ class SQLiteWatchStore:
             raise WatchStoreError("Settings read failed") from exc
 
     def replace(
-        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None
+        self, guild_id: int, channel_ids: frozenset[int], *, expected_version: int | None = None,
+        authorize: Callable[[frozenset[int] | None], bool] | None = None,
     ) -> int:
         if guild_id < 1 or any(channel_id < 1 for channel_id in channel_ids):
             raise ValueError("Guild and channel identifiers must be positive")
         try:
             with self._connection() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
+                if authorize is not None:
+                    manager_roles = frozenset(
+                        row[0] for row in connection.execute(
+                            "SELECT role_id FROM manager_roles WHERE guild_id=?", (guild_id,)
+                        )
+                    )
+                    if not authorize(manager_roles):
+                        raise PermissionError("Channel update is no longer authorized")
                 version = self._version(connection, guild_id)
                 if expected_version is not None and version != expected_version:
                     raise ConcurrentUpdate
@@ -250,6 +328,14 @@ class SQLiteWatchStore:
                         (guild_id, removed_id),
                     )
                     connection.execute(
+                        "DELETE FROM backfill_progress WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM message_reply_refs WHERE guild_id=? AND channel_id=?",
+                        (guild_id, removed_id),
+                    )
+                    connection.execute(
                         "DELETE FROM summary_cooldowns WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
@@ -265,13 +351,10 @@ class SQLiteWatchStore:
                         "DELETE FROM coverage_recheck WHERE guild_id=? AND channel_id=?",
                         (guild_id, removed_id),
                     )
-                connection.executemany(
-                    "INSERT INTO backfill_state "
-                    "(guild_id, channel_id, token, first_watch, started_us, cutoff_us, "
-                    "before_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (_new_backfill(guild_id, channel_id, first_watch=True)
-                     for channel_id in sorted(channel_ids - existing)),
-                )
+                insert_backfills(connection, (
+                    _new_backfill(guild_id, channel_id, first_watch=True)
+                    for channel_id in sorted(channel_ids - existing)
+                ))
                 connection.execute(
                     "UPDATE guild_watch_meta SET version=version+1 WHERE guild_id=?", (guild_id,)
                 )
@@ -294,6 +377,14 @@ class SQLiteWatchStore:
                     )
                     connection.execute(
                         "DELETE FROM backfill_state WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM backfill_progress WHERE guild_id=? AND channel_id=?",
+                        (guild_id, channel_id),
+                    )
+                    connection.execute(
+                        "DELETE FROM message_reply_refs WHERE guild_id=? AND channel_id=?",
                         (guild_id, channel_id),
                     )
                     connection.execute(
@@ -329,6 +420,8 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM summary_cooldowns WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM deleted_messages WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM backfill_state WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM backfill_progress WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM message_reply_refs WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

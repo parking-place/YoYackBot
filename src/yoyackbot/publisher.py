@@ -1,7 +1,7 @@
 """Send ordered summary chunks only to their watched Discord text channel."""
 
 import asyncio
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
@@ -19,6 +19,7 @@ class PublicationFailure(Enum):
     UNWATCHED = "unwatched"
     PERMISSION = "permission"
     UNCERTAIN = "uncertain"
+    CACHE_INVALIDATED = "cache_invalidated"
 
 
 class PartialPublicationError(RuntimeError):
@@ -45,6 +46,7 @@ class DiscordSummaryPublisher:
     async def publish(
         self, request: SummaryRequest, result: SummaryResult,
         selected: Sequence[MessageRecord],
+        *, can_continue: Callable[[], Awaitable[bool]] | None = None,
     ) -> PublicationReceipt:
         parts = format_summary(
             request.requested_range, selected, result, self.settings.timezone,
@@ -74,6 +76,19 @@ class DiscordSummaryPublisher:
                     PublicationFailure.PERMISSION, sent_ids=tuple(sent_ids),
                     failed_index=index, last_success_at=last_success_at,
                 )
+            if can_continue is not None:
+                try:
+                    valid = await can_continue()
+                except Exception as exc:  # Preserve sent chunks if verification itself fails.
+                    raise PartialPublicationError(
+                        PublicationFailure.CACHE_INVALIDATED, sent_ids=tuple(sent_ids),
+                        failed_index=index, last_success_at=last_success_at,
+                    ) from exc
+                if not valid:
+                    raise PartialPublicationError(
+                        PublicationFailure.CACHE_INVALIDATED, sent_ids=tuple(sent_ids),
+                        failed_index=index, last_success_at=last_success_at,
+                    )
             try:
                 sent = await channel.send(
                     part, allowed_mentions=discord.AllowedMentions.none(),

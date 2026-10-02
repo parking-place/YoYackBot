@@ -12,6 +12,7 @@ import discord
 from aiohttp import ClientError
 
 from yoyackbot.domain import MessageRecord
+from yoyackbot.reply_refs import reply_target
 
 
 class HistoryFailure(Enum):
@@ -34,18 +35,19 @@ class HistoryError(RuntimeError):
 
 class HistoryPageSource(Protocol):
     async def fetch_page(
-        self, channel: discord.TextChannel, *, before: int, limit: int
+        self, channel: discord.TextChannel, *, before: int, limit: int, after: int | None = None,
     ) -> Sequence[discord.Message]: ...
 
 
 class DiscordHistorySource:
     async def fetch_page(
-        self, channel: discord.TextChannel, *, before: int, limit: int
+        self, channel: discord.TextChannel, *, before: int, limit: int, after: int | None = None,
     ) -> Sequence[discord.Message]:
         return [
             message
             async for message in channel.history(
-                limit=limit, before=discord.Object(id=before), oldest_first=False
+                limit=limit, before=discord.Object(id=before),
+                after=discord.Object(id=after) if after is not None else None, oldest_first=False,
             )
         ]
 
@@ -177,6 +179,7 @@ class HistoryAdapter:
                             edited_at=message.edited_at,
                             has_attachment=bool(getattr(message, "attachments", ())),
                             is_reply=message.type is discord.MessageType.reply,
+                            reply_to_message_id=reply_target(message, guild_id, channel_id),
                         )
                         previous = records.get(message.id)
                         if previous is not None:

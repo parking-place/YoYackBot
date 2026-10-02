@@ -30,7 +30,7 @@ def main() -> None:
     version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     package = (REPO / "src/yoyackbot/__init__.py").read_text(encoding="utf-8")
-    assert version == project["project"]["version"] == "1.1.3.1"
+    assert version == project["project"]["version"] == "1.2.0"
     assert f'__version__ = "{version}"' in package
 
     matrix = (PLAN / "TEST_MATRIX.md").read_text()
@@ -203,6 +203,25 @@ def main() -> None:
     assert len(notice_emoji_rows) == 3
     notice_emoji_done = sum("| DONE |" in row for row in notice_emoji_rows)
 
+    def seven_phase(name: str, prefix: str, letters: str, total: int) -> tuple[int, int]:
+        """1.2.0 and the planned 1.3.0: seven phases and their matrix checks."""
+        directory = PLAN / name
+        assert len(sorted(directory.glob("0[1-7]-*.md"))) == 7, f"{name}: expected seven phases"
+        found = re.findall(
+            rf"^\| `({prefix}-P[1-7]-[{letters}])` \|", (directory / "TEST_MATRIX.md").read_text(),
+            re.MULTILINE,
+        )
+        assert len(found) == len(set(found)) == total, f"{name}: expected {total} checks"
+        rows = [
+            line for line in (directory / "STATUS.md").read_text().splitlines()
+            if re.match(rf"^\| \[{re.escape(name)}-P[1-7]\]", line)
+        ]
+        assert len(rows) == 7
+        return sum("| DONE |" in row for row in rows), len(found)
+
+    fixes_done, fixes_checks = seven_phase("1.2.0", "T120", "A-D", 28)
+    tone_next_done, tone_next_checks = seven_phase("1.3.0", "T130", "A-C", 16)
+
     for document in [REPO / "README.md", *PLAN.rglob("*.md")]:
         text = document.read_text()
         assert text.count("```") % 2 == 0, f"unclosed fence: {document}"
@@ -230,7 +249,9 @@ def main() -> None:
         f"1.1.2 {lively_done}/4 phases, {len(lively_checks)} checks; "
         f"1.1.2a {markdown_done}/5 phases, {len(markdown_checks)} checks; "
         f"1.1.3 {manager_done}/3 phases, {len(manager_checks)} checks; "
-        f"1.1.3a {notice_emoji_done}/3 phases, {len(notice_emoji_checks)} checks"
+        f"1.1.3a {notice_emoji_done}/3 phases, {len(notice_emoji_checks)} checks; "
+        f"1.2.0 {fixes_done}/7 phases, {fixes_checks} checks; "
+        f"1.3.0 {tone_next_done}/7 phases, {tone_next_checks} checks"
     )
 
 

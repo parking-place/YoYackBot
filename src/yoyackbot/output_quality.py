@@ -13,6 +13,8 @@ class OutputIssue(Enum):
     TOOL_REPORT = "tool_report"
     SPEAKER_KEY = "speaker_key"
     HATE_TERM = "hate_term"
+    NO_BODY = "no_body"
+    MESSAGE_KEY = "message_key"
 
 
 # Group-targeted slurs only. Ordinary profanity (존나, 시발, 좆, 개판) is allowed by 1.0.2c.
@@ -129,10 +131,14 @@ def strip_emoji(text: str) -> str:
     return "\n".join(lines)
 
 
+# Speaker position: an optional heading/list marker and emoji, then the key wrapped in any
+# nesting of bold, italic, underline or strikethrough (`**__P1__**`, `__**P1**__`, `*P1*`).
 _SPEAKER_HEADING = re.compile(
-    r"^[ \t]*(?:[-*•][ \t]+|[0-9]+[.)][ \t]+)?(?:\*\*|__)?P[1-9][0-9]*"
-    r"(?:\*\*|__)?(?:[ \t]*[:：-]|[은는이가](?=[ \t]))"
+    r"^[ \t]*(?:#{1,6}[ \t]+)?(?:[-*+•][ \t]+|[0-9]+[.)][ \t]+)?"
+    r"(?:[^\w\s*_~`>]+[ \t]*)?[*_~]*P[1-9][0-9]*[*_~]*"
+    r"(?:[ \t]*[:：\-–—]|[은는이가](?=[ \t]))"
 )
+_INTERNAL_KEY = re.compile(r"(?<![A-Za-z0-9])P[1-9][0-9]*(?![0-9])")
 
 
 def uses_internal_speaker_as_attribution(text: str) -> bool:
@@ -150,7 +156,22 @@ def uses_internal_speaker_as_attribution(text: str) -> bool:
     return False
 
 
-def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | None:
+_MESSAGE_KEY = re.compile(r"(?<![A-Za-z0-9])M[1-9][0-9]*(?![0-9])")
+
+
+def leaks_message_key(
+    text: str, message_keys: frozenset[str], source_bodies: Sequence[str],
+) -> bool:
+    """A reply key of this request in the output, unless the conversation itself says it."""
+    if not message_keys:
+        return False
+    spoken = {key for body in source_bodies for key in _MESSAGE_KEY.findall(body)}
+    return any(key in message_keys and key not in spoken for key in _MESSAGE_KEY.findall(text))
+
+
+def inspect_output(
+    text: str, source_bodies: Sequence[str], message_keys: frozenset[str] = frozenset(),
+) -> OutputIssue | None:
     """Catch mechanical failures; a human must still review attribution and facts."""
     clean = text.strip()
     if not clean or clean == "YOYACK_INPUT_UNAVAILABLE":
@@ -168,7 +189,32 @@ def inspect_output(text: str, source_bodies: Sequence[str]) -> OutputIssue | Non
         return OutputIssue.HATE_TERM
     if uses_internal_speaker_as_attribution(clean):
         return OutputIssue.SPEAKER_KEY
+    if leaks_message_key(clean, message_keys, bodies):
+        return OutputIssue.MESSAGE_KEY
     return None
+
+
+def rating_issue(
+    rating: str, source_bodies: Sequence[str], message_keys: frozenset[str] = frozenset(),
+) -> OutputIssue | None:
+    """The same core checks for a rating line; it names no one, so any internal key fails."""
+    issue = inspect_output(rating, source_bodies, message_keys)
+    if issue is None and _INTERNAL_KEY.search(rating):
+        return OutputIssue.SPEAKER_KEY
+    return issue
+
+
+_WORDS = re.compile(r"[\W_]+")
+
+
+def summary_body_missing(body: str, notices: Sequence[str] = ()) -> bool:
+    """True when only blank, decorative or notice lines remain once the rating is set aside."""
+    skip = {_WORDS.sub("", notice) for notice in notices}
+    for line in body.splitlines():
+        words = _WORDS.sub("", line)
+        if words and words not in skip and any("가" <= char <= "힣" for char in words):
+            return False
+    return True
 
 
 # A topic heading is a markdown title (### …) or, as before, a bold-only line with only emoji after it.

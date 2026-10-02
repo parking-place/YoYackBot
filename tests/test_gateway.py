@@ -200,8 +200,8 @@ def test_cached_and_raw_edits_and_deletes_keep_message_store_current(tmp_path) -
 def test_startup_and_periodic_cleanup_use_created_at_retention(tmp_path) -> None:
     async def scenario() -> None:
         path = tmp_path / "messages.db"
-        store = SQLiteMessageStore(path)
         now = datetime(2026, 9, 28, 12, tzinfo=UTC)
+        store = SQLiteMessageStore(path, clock=lambda: now - timedelta(days=2))
         created = now - timedelta(days=29)
         store.upsert(MessageRecord(101, 1, 99, 3, "synthetic", "old", created), cached_at=now)
         expired = now - timedelta(days=31)
@@ -211,6 +211,7 @@ def test_startup_and_periodic_cleanup_use_created_at_retention(tmp_path) -> None
         settings = Settings.from_environment(
             {
                 "DISCORD_BOT_TOKEN": "test-token",
+                "YOYACK_DB_PATH": str(path),
                 "YOYACK_CACHE_CLEANUP_INTERVAL_SECONDS": "1",
             }
         )

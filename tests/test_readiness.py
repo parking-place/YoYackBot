@@ -21,6 +21,7 @@ def settings(tmp_path) -> Settings:
 
 
 def ready_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(CodexContract, "executable_problem", lambda _self: None)
     monkeypatch.setattr(CodexContract, "version_matches", lambda _self: True)
     monkeypatch.setattr(CodexContract, "authentication_ready", lambda _self, _auth: True)
 
@@ -41,6 +42,7 @@ def test_model_or_database_failure_stops_before_gateway_start(
     tmp_path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = settings(tmp_path)
+    monkeypatch.setattr(CodexContract, "executable_problem", lambda _self: None)
     monkeypatch.setattr(CodexContract, "version_matches", lambda _self: False)
     with pytest.raises(ReadinessError) as model:
         check_ready(config)

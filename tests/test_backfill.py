@@ -45,10 +45,10 @@ class FakePages:
         self.calls = 0
 
     async def fetch_page(
-        self, _channel: SimpleNamespace, *, before: int, limit: int,
+        self, _channel: SimpleNamespace, *, before: int, limit: int, after: int | None = None,
     ) -> list[SimpleNamespace]:
         self.calls += 1
-        return [item for item in self.messages if item.id < before][:limit]
+        return [item for item in self.messages if (after or 0) < item.id < before][:limit]
 
 
 def test_bounded_backfill_pages_share_global_capacity_across_guilds(tmp_path) -> None:
@@ -207,11 +207,12 @@ def test_full_history_over_200_pages_rechecks_live_overlap_after_restart(tmp_pat
         stored = messages.recent(
             1, 99, started - timedelta(days=30), started + timedelta(seconds=11)
         )
-        assert len(stored) == 20_105
+        assert len(stored) == 20_104
         assert len({item.message_id for item in stored}) == len(stored)
-        assert {live.id, missed.id, at_start.id, at_finish.id, at_cutoff.id} <= {
+        assert {live.id, missed.id, at_start.id, at_finish.id} <= {
             item.message_id for item in stored
         }
+        assert at_cutoff.id not in {item.message_id for item in stored}
 
     asyncio.run(scenario())
 
@@ -333,12 +334,13 @@ def test_normal_summary_uses_ready_cache_only(tmp_path) -> None:
         completed = backfills.get(1, 99)
         assert completed is not None
         assert backfills.record_notice(completed, ready=True, message_id=999)
+        cached_id = discord.utils.time_snowflake(started) + 1
         messages.upsert(
-            MessageRecord(101, 1, 99, 7, "합성 화자", "캐시 대화", started),
+            MessageRecord(cached_id, 1, 99, 7, "합성 화자", "캐시 대화", started),
             cached_at=started,
         )
         result = await collector.collect(channel, guild_id=1, channel_id=99, request=request)
-        assert [item.message_id for item in result.messages] == [101]
+        assert [item.message_id for item in result.messages] == [cached_id]
         assert result.pages == 0 and result.history_count == 0 and result.cache_count == 1
         assert empty.calls == 2
 
@@ -349,11 +351,15 @@ def test_normal_summary_uses_ready_cache_only(tmp_path) -> None:
             await collector.collect(channel, guild_id=1, channel_id=99, request=request)
         gap_message = fake_message(channel, started + timedelta(seconds=3), index=202)
         empty.messages = [gap_message]
+        worker.clock = lambda: started + timedelta(seconds=10)
         gap = backfills.get(1, 99)
-        assert gap is not None and gap.phase == "overlap"
+        assert gap is not None and gap.phase == "history"
         assert await worker.step(channel, gap)
+        overlap = backfills.get(1, 99)
+        assert overlap is not None and overlap.phase == "overlap"
+        assert await worker.step(channel, overlap)
         repaired = await collector.collect(channel, guild_id=1, channel_id=99, request=request)
-        assert {item.message_id for item in repaired.messages} == {101, gap_message.id}
+        assert {item.message_id for item in repaired.messages} == {gap_message.id}
 
     asyncio.run(scenario())
 

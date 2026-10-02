@@ -42,7 +42,7 @@ def seeded(tmp_path: Path, *, success: bool = True) -> Path:
     watches = SQLiteWatchStore(path)
     watches.replace(1, frozenset({10, 11}))
     watches.replace(2, frozenset({20, 21, 22}))
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     for message_id, guild_id, channel_id in (
         (1, 1, 10), (2, 1, 10), (3, 1, 11), (4, 2, 20), (5, 2, 20), (6, 2, 21), (7, 2, 22),
     ):

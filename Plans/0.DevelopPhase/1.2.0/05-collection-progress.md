@@ -1,6 +1,6 @@
 # 1.2.0-P5 — F02 수집 진행·차단 원인
 
-- 상태: **PLANNED** · 검사: `T120-P5-A`~`D`
+- 상태: **DONE** · 검사: `T120-P5-A`~`D` **PASS** ([증거](../evidence/1.2.0-P5.md))
 - 환경: 개발 LXC의 임시 DB·Discord 대역, 실제 모델 호출 없음
 - 선행: [P4](04-output-runtime.md)까지 원격 완료, 특히 P2의 검증 경계와 P3의 worker 복구
 - 대상: `backfill.py`, `watch_store.py`, `status_report.py`, `discord.py`, 관련 상태·백필 회귀

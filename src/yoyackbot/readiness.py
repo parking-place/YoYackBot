@@ -16,9 +16,12 @@ class ReadinessKind(Enum):
 
 
 class ReadinessError(RuntimeError):
-    def __init__(self, kind: ReadinessKind) -> None:
+    def __init__(self, kind: ReadinessKind, reason: str | None = None) -> None:
         super().__init__(kind.value)
         self.kind = kind
+        # A fixed label only: config, executable_missing, executable_not_runnable,
+        # version_mismatch or auth_file (the auth file's shape, not a working login).
+        self.reason = reason
 
 
 def check_ready(settings: Settings) -> None:
@@ -26,12 +29,14 @@ def check_ready(settings: Settings) -> None:
     try:
         contract = CodexContract.from_settings(settings)
     except CodexContractError as exc:
-        raise ReadinessError(ReadinessKind.MODEL) from exc
-    if (
-        not contract.version_matches()
-        or not contract.authentication_ready(settings.codex_auth_directory)
-    ):
-        raise ReadinessError(ReadinessKind.MODEL)
+        raise ReadinessError(ReadinessKind.MODEL, exc.reason) from exc
+    problem = contract.executable_problem()
+    if problem is not None:
+        raise ReadinessError(ReadinessKind.MODEL, problem)
+    if not contract.version_matches():
+        raise ReadinessError(ReadinessKind.MODEL, "version_mismatch")
+    if not contract.authentication_ready(settings.codex_auth_directory):
+        raise ReadinessError(ReadinessKind.MODEL, "auth_file")
 
     try:
         SQLiteWatchStore(settings.database_path)

@@ -120,7 +120,8 @@ def test_start_notice_precedes_the_cache_read_and_existing_follow_ups(
                                    readiness=readiness)
         await workflow.run(request(), channel(), SimpleNamespace(valid=lambda: True),
                            recorder.notice)  # type: ignore[arg-type]
-        assert recorder.events == ["ready?", f"notice:{START}", *tail]
+        assert recorder.events[:2] == ["ready?", f"notice:{START}"]
+        assert [event for event in recorder.events[2:] if event != "ready?"] == tail
 
     asyncio.run(scenario())
 
@@ -185,7 +186,10 @@ def test_failed_start_notice_stops_before_any_read_and_allows_retry(
         assert recorder.events == ["ready?"]
         assert await states.active(1, 2) is None
         await workflow.run(request(), channel(), lease, flaky)  # type: ignore[arg-type]
-        assert recorder.events[1:] == ["ready?", f"notice:{START}", "collect", "model", "publish"]
+        assert recorder.events[1:3] == ["ready?", f"notice:{START}"]
+        assert [event for event in recorder.events[3:] if event != "ready?"] == [
+            "collect", "model", "publish",
+        ]
 
     asyncio.run(scenario())
 

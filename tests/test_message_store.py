@@ -22,7 +22,7 @@ def test_new_database_keeps_settings_and_uses_current_schema(tmp_path) -> None:
     watched = SQLiteWatchStore(path)
     watched.replace(1, frozenset({10, 11}))
     watched.replace(2, frozenset({20}))
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     store.upsert(_record(100), cached_at=NOW)
     assert [item.message_id for item in store.recent(1, 10, NOW, NOW + timedelta(seconds=1))] == [100]
     assert store.recent(2, 10, NOW, NOW + timedelta(seconds=1)) == []
@@ -59,7 +59,7 @@ def test_version_two_migration_preserves_messages_and_verified_coverage(tmp_path
     path = tmp_path / "messages.db"
     watched = SQLiteWatchStore(path)
     watched.replace(1, frozenset({10}))
-    messages = SQLiteMessageStore(path)
+    messages = SQLiteMessageStore(path, clock=lambda: NOW)
     messages.upsert(_record(100), cached_at=NOW)
     interval = CoverageInterval(10, NOW, NOW + timedelta(hours=1))
     messages.mark_covered(1, interval, verified_at=NOW)
@@ -78,21 +78,21 @@ def test_version_two_migration_preserves_messages_and_verified_coverage(tmp_path
 
 def test_version_three_migration_preserves_messages_and_adds_context(tmp_path) -> None:
     path = tmp_path / "messages.db"
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     store.upsert(_record(100), cached_at=NOW)
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TABLE summary_cooldowns")
         connection.execute("ALTER TABLE messages DROP COLUMN has_attachment")
         connection.execute("ALTER TABLE messages DROP COLUMN is_reply")
         connection.execute("PRAGMA user_version=3")
-    upgraded = SQLiteMessageStore(path)
+    upgraded = SQLiteMessageStore(path, clock=lambda: NOW)
     assert upgraded.recent(1, 10, NOW, NOW + timedelta(seconds=1)) == [
         replace(_record(100), cached_at=NOW)
     ]
     updated = replace(_record(100), has_attachment=True, is_reply=True)
     upgraded.upsert(updated, cached_at=NOW)
     assert upgraded.recent(1, 10, NOW, NOW + timedelta(seconds=1)) == [
-        replace(updated, cached_at=NOW)
+        replace(updated, cached_at=NOW + timedelta(microseconds=1))
     ]
 
 
@@ -117,7 +117,7 @@ def test_failed_migration_keeps_version_one_and_watch_settings(tmp_path) -> None
 
 def test_large_snowflakes_and_equal_timestamps_are_exactly_sorted_and_indexed(tmp_path) -> None:
     path = tmp_path / "messages.db"
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     high = 2**63 - 1
     store.upsert(_record(high), cached_at=NOW)
     store.upsert(_record(high - 1), cached_at=NOW)
@@ -146,7 +146,7 @@ def test_large_snowflakes_and_equal_timestamps_are_exactly_sorted_and_indexed(tm
 
 def test_coverage_is_guild_scoped_and_removed_when_guild_leaves(tmp_path) -> None:
     path = tmp_path / "messages.db"
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     watched = SQLiteWatchStore(path)
     watched.replace(1, frozenset({10}))
     watched.replace(2, frozenset({10}))
@@ -166,7 +166,7 @@ def test_watch_revision_and_cache_write_are_atomic_with_channel_removal(tmp_path
     watched = SQLiteWatchStore(path)
     first_version = watched.replace(1, frozenset({10}))
     watched.replace(2, frozenset({10}))
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     assert store.upsert_if_watched(_record(100), expected_version=first_version, cached_at=NOW)
     watched.replace(1, frozenset())
     assert not store.upsert_if_watched(
@@ -179,7 +179,7 @@ def test_watch_revision_and_cache_write_are_atomic_with_channel_removal(tmp_path
 
 
 def test_retention_uses_creation_time_and_clips_coverage_at_exact_boundary(tmp_path) -> None:
-    store = SQLiteMessageStore(tmp_path / "messages.db")
+    store = SQLiteMessageStore(tmp_path / "messages.db", clock=lambda: NOW)
     cutoff = NOW - timedelta(days=7)
     before = cutoff - timedelta(microseconds=1)
     after = cutoff + timedelta(microseconds=1)
@@ -195,7 +195,8 @@ def test_retention_uses_creation_time_and_clips_coverage_at_exact_boundary(tmp_p
 
 
 def test_raw_edit_updates_existing_only_and_deletion_is_scoped(tmp_path) -> None:
-    store = SQLiteMessageStore(tmp_path / "messages.db")
+    store = SQLiteMessageStore(tmp_path / "messages.db", clock=lambda: NOW)
+    SQLiteWatchStore(store.path).replace(1, frozenset({10}))
     store.upsert(_record(100), cached_at=NOW)
     store.upsert(_record(101, guild_id=2), cached_at=NOW)
     assert store.update_content(

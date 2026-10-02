@@ -142,3 +142,41 @@ def test_permission_loss_between_chunks_preserves_sent_receipt(
     assert raised.value.sent_ids == (101,)
     assert raised.value.last_success_at == NOW + timedelta(seconds=1)
     assert len(channel.sent) == 1
+
+
+@pytest.mark.parametrize("failure", ["changed", "unavailable"])
+def test_cache_guard_failure_preserves_parts_already_sent(
+    monkeypatch: pytest.MonkeyPatch, failure: str,
+) -> None:
+    monkeypatch.setattr("yoyackbot.publisher.valid_channel", lambda _guild, _id: True)
+    publisher, request, result, selected, channel, _watch = fixture()
+    calls = 0
+
+    async def guard() -> bool:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return True
+        if failure == "unavailable":
+            raise OSError("synthetic verification failure")
+        return False
+
+    with pytest.raises(PartialPublicationError) as raised:
+        asyncio.run(publisher.publish(request, result, selected, can_continue=guard))
+    assert raised.value.reason is PublicationFailure.CACHE_INVALIDATED
+    assert raised.value.failed_index == 2
+    assert raised.value.sent_ids == (101,)
+    assert raised.value.last_success_at == NOW + timedelta(seconds=1)
+    assert len(channel.sent) == 1
+
+
+def test_cache_guard_cancellation_propagates_before_sending(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("yoyackbot.publisher.valid_channel", lambda _guild, _id: True)
+    publisher, request, result, selected, channel, _watch = fixture()
+
+    async def cancelled() -> bool:
+        raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(publisher.publish(request, result, selected, can_continue=cancelled))
+    assert channel.sent == []

@@ -3,6 +3,8 @@
 import pytest
 
 from yoyackbot.channel_list import (
+    DM_DELIVERED_NOTICE,
+    DM_FAILED_NOTICE,
     EMPTY_NOTICE,
     LIST_FOOTER,
     LIST_HEADER,
@@ -64,3 +66,12 @@ def test_default_limit_keeps_small_lists_in_one_message() -> None:
 def test_help_mentions_the_channel_command() -> None:
     assert "📡 `채널` → 주시 채널" in HELP_TEXT
     assert len(HELP_TEXT) < 2000 and len(help_text()) < 2000
+
+
+def test_public_delivery_acknowledgements_are_fixed_and_do_not_contain_a_list() -> None:
+    assert DM_DELIVERED_NOTICE == "📨 목록을 개인 메시지로 전달했소."
+    assert DM_FAILED_NOTICE == "📭 목록을 개인 메시지로 전달하지 못했소. DM 수신 설정을 확인하시오."
+    for notice in (DM_DELIVERED_NOTICE, DM_FAILED_NOTICE):
+        assert "\n" not in notice
+        assert "채널" not in notice
+        assert not any(char.isdecimal() for char in notice)

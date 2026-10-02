@@ -9,9 +9,10 @@ from pathlib import Path
 import discord
 
 from yoyackbot import __version__
+from yoyackbot.codex import pin_executable
 from yoyackbot.config import ConfigurationError, Settings
 from yoyackbot.discord import run_gateway
-from yoyackbot.health import read_heartbeat
+from yoyackbot.health import COLLECTION_OK, read_heartbeat_details
 from yoyackbot.input_files import GatewayAlreadyRunning, InputFileError
 from yoyackbot.manager_roles import SQLiteManagerRoleStore
 from yoyackbot.readiness import ReadinessError, ReadinessKind, check_ready
@@ -62,7 +63,7 @@ def main() -> int:
         return 0
 
     try:
-        settings = Settings.from_environment()
+        settings = pin_executable(Settings.from_environment())
     except ConfigurationError as exc:
         print(f"Configuration error: {exc}")
         return 2
@@ -105,13 +106,15 @@ def main() -> int:
         try:
             check_ready(settings)
         except ReadinessError as exc:
-            print(f"Readiness failed: {exc.kind.value}")
+            detail = f" ({exc.reason})" if exc.reason else ""
+            print(f"Readiness failed: {exc.kind.value}{detail}")
             return 2
         print("Local resources are ready")
         return 0
 
     if args.command == "health":
-        process_alive, gateway_ready = read_heartbeat(settings.input_directory)
+        process_alive, gateway_ready, worker = read_heartbeat_details(settings.input_directory)
+        collecting = worker in COLLECTION_OK
         local_ready, auth_attention = True, False
         try:
             check_ready(settings)
@@ -121,11 +124,12 @@ def main() -> int:
         print(json.dumps({
             "process_alive": process_alive,
             "gateway_ready": gateway_ready,
+            "collection_worker": worker or "unknown",
             "local_ready": local_ready,
-            "ready": process_alive and gateway_ready and local_ready,
+            "ready": process_alive and gateway_ready and collecting and local_ready,
             "model_auth_attention": auth_attention,
         }, sort_keys=True))
-        return 0 if process_alive and gateway_ready and local_ready else 2
+        return 0 if process_alive and gateway_ready and collecting and local_ready else 2
 
     if args.smoke_seconds is not None and args.smoke_seconds <= 0:
         print("Gateway smoke duration must be positive")

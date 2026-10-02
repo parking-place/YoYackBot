@@ -2,9 +2,10 @@
 
 import json
 import os
+import shutil
 import stat
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 
@@ -30,6 +31,30 @@ class CodexFailure(Enum):
 class CodexContractError(RuntimeError):
     """The configured model or CLI cannot satisfy the required contract."""
 
+    def __init__(self, message: str, *, reason: str = "config") -> None:
+        super().__init__(message)
+        self.reason = reason
+
+
+def resolve_executable(value: str) -> str:
+    """A bare name is looked up on PATH; the summary runner and usage reader need a full path."""
+    if os.path.isabs(value):
+        return value
+    if os.sep in value:
+        raise CodexContractError("Codex CLI path must be absolute or a PATH name")
+    found = shutil.which(value)
+    if found is None or not os.path.isabs(found):
+        raise CodexContractError("Codex CLI is not on PATH", reason="executable_missing")
+    return found
+
+
+def pin_executable(settings: Settings) -> Settings:
+    """Resolve once at start so readiness, summaries and usage all run the same file."""
+    try:
+        return replace(settings, codex_executable=resolve_executable(settings.codex_executable))
+    except CodexContractError:
+        return settings  # readiness and the engine report the same failure
+
 
 @dataclass(frozen=True)
 class CodexContract:
@@ -41,7 +66,20 @@ class CodexContract:
     def from_settings(cls, settings: Settings) -> "CodexContract":
         if settings.codex_model != REQUIRED_MODEL or settings.codex_reasoning_effort != REQUIRED_EFFORT:
             raise CodexContractError("The required GPT-6 Luna Low configuration is unavailable")
-        return cls(settings.codex_executable, settings.codex_model, settings.codex_reasoning_effort)
+        return cls(
+            resolve_executable(settings.codex_executable), settings.codex_model,
+            settings.codex_reasoning_effort,
+        )
+
+    def executable_problem(self) -> str | None:
+        """Classify a missing or non-runnable CLI before asking it for its version."""
+        try:
+            info = os.stat(self.executable)
+        except OSError:
+            return "executable_missing"
+        if not stat.S_ISREG(info.st_mode) or not os.access(self.executable, os.X_OK):
+            return "executable_not_runnable"
+        return None
 
     def version_matches(self) -> bool:
         try:

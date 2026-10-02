@@ -11,15 +11,16 @@ from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
 from yoyackbot.codex_runner import CodexRunError, SandboxedCodex
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode, SummaryResult
-from yoyackbot.input_files import InputWorkspace, serialize_conversation
+from yoyackbot.input_files import InputWorkspace, message_keys, serialize_conversation
 from yoyackbot.output_quality import (
     OutputIssue,
     inspect_output,
     name_underline,
     narrator_mocks_ongoing,
-    narrator_uses_hate_term,
+    rating_issue,
     split_rating,
     strip_emoji,
+    summary_body_missing,
     topic_critique,
 )
 from yoyackbot.parser import wants_no_emoji, wants_no_rating, wants_refusal_notice
@@ -72,14 +73,21 @@ class CodexSummaryEngine:
                 workspace, prompt_for(mode, note=request_note, skip_rating=skip_rating)
             )
             source_bodies = [item.content for item in included]
-            issue = inspect_output(result, source_bodies)
+            keys = frozenset(message_keys(sorted(
+                included, key=lambda item: (item.created_at, item.message_id),
+            )).values())
+            issue = summary_issue(result, source_bodies, keys)
             ongoing = "none"
-            if issue in (OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM):
+            if issue in (
+                OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM, OutputIssue.NO_BODY,
+                OutputIssue.MESSAGE_KEY,
+            ):
                 retry_workspace = InputWorkspace.create(root, data)
                 result = await self.runner.execute(retry_workspace, prompt_for(
                     mode, note=request_note, skip_rating=skip_rating,
                     speaker_retry=issue is OutputIssue.SPEAKER_KEY,
                     hate_retry=issue is OutputIssue.HATE_TERM,
+                    message_key_retry=issue is OutputIssue.MESSAGE_KEY,
                 ))
             elif issue is None and narrator_mocks_ongoing(split_rating(result)[0]):
                 ongoing = "retried"
@@ -87,11 +95,16 @@ class CodexSummaryEngine:
                 retried = await self.runner.execute(retry_workspace, prompt_for(
                     mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True,
                 ))
-                if inspect_output(retried, source_bodies) is None:
+                if summary_issue(retried, source_bodies, keys) is None:
                     result = retried
-            if inspect_output(result, source_bodies) is not None:
-                raise CodexRunError(CodexFailure.OUTPUT_INVALID)
             body, rating = split_rating(result)
+            if summary_issue(result, source_bodies, keys) is not None:
+                # Only an unusable rating may be dropped; a bad body is never published.
+                if rating is None or summary_issue(body, source_bodies, keys) is not None:
+                    raise CodexRunError(CodexFailure.OUTPUT_INVALID)
+                rating = None
+            elif rating is not None and rating_issue(rating, source_bodies, keys) is not None:
+                rating = None
             if (
                 request_note is not None and wants_refusal_notice(request_note)
                 and REFUSAL_NOTICE not in body
@@ -106,15 +119,21 @@ class CodexSummaryEngine:
                     ongoing = "retried"
                 status = "missing"
                 again = await self._rating_only(
-                    root, data, body, request_note, ongoing_retry=mocked,
+                    root, data, body, source_bodies, keys, request_note, ongoing_retry=mocked,
                 )
                 if again is not None:
                     rating, status = again, "retried"
                 elif mocked:
                     status = "present"
-        text = body if rating is None else f"{body}\n\n{rating}"
-        if request_note is not None and wants_no_emoji(request_note):
-            text = strip_emoji(text)
+        text = self._compose(body, rating, request_note)
+        if inspect_output(text, source_bodies, keys) is not None:
+            # The composed result passes the same checks; a rating that breaks it is left out.
+            if rating is None:
+                raise CodexRunError(CodexFailure.OUTPUT_INVALID)
+            rating, status = None, "missing"
+            text = self._compose(body, None, request_note)
+            if inspect_output(text, source_bodies, keys) is not None:
+                raise CodexRunError(CodexFailure.OUTPUT_INVALID)
         if narrator_mocks_ongoing(text):
             ongoing = "retried_left"
         names = list(speaker_labels(included).values())
@@ -123,9 +142,14 @@ class CodexSummaryEngine:
             name_underline(text, names),
         )
 
+    @staticmethod
+    def _compose(body: str, rating: str | None, note: str | None) -> str:
+        text = body if rating is None else f"{body}\n\n{rating}"
+        return strip_emoji(text) if note is not None and wants_no_emoji(note) else text
+
     async def _rating_only(
-        self, root: Path, data: bytes, body: str, note: str | None = None,
-        *, ongoing_retry: bool = False,
+        self, root: Path, data: bytes, body: str, source_bodies: Sequence[str],
+        keys: frozenset[str], note: str | None = None, *, ongoing_retry: bool = False,
     ) -> str | None:
         """Ask once for the closing rating alone; a bad or failed answer leaves it out."""
         summary = json.dumps({"type": "summary", "body": body}, ensure_ascii=False).encode()
@@ -135,6 +159,16 @@ class CodexSummaryEngine:
         except CodexRunError:
             return None
         _rest, rating = split_rating(answer)
-        if rating is None or narrator_uses_hate_term(rating):
+        if rating is None or rating_issue(rating, source_bodies, keys) is not None:
             return None
         return rating
+
+
+def summary_issue(
+    text: str, source_bodies: Sequence[str], keys: frozenset[str] = frozenset(),
+) -> OutputIssue | None:
+    """Core checks on the whole answer, then a real summary must remain beside the rating."""
+    issue = inspect_output(text, source_bodies, keys)
+    if issue is None and summary_body_missing(split_rating(text)[0], (REFUSAL_NOTICE,)):
+        return OutputIssue.NO_BODY
+    return issue
