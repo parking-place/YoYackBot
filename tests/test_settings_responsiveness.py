@@ -4,6 +4,7 @@ import asyncio
 import sqlite3
 import threading
 import time
+from itertools import pairwise
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -139,7 +140,7 @@ def test_save_defers_and_ticks_while_sqlite_writer_is_locked(tmp_path: Path, kin
         assert time.monotonic() - started >= 3.5, "the callback did not exercise the writer wait"
         assert request.response.deferred_at - started < 1
         assert len(ticks) >= 50
-        assert max(b - a for a, b in zip(ticks, ticks[1:])) < 0.25
+        assert max(b - a for a, b in pairwise(ticks)) < 0.25
         assert "replace" in target.calls
         assert "저장했소" in request.edit_original_response.await_args.kwargs["content"]
         assert view.is_finished()

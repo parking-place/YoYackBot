@@ -12,8 +12,8 @@ import discord
 from discord import app_commands
 
 from yoyackbot.channel_config import (
-    ConcurrentUpdate,
     NOT_ALLOWED,
+    ConcurrentUpdate,
     allowed,
     command_group,
     gated,

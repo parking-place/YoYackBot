@@ -241,7 +241,7 @@ def test_view_stays_with_its_opener_and_rechecks_the_role_on_every_click() -> No
             MemoryWatchStore(), guild_id=1, owner_id=2, roles=roles, snapshot=(0, frozenset()),
         )
         home, other = text_guild(1), text_guild(2)
-        for guild, user_id, who, allowed, message in [
+        for guild, user_id, who, permitted, message in [
             (home, 2, {"roles": (MANAGER_ROLE,)}, True, None),
             (home, 2, {"admin": True}, True, None),
             (home, 3, {"admin": True}, False, DENIED),
@@ -249,7 +249,7 @@ def test_view_stays_with_its_opener_and_rechecks_the_role_on_every_click() -> No
             (home, 2, {}, False, NOT_ALLOWED),
         ]:
             click = interaction(guild=guild, user_id=user_id, **who)
-            assert await view.interaction_check(click) is allowed
+            assert await view.interaction_check(click) is permitted
             if message:
                 sent = click.followup.send if click.response.is_done() else click.response.send_message
                 assert sent.await_args.args[0] == message

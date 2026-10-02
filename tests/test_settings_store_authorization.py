@@ -135,9 +135,11 @@ def test_sqlite_writer_lock_remains_held_while_authorizing(tmp_path, kind) -> No
 
     def authorize(current) -> bool:
         assert current == frozenset({11})
-        with sqlite3.connect(path, timeout=0) as competing:
-            with pytest.raises(sqlite3.OperationalError, match="locked"):
-                competing.execute("BEGIN IMMEDIATE")
+        with (
+            sqlite3.connect(path, timeout=0) as competing,
+            pytest.raises(sqlite3.OperationalError, match="locked"),
+        ):
+            competing.execute("BEGIN IMMEDIATE")
         return True
 
     assert store.replace(1, frozenset({31}), expected_version=1, authorize=authorize) == 2
