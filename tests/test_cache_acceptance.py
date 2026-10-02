@@ -28,7 +28,7 @@ def test_concurrent_ingest_read_and_cleanup_do_not_mix_guilds_or_duplicate_ids(t
     watched = SQLiteWatchStore(path)
     watched.replace(1, frozenset({10}))
     watched.replace(2, frozenset({10}))
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     interval = CoverageInterval(10, NOW - timedelta(days=2), NOW + timedelta(seconds=1))
 
     with ThreadPoolExecutor(max_workers=8) as workers:
@@ -64,7 +64,7 @@ def test_concurrent_ingest_read_and_cleanup_do_not_mix_guilds_or_duplicate_ids(t
 
 def test_locked_readonly_full_and_corrupt_failures_have_safe_categories(tmp_path) -> None:
     path = tmp_path / "messages.db"
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     with sqlite3.connect(path) as lock:
         lock.execute("BEGIN EXCLUSIVE")
         with pytest.raises(MessageStoreError) as locked:
@@ -82,7 +82,7 @@ def test_locked_readonly_full_and_corrupt_failures_have_safe_categories(tmp_path
                 connection.close()
 
     with pytest.raises(MessageStoreError) as read_only:
-        ReadOnlyStore(path).upsert(record(101, 1), cached_at=NOW)
+        ReadOnlyStore(path, clock=lambda: NOW).upsert(record(101, 1), cached_at=NOW)
     assert read_only.value.kind is CacheFailureKind.READ_ONLY
 
     class FullStore(SQLiteMessageStore):
@@ -97,7 +97,7 @@ def test_locked_readonly_full_and_corrupt_failures_have_safe_categories(tmp_path
                 connection.close()
 
     with pytest.raises(MessageStoreError) as full:
-        FullStore(path).upsert(
+        FullStore(path, clock=lambda: NOW).upsert(
             MessageRecord(102, 1, 10, 3, "synthetic", "x" * 100_000, NOW), cached_at=NOW
         )
     assert full.value.kind is CacheFailureKind.FULL
@@ -111,7 +111,7 @@ def test_locked_readonly_full_and_corrupt_failures_have_safe_categories(tmp_path
 
 def test_short_sqlite_writer_contention_waits_for_unlock(tmp_path) -> None:
     path = tmp_path / "messages.db"
-    store = SQLiteMessageStore(path)
+    store = SQLiteMessageStore(path, clock=lambda: NOW)
     with sqlite3.connect(path) as lock, ThreadPoolExecutor(max_workers=1) as workers:
         lock.execute("BEGIN EXCLUSIVE")
         pending = workers.submit(store.upsert, record(555, 1), cached_at=NOW)

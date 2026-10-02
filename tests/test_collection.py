@@ -50,7 +50,7 @@ def setup(tmp_path, history, *, broken=False, max_content_bytes=1_000_000):
     path = tmp_path / "messages.db"
     watches = SQLiteWatchStore(path)
     watches.replace(1, frozenset({10}))
-    store = BrokenStore(path) if broken else SQLiteMessageStore(path)
+    store = BrokenStore(path, clock=lambda: NOW) if broken else SQLiteMessageStore(path, clock=lambda: NOW)
     recent = TimeRangeCollector(store, watches, history, clock=lambda: NOW)
     time = LongRangeCollector(recent, history, max_content_bytes=max_content_bytes)
     count = CountCollector(recent, history, max_content_bytes=max_content_bytes)
