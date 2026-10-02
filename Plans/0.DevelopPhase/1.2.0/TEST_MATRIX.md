@@ -16,10 +16,10 @@
 | `T120-P3-B` | P3 B05 | LXC 오류·취소 | DB 복구 후 재개, worker 종료 감지, backoff·정상 취소·슬롯/파일 정리 | PASS |
 | `T120-P3-C` | P3 B08 | LXC 실제 collector·합성 입력 | bounded batch·최종 JSONL budget 준수, 초과 시 모델/게시/성공 쿨타임 없음, F10 추가 후 재검사 | PASS |
 | `T120-P3-D` | P3 B08·통합 | LXC 합성 부하 | DB 10배·총 6회에서 사전 고정한 행 수/RSS/시간 한도 충족, 병렬·취소·빈 입력·전체 회귀 | PASS |
-| `T120-P4-A` | [P4](04-output-runtime.md) B10 | LXC FakeRunner | 중첩 Markdown의 화자 내부 키 차단, 코드/인용의 정상 문자열 유지 | NOT_RUN |
-| `T120-P4-B` | P4 B11 | LXC FakeRunner | 평가/고지 단독·평가 제거 뒤 빈 본문은 성공·게시·쿨타임 불가 | NOT_RUN |
-| `T120-P4-C` | P4 B12 | LXC FakeRunner | 보조·최종 출력 공통 검증, 실패 표식/도구 경로 거절, 유효 본문+불량 평가의 안전한 생략 | NOT_RUN |
-| `T120-P4-D` | P4 B13 | LXC 합성 CLI | PATH/절대/누락/비실행/버전불일치의 config·ready·runner·usage 판정 일치, 전체 회귀 | NOT_RUN |
+| `T120-P4-A` | [P4](04-output-runtime.md) B10 | LXC FakeRunner | 중첩 Markdown의 화자 내부 키 차단, 코드/인용의 정상 문자열 유지 | PASS |
+| `T120-P4-B` | P4 B11 | LXC FakeRunner | 평가/고지 단독·평가 제거 뒤 빈 본문은 성공·게시·쿨타임 불가 | PASS |
+| `T120-P4-C` | P4 B12 | LXC FakeRunner | 보조·최종 출력 공통 검증, 실패 표식/도구 경로 거절, 유효 본문+불량 평가의 안전한 생략 | PASS |
+| `T120-P4-D` | P4 B13 | LXC 합성 CLI | PATH/절대/누락/비실행/버전불일치의 config·ready·runner·usage 판정 일치, 전체 회귀 | PASS |
 | `T120-P5-A` | [P5](05-collection-progress.md) F02 | LXC 대역 | 단계·차단·retry·준비 안내 대기·공백·worker 상태와 표시 일치 | NOT_RUN |
 | `T120-P5-B` | P5 F02 | LXC 임시 DB | 페이지/cursor/진척 원자 commit, 실패·재시도·stale token 중복 집계 없음, 회차·재시작 일관 | NOT_RUN |
 | `T120-P5-C` | P5 F02 | LXC 대역 | 현재 채널만 표시, 원문·다른 채널·예외 미노출, 추정 ETA/퍼센트 없음, 모름과 0 구분 | NOT_RUN |
