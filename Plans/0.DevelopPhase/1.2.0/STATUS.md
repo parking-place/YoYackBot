@@ -12,6 +12,6 @@
 | [1.2.0-P6](06-reply-context.md) | F10 범위 안 답글 연결 | DONE | C `c3bc40fc28dba7c3733b5146a7f1534aff646f30` / E [`c122ce9`](https://github.com/parking-place/YoYackBot/commit/c122ce9ad775b92b807a3f025c2ab3a825c7d12e) | P5 D `91e3ac6`, 모델 8건 PASS, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/36999445493), 종료 D push 확인 |
 | [1.2.0-P7](07-integration-release.md) | 통합·복귀·출시 | PUSH_PENDING | C `613856e6d77f52e38c9abb352678151a89a71def` / E_pre push 대기 | 운영 배포 완료, P7-A/B PASS, 사용자 Discord 확인(P7-C) 대기 |
 
-검사는 [TEST_MATRIX](TEST_MATRIX.md)의 28개이며 P1~P6 스물네 검사와 P7-A/B는 LXC에서 PASS(P6-D는 실제 모델 합성 8건)이며 P7-C(사용자 Discord 확인)·P7-D(출시 후 이력)는 NOT_RUN이다. 계획 파일 작성·이전 계획 머지·버전 디렉터리 이동·계획 PR의 CI 성공은 위 제품 구현 단계의 완료가 아니다.
+검사는 [TEST_MATRIX](TEST_MATRIX.md)의 28개이며 28개 검사가 모두 PASS다(P6-D는 실제 모델 합성 8건, P7-C는 사용자 Discord 확인). 계획 파일 작성·이전 계획 머지·버전 디렉터리 이동·계획 PR의 CI 성공은 위 제품 구현 단계의 완료가 아니다.
 
 구현 C → 동일 SHA 검증·증거 E → E CI 성공 확인 → 종료 D → 원격 반영을 단계마다 기록한다. [공통 Git 규칙](../GIT_WORKFLOW.md), [범위 추적](SCOPE_MAP.md), [버전 개요](README.md).
