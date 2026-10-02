@@ -2,7 +2,7 @@
 
 from yoyackbot.domain import SummaryMode
 
-PROMPT_VERSION = "1.3.0-p4-v1"
+PROMPT_VERSION = "1.3.0-p6-v2"
 
 SUMMARY_PROMPT = """다음 작업은 Discord 대화 요약이오. `/work/conversation.jsonl` 한 파일만 읽으시오.
 파일은 JSON Lines 형식이며 첫 줄의 scope는 범위, 그다음 message 줄은 오래된 순서의 발언이오.

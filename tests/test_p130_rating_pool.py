@@ -107,8 +107,14 @@ def test_candidate_filters(content, ok) -> None:
 
 
 def test_zero_valid_candidates_is_distinguishable() -> None:
-    bad = parse_candidates("1. **요약창섭의 떡밥 한줄 평가** : 정신없는 판이오\n2. 평가 없음")
-    assert bad and filter_candidates(bad, [], []) == []
+    bad = parse_candidates("1. **요약창섭의 떡밥 한줄 평가** : 정신없는 판이오\n2. 요란한 판이오\n평가 없음")
+    assert len(bad) == 2 and filter_candidates(bad, [], []) == []
+
+
+def test_numbered_lines_without_the_label_and_a_fullwidth_colon_are_read() -> None:
+    found = parse_candidates("1. 라면 하나로 철학 토론을 벌였구려\n2) **요약창섭의 떡밥 한줄 평가**： 튀김에 목숨 거는 꼴이오\n"
+                             "```\n이유: 설명 줄\n")
+    assert found == [RATING_LABEL + "라면 하나로 철학 토론을 벌였구려", RATING_LABEL + "튀김에 목숨 거는 꼴이오"]
     assert banned_angle(RATING_LABEL + "화제를 돌리기 바쁘구려")
 
 

@@ -20,8 +20,10 @@ RECENT_LIMIT = 20
 MAX_RATING_CHARS = 160
 
 _CANDIDATE = re.compile(
-    r"^\s*(?:\d{1,2}\s*[.)\]:\-]\s*|[-*•]\s+)?(?:\*\*)?요약창섭의 떡밥 한줄 평가(?:\*\*)?\s*:\s*(.+?)\s*$"
+    r"^\s*(?:\d{1,2}\s*[.)\]:\-]\s*|[-*•]\s+)?(?:\*\*)?요약창섭의 떡밥 한줄 평가(?:\*\*)?\s*[:：]\s*(.+?)\s*$"
 )
+# The model sometimes drops the label but keeps the numbering; the filters still apply.
+_NUMBERED = re.compile(r"^\s*\d{1,2}\s*[.)\]]\s+(?!\**요약창섭)(.+?)\s*$")
 # Topic hopping, clutter and bustle are the overused angle (1.3.0); city 부산 alone is a topic word.
 BANNED = re.compile(
     r"튀[어는고었며니]|튄|왔다\s*갔다|오락가락|이리저리|정신\s*(?:없|사납)|부산[하스해한떨]|요란|"
@@ -37,7 +39,7 @@ def parse_candidates(text: str) -> list[str]:
     found: list[str] = []
     seen: set[str] = set()
     for line in text.splitlines():
-        match = _CANDIDATE.match(line)
+        match = _CANDIDATE.match(line) or _NUMBERED.match(line)
         if match is None:
             continue
         content = match.group(1).strip()

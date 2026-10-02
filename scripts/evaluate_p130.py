@@ -116,6 +116,7 @@ async def summaries(engine: CodexSummaryEngine, recorder: Recorder) -> None:
             out["error_kind"] = exc.kind.value
         out.update(calls=len(recorder.calls), call_kinds=[c["kind"] for c in recorder.calls],
                    judge_answer=next((c.get("answer") for c in recorder.calls if c["kind"] == "judge"), None),
+                   candidate_answers=[c.get("answer") for c in recorder.calls if c["kind"] == "candidates"],
                    ms=round((time.monotonic() - started) * 1000))
         print(json.dumps(out, ensure_ascii=False), flush=True)
 
