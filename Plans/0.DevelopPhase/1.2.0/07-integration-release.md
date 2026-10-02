@@ -1,6 +1,6 @@
 # 1.2.0-P7 — 통합·복귀·출시
 
-- 상태: **PUSH_PENDING** · 검사: `T120-P7-A`·`B` **PASS**, `C`·`D` **NOT_RUN** ([증거](../evidence/1.2.0-P7.md))
+- 상태: **DONE** · 검사: `T120-P7-A`~`D` **PASS** ([증거](../evidence/1.2.0-P7.md))
 - 환경: 개발 LXC·격리 복귀 DB·GitHub CI·시험 Discord의 사용자 확인
 - 선행: [P1~P6](STATUS.md) 원격 완료, 14개 결함과 F02/F10의 검증 증거
 

@@ -30,7 +30,7 @@
 | `T120-P6-D` | P6 F10 | LXC 실제 모델 | 합성 8건의 화자/대상 귀속·허구·키 누출 오류 0, 호출 수·지연 기록 | PASS |
 | `T120-P7-A` | [P7](07-integration-release.md) 전체 | LXC/CI | 정확 후보 SHA의 전체 회귀·집계·범위·설정·비밀정보·문서 검사 | PASS |
 | `T120-P7-B` | P7 설치·복귀 | LXC 격리 | 1.1.3a↔1.2.0 재업그레이드, 선택 테이블·설정 백업/복원·깨끗한 설치 | PASS |
-| `T120-P7-C` | P7 사용자 확인 | 시험 Discord/LXC | DM 목록/실패·역할·F02·F10·기존 명령의 사용자 확인과 로그 일치, 미확인 명시 | NOT_RUN |
-| `T120-P7-D` | P7 출시 이력 | GitHub/LXC | 후보·서비스·패키지 SHA, C/E/D·main CI·태그·Release 일치 | NOT_RUN |
+| `T120-P7-C` | P7 사용자 확인 | 시험 Discord/LXC | DM 목록/실패·역할·F02·F10·기존 명령의 사용자 확인과 로그 일치, 미확인 명시 | PASS |
+| `T120-P7-D` | P7 출시 이력 | GitHub/LXC | 후보·서비스·패키지 SHA, C/E/D·main CI·태그·Release 일치 | PASS |
 
 실행 시 각 검사 결과·정확한 SHA·환경·한계·공개 가능한 증거를 [증거 양식](../EVIDENCE_TEMPLATE.md)에 남긴다. 검사 A~D와 구현 C 검증, 증거 E의 원격 반영·CI 성공 후 [STATUS](STATUS.md)에 DONE을 기록하는 종료 커밋 D를 만든다. D의 원격 반영·필요 CI까지 확인한 뒤 완료를 보고한다. 마지막 P7의 출시 전·후 증거 순서는 [출시 단계](07-integration-release.md)를 따른다.
