@@ -24,7 +24,7 @@
 | 2 | [P2 — luna 심사로 1개 선택](02-rating-judge.md) | `T130-P2-A/B` | DONE |
 | 3 | [P3 — 답장으로 범위 지정](03-reply-range.md) | `T130-P3-A/B` | DONE |
 | 4 | [P4 — `/말투` 명령](04-tone-command.md) | `T130-P4-A/B` | DONE |
-| 5 | [P5 — 최근 30개 대화의 사자성어](05-idiom.md) | `T130-P5-A/B/C` | IN_PROGRESS |
+| 5 | [P5 — 최근 30개 대화의 사자성어](05-idiom.md) | `T130-P5-A/B/C` | PUSH_PENDING |
 | 6 | [P6 — 실제 모델 평가](06-evaluation.md) | `T130-P6-A/B/C` | PLANNED |
 | 7 | [P7 — 도움말·통합·배포·출시](07-release.md) | `T130-P7-A/B` | PLANNED |
 
