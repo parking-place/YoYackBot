@@ -8,8 +8,8 @@
 | `T131-P1-B` | [P1](01-idiom-cooldown.md) | LXC 합성 | 요약·`!!말하자면` 쿨타임 분리·재시작 유지·BUSY 공유, 정리·백업 제외, 회귀 | PASS |
 | `T131-P2-A` | [P2](02-help-command.md) | LXC 합성 | `/도움말` 누구나·ephemeral·본문 동일·`/속도` 미표시 | PASS |
 | `T131-P2-B` | [P2](02-help-command.md) | LXC 합성 | `!!요약좀 도움` 한 줄 안내, 비주시 채널, 안내 문구의 `/도움말`, 로그, 회귀 | PASS |
-| `T131-P3-A` | [P3](03-speed-command.md) | LXC 합성 | 켠 서버의 모든 호출에만 `service_tier="priority"`, 다른 옵션 불변, 읽기 실패 시 보통 | NOT_RUN |
-| `T131-P3-B` | [P3](03-speed-command.md) | LXC 합성 | 권한·소유·만료·문구, 기본 끔, 탈퇴 정리, 백업·복원, 로그·지표, 도움말 미표시, 회귀 | NOT_RUN |
+| `T131-P3-A` | [P3](03-speed-command.md) | LXC 합성 | 켠 서버의 모든 호출에만 `service_tier="priority"`, 다른 옵션 불변, 읽기 실패 시 보통 | PASS |
+| `T131-P3-B` | [P3](03-speed-command.md) | LXC 합성 | 권한·소유·만료·문구, 기본 끔, 탈퇴 정리, 백업·복원, 로그·지표, 도움말 미표시, 회귀 | PASS |
 | `T131-P4-A` | [P4](04-release.md) | LXC 실제 모델/CI | 보통/빠른 모드 요약·`!!말하자면` 성공·형식·소요 시간, 전체 회귀·버전·문서·4/8 집계 | NOT_RUN |
 | `T131-P4-B` | [P4](04-release.md) | LXC/시험 Discord | 배포·1.3.0 복귀·재업그레이드·고아 정리, 사용자 확인, P1~P3 원격 증거, main CI | NOT_RUN |
 
