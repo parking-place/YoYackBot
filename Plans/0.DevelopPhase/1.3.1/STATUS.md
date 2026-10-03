@@ -7,7 +7,7 @@
 | [1.3.1-P1](01-idiom-cooldown.md) | `!!말하자면` 바로 답·따로 쿨타임 | DONE | C `330b6e0f0d2337030fd3030baf1277d5953bdfaa` / E [`37d1869`](https://github.com/parking-place/YoYackBot/commit/37d1869edfd98e7935616e684ec0d4be593169dd) | 기준 `v1.3.0`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37097015803), [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37097119310), 종료 D push 확인 |
 | [1.3.1-P2](02-help-command.md) | `/도움말` | DONE | C `3666f0afa3551886a0e0d3233002b27aef44514e` / E [`190c995`](https://github.com/parking-place/YoYackBot/commit/190c995aadaa0879e24aa80545cb8dc28f50fdf7) | P1 D `f8b5b49`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37097245415), [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37097504491), 종료 D push 확인 |
 | [1.3.1-P3](03-speed-command.md) | `/속도 설정` | DONE | C `b7a58f8b84aa053c5c3f53f507b87cc85d43ee19` / E [`9953f17`](https://github.com/parking-place/YoYackBot/commit/9953f177b722a1dd29489387a7c290c1020e1f4e) | P2 D `ad73b88`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37097593631), [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37097709735), 종료 D push 확인 |
-| [1.3.1-P4](04-release.md) | 실제 모델 확인·통합·배포·출시 | PLANNED | — | P3 D, 사용자 Discord 확인 |
+| [1.3.1-P4](04-release.md) | 실제 모델 확인·통합·배포·출시 | PUSH_PENDING | C `cf50c6bcf5b16cff25cde505641705f62a024e92` / E_pre 증거 | P3 D `722cf53`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37097939748), 배포 완료, 사용자 Discord 확인 대기 |
 
 구현 C 검증과 증거 E의 원격 반영·CI 성공 후 DONE을 기록하는 종료 D를 만들고, D의 원격 반영·필요 CI까지 확인해야 완료다.
 
