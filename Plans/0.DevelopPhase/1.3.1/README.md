@@ -17,7 +17,7 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [P1 — `!!말하자면` 바로 답·따로 쿨타임](01-idiom-cooldown.md) | `T131-P1-A/B` | DONE |
-| 2 | [P2 — `/도움말`](02-help-command.md) | `T131-P2-A/B` | PLANNED |
+| 2 | [P2 — `/도움말`](02-help-command.md) | `T131-P2-A/B` | DONE |
 | 3 | [P3 — `/속도 설정`](03-speed-command.md) | `T131-P3-A/B` | PLANNED |
 | 4 | [P4 — 실제 모델 확인·통합·배포·출시](04-release.md) | `T131-P4-A/B` | PLANNED |
 
