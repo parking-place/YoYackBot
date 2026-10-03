@@ -1,6 +1,6 @@
 # 1.3.1-P4 — 실제 모델 확인·통합·배포·출시
 
-- 상태: **PUSH_PENDING** · 검사: `T131-P4-A/B` **PASS** ([증거](../evidence/1.3.1-P4.md)) · 환경: 개발 LXC, 실제 모델(합성 대화), 시험 Discord, GitHub CI
+- 상태: **DONE** · 검사: `T131-P4-A/B` **PASS** ([증거](../evidence/1.3.1-P4.md)) · 환경: 개발 LXC, 실제 모델(합성 대화), 시험 Discord, GitHub CI
 
 ## 작업
 
