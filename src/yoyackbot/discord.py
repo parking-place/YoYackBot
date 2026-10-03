@@ -65,6 +65,8 @@ from yoyackbot.reply_range import ReplyRangeRefused, reply_reference, resolve_re
 from yoyackbot.reply_refs import reply_target
 from yoyackbot.role_config import install_role_commands
 from yoyackbot.scope import RangeScope, describe_range
+from yoyackbot.speed import SQLiteSpeedStore
+from yoyackbot.speed_config import install_speed_command
 from yoyackbot.status_report import StatusReport, collect_status, status_message
 from yoyackbot.tone import SQLiteToneStore
 from yoyackbot.tone_config import install_tone_command
@@ -203,6 +205,9 @@ class YoYackClient(discord.Client):
         if settings is not None and isinstance(self.watch_store, SQLiteWatchStore):
             install_tone_command(
                 self.tree, SQLiteToneStore(settings.database_path), self.manager_roles,
+            )
+            install_speed_command(
+                self.tree, SQLiteSpeedStore(settings.database_path), self.manager_roles,
             )
 
     async def setup_hook(self) -> None:

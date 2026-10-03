@@ -20,7 +20,7 @@ class BackupError(RuntimeError):
 
 
 def backup_settings(database: Path, backup_root: Path) -> Path:
-    """Write only watch revisions, channels, cooldowns, manager roles and tones to a 0600 file."""
+    """Write only watch revisions, channels, cooldowns, manager roles, tones and fast mode (0600)."""
     if not database.is_file():
         raise BackupError("Settings database unavailable")
     try:
@@ -46,6 +46,7 @@ def backup_settings(database: Path, backup_root: Path) -> Path:
                 ).fetchall(),
                 **_manager_rows(connection),
                 "tones": _tone_rows(connection),
+                "fast_mode": _fast_rows(connection),
             }
         backup_root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if backup_root.is_symlink() or backup_root.stat().st_mode & 0o077:
@@ -96,6 +97,17 @@ def _tone_rows(connection: sqlite3.Connection) -> list[list[object]]:
     return [list(row) for row in connection.execute(
         "SELECT guild_id, version, content, updated_us FROM guild_tones ORDER BY guild_id"
     )]
+
+
+def _fast_rows(connection: sqlite3.Connection) -> list[tuple[int, int]]:
+    """Servers with `/속도 설정` on (1.3.1); older databases have no table."""
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='guild_fast_mode'"
+    ).fetchone() is None:
+        return []
+    return connection.execute(
+        "SELECT guild_id, updated_us FROM guild_fast_mode ORDER BY guild_id"
+    ).fetchall()
 
 
 def _validated_tones(data: dict) -> list[tuple[int, int, str | None, int]]:
@@ -153,6 +165,7 @@ def restore_settings(
             _validated_rows(data, "manager_roles", 3) if "manager_roles" in data else []
         )
         tones = _validated_tones(data)  # backups made before 1.3.0 have none
+        fast = _validated_rows(data, "fast_mode", 2) if "fast_mode" in data else []  # before 1.3.1
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         os.close(descriptor)
@@ -182,6 +195,9 @@ def restore_settings(
                 connection.executemany(
                     "INSERT INTO guild_tones(guild_id, version, content, updated_us) "
                     "VALUES (?, ?, ?, ?)", tones,
+                )
+                connection.executemany(
+                    "INSERT INTO guild_fast_mode(guild_id, updated_us) VALUES (?, ?)", fast,
                 )
                 connection.commit()
             SQLiteMessageStore(target).prune_before(

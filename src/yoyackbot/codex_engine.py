@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Self
 
 from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
-from yoyackbot.codex_runner import CodexRunError, SandboxedCodex
+from yoyackbot.codex_runner import CodexRunError, SandboxedCodex, fast_tier
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode, SummaryResult
 from yoyackbot.idiom import (
@@ -78,6 +78,7 @@ class CodexSummaryEngine:
         request_note: str | None = None,
         recent_ratings: Sequence[str] = (),
         tone: str | None = None,
+        fast: bool = False,
     ) -> SummaryResult:
         included = [item for item in messages if item.message_id != trigger_message_id]
         if not included:
@@ -88,7 +89,7 @@ class CodexSummaryEngine:
             on_size=on_input_size, request_note=request_note,
         )
         root = self.settings.input_directory.absolute()
-        async with self._slots:
+        async with self._slots, fast_tier(fast):
             workspace = InputWorkspace.create(root, data)
             skip_rating = request_note is not None and wants_no_rating(request_note)
             result = await self.runner.execute(
@@ -167,6 +168,7 @@ class CodexSummaryEngine:
         self, messages: Sequence[MessageRecord], *, channel_name: str = "현재 채널",
         trigger_message_id: int | None = None,
         on_input_size: Callable[[int], None] | None = None,
+        fast: bool = False,
     ) -> IdiomResult:
         """`!!말하자면`: four candidates (once more if malformed), then one pick and emoji.
 
@@ -183,7 +185,7 @@ class CodexSummaryEngine:
         names = [*speaker_labels(included).values(), *(item.author_name for item in included)]
         root = self.settings.input_directory.absolute()
         calls = 0
-        async with self._slots:
+        async with self._slots, fast_tier(fast):
             found = None
             for retry in (False, True):
                 calls += 1

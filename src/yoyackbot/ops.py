@@ -35,6 +35,7 @@ class RequestMetrics:
     rating_candidates: int = 0
     rating_similar: int = 0
     tone: str = "default"
+    speed: str = "standard"
     ongoing_jab: str = "none"
     topic_critique: str = "na"
     name_underline: str = "na"
@@ -79,6 +80,7 @@ class RequestMetrics:
             "rating_candidates": min(10, max(0, self.rating_candidates)),
             "rating_similar": min(10, max(0, self.rating_similar)),
             "tone": self.tone if self.tone in {"default", "custom"} else "default",
+            "speed": self.speed if self.speed in {"standard", "fast"} else "standard",
             "ongoing_jab": self.ongoing_jab if self.ongoing_jab in {
                 "none", "retried", "retried_left"
             } else "none",
@@ -111,6 +113,7 @@ class IdiomMetrics:
     idioms: int = 0
     words: int = 0
     selected_kind: str = "none"
+    speed: str = "standard"
     model_ms: int = 0
 
     def emit(self) -> None:
@@ -129,6 +132,7 @@ class IdiomMetrics:
             "idioms": min(4, max(0, self.idioms)),
             "words": min(4, max(0, self.words)),
             "selected_kind": self.selected_kind if self.selected_kind in {"idiom", "word"} else "none",
+            "speed": self.speed if self.speed in {"standard", "fast"} else "standard",
             "model_ms": max(0, self.model_ms),
             "duration_ms": max(0, round((time.monotonic() - self.started) * 1000)),
         }

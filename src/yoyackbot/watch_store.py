@@ -270,6 +270,12 @@ class SQLiteWatchStore:
                         "WHERE w.guild_id=idiom_cooldowns.guild_id "
                         "AND w.channel_id=idiom_cooldowns.channel_id)"
                     )
+                    # 1.3.1 `/속도 설정`: a row means the server turned the fast tier on.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS guild_fast_mode ("
+                        "guild_id INTEGER PRIMARY KEY CHECK(guild_id > 0), "
+                        "updated_us INTEGER NOT NULL)"
+                    )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS deleted_messages ("
                         "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
@@ -478,6 +484,7 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM message_reply_refs WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM recent_ratings WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_tones WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM guild_fast_mode WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

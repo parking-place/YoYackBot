@@ -9,14 +9,30 @@ import re
 import signal
 import stat
 import tempfile
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from yoyackbot.codex import CodexContract, CodexFailure, classify_cli_failure
+from yoyackbot.codex import FAST_SERVICE_TIER, CodexContract, CodexFailure, classify_cli_failure
 from yoyackbot.input_files import InputWorkspace
 
 _ANSI = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))")
 _DIAGNOSTIC_STREAM_LIMIT_BYTES = 5_000_000
+# Set by the engine for one request of a server with `/속도 설정` on; every call reads it.
+_FAST = ContextVar("yoyack_fast_tier", default=False)
+
+
+class fast_tier:
+    """Use the fast service tier for the Codex calls made inside this block."""
+
+    def __init__(self, enabled: bool) -> None:
+        self.enabled = enabled
+
+    async def __aenter__(self) -> None:
+        self._token = _FAST.set(self.enabled)
+
+    async def __aexit__(self, *_exc: object) -> None:
+        _FAST.reset(self._token)
 
 
 class CodexRunError(RuntimeError):
@@ -162,7 +178,10 @@ class SandboxedCodex:
             or output_directory.st_mode & 0o077
         ):
             raise CodexRunError(CodexFailure.PROCESS)
-        cli = replace(self.contract, executable="/bin/codex").arguments(
+        cli = replace(
+            self.contract, executable="/bin/codex",
+            service_tier=FAST_SERVICE_TIER if _FAST.get() else None,
+        ).arguments(
             working_directory=Path("/work"), output_file=Path("/output/final.txt"),
             restricted=True,
         )
