@@ -14,6 +14,7 @@ from yoyackbot.cooldown import SQLiteCooldownStore
 from yoyackbot.discord import PREVIEW_NOTICE, YoYackClient
 from yoyackbot.domain import SummaryMode
 from yoyackbot.parser import (
+    HELP_MOVED_NOTICE,
     HELP_TEXT,
     CommandLimitError,
     CommandSyntaxError,
@@ -84,7 +85,7 @@ def test_help_uses_effective_day_limit_when_operator_lowers_it() -> None:
         validate_option(parse_option("8일"), settings)
 
 
-def test_discord_help_route_sends_effective_limit_without_mention(tmp_path) -> None:
+def test_discord_help_route_points_to_the_slash_command_without_mention(tmp_path) -> None:
     async def scenario() -> None:
         settings = Settings.from_environment({
             "DISCORD_BOT_TOKEN": "test-token", "YOYACK_MAX_DAYS": "7",
@@ -100,7 +101,8 @@ def test_discord_help_route_sends_effective_limit_without_mention(tmp_path) -> N
         client = YoYackClient(settings=settings, watch_store=MemoryWatchStore())
         try:
             await client.on_message(message)
-            assert sent.await_args.args[0] == help_text(settings)
+            # 1.3.1: the help itself is only shown to the caller by `/도움말`.
+            assert sent.await_args.args[0] == HELP_MOVED_NOTICE
             mentions = sent.await_args.kwargs["allowed_mentions"]
             assert not mentions.everyone and not mentions.users and not mentions.roles
         finally:
@@ -156,7 +158,7 @@ def test_each_numeric_limit_has_closed_upper_boundary(unit: str, maximum: int) -
     for value in (maximum - 1, maximum):
         assert validate_option(parse_option(f"{value}{unit}"), settings).value == value
     for value in (0, maximum + 1):
-        with pytest.raises(CommandLimitError, match="!!요약좀 도움"):
+        with pytest.raises(CommandLimitError, match="`/도움말`"):
             validate_option(parse_option(f"{value}{unit}"), settings)
 
 
@@ -204,7 +206,7 @@ def test_help_in_unwatched_channel_sends_without_ingestion() -> None:
         try:
             await client.on_message(message)
             sent.assert_awaited_once()
-            assert sent.await_args.args[0] == HELP_TEXT
+            assert sent.await_args.args[0] == HELP_MOVED_NOTICE
             assert called == []
         finally:
             await client.close()
@@ -256,9 +258,9 @@ def test_all_command_forms_reach_normalized_request_and_invalid_options_stop() -
             assert requests[5].start == datetime(2026, 9, 27, 15, tzinfo=UTC)
 
             await client.on_message(message("!!요약좀 0분"))
-            assert "!!요약좀 도움" in sent.await_args.args[0]
+            assert "`/도움말`" in sent.await_args.args[0]
             await client.on_message(message("!!요약좀 1.5시간"))
-            assert "!!요약좀 도움" in sent.await_args.args[0]
+            assert "`/도움말`" in sent.await_args.args[0]
             assert len(requests) == 8
 
             store.replace(1, frozenset())
@@ -266,7 +268,7 @@ def test_all_command_forms_reach_normalized_request_and_invalid_options_stop() -
             assert sent.await_args.args[0] == UNWATCHED_NOTICE
             assert len(requests) == 8
             await client.on_message(message("!!요약좀 도움"))
-            assert sent.await_args.args[0] == HELP_TEXT
+            assert sent.await_args.args[0] == HELP_MOVED_NOTICE
         finally:
             await client.close()
 
@@ -339,7 +341,7 @@ def test_help_is_available_while_summarizing_and_during_success_cooldown(tmp_pat
             await states.finish_success(1, 99, now)
             await client.on_message(message)
             assert await states.status(1, 99) is ChannelStatus.COOLDOWN
-            assert [call.args[0] for call in sent.await_args_list] == [HELP_TEXT, HELP_TEXT]
+            assert [call.args[0] for call in sent.await_args_list] == [HELP_MOVED_NOTICE] * 2
         finally:
             await client.close()
 

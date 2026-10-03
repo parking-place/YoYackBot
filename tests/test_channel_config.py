@@ -63,13 +63,18 @@ def test_every_slash_command_of_the_bot_is_visible_and_gated(tmp_path: Path) -> 
             clock=lambda: datetime(2026, 10, 1, 12, tzinfo=UTC),
         )
         try:
-            top = client.tree.get_commands()
+            everyone = [c for c in client.tree.get_commands() if c.name == "도움말"]
+            top = [c for c in client.tree.get_commands() if c.name != "도움말"]
             assert top, "the bot registers slash commands"
             for command in top:
                 assert command.guild_only is True, command.name
                 assert command.default_permissions == SLASH_PERMISSIONS, command.name
             leaves = list(walk(top))
             assert leaves and all(getattr(c.callback, "__yoyack_gated__", False) for c in leaves)
+            # 1.3.1: `/도움말` is the one command every member may use (T131-P2-A).
+            [help_command] = everyone
+            assert help_command.guild_only is True and help_command.default_permissions is None
+            assert not getattr(help_command.callback, "__yoyack_gated__", False)
         finally:
             await client.close()
 
