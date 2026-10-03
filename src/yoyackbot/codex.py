@@ -15,6 +15,8 @@ PINNED_CLI_VERSION = "codex-cli 0.158.0"
 REQUIRED_MODEL = "gpt-6-luna"
 # low is the default; operators may raise it to medium in the service environment.
 ALLOWED_EFFORTS = frozenset({"low", "medium"})
+# 1.3.1 `/속도 설정`: the model catalog's "Fast" tier (1.5x speed) for servers that turn it on.
+FAST_SERVICE_TIER = "priority"
 
 
 class CodexFailure(Enum):
@@ -62,6 +64,7 @@ class CodexContract:
     executable: str
     model: str
     reasoning_effort: str
+    service_tier: str | None = None
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "CodexContract":
@@ -130,6 +133,8 @@ class CodexContract:
             self.executable, "exec", "--model", self.model,
             "--config", f"model_reasoning_effort={self.reasoning_effort}",
         ]
+        if self.service_tier is not None:
+            args.extend(("--config", f'service_tier="{self.service_tier}"'))
         if restricted:
             args.extend([
                 "--config", 'default_permissions="summary-read"',

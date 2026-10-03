@@ -226,7 +226,7 @@ def test_summary_waits_without_model_or_cooldown_while_help_remains_available(tm
             ] * 3
             assert workflow.calls == 0
             await send_command("!!요약좀 도움")
-            assert "`30일` 지원" in channel.sent[-1].content
+            assert "`/도움말`" in channel.sent[-1].content
             assert workflow.calls == 0
         finally:
             await client.close()

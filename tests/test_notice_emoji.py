@@ -157,7 +157,7 @@ def limit_error() -> str:
     with pytest.raises(CommandLimitError) as raised:
         validate_option(parse_option("31일"), Settings.from_environment({"DISCORD_BOT_TOKEN": "x"}))
     text = str(raised.value)
-    assert text == "📏 일 단위는 1부터 30까지 고르시오. `!!요약좀 도움`에서 사용법을 살펴보시오. 📜"
+    assert text == "📏 일 단위는 1부터 30까지 고르시오. `/도움말`에서 사용법을 살펴보시오. 📜"
     return text
 
 

@@ -19,6 +19,13 @@ class ChannelStatus(Enum):
     COOLDOWN = "cooldown"
 
 
+class CooldownKind(Enum):
+    """One channel slot is shared; the success cooldown is counted per command (1.3.1)."""
+
+    SUMMARY = "summary"
+    IDIOM = "idiom"
+
+
 class AdmissionKind(Enum):
     ACCEPTED = "accepted"
     BUSY = "busy"
@@ -44,15 +51,17 @@ class Admission:
 class ChannelStates:
     def __init__(
         self, cooldowns: SQLiteCooldownStore | None = None, *,
+        idiom_cooldowns: SQLiteCooldownStore | None = None,
         clock: Callable[[], datetime] | None = None,
         monotonic: Callable[[], float] | None = None,
     ) -> None:
         self.cooldowns = cooldowns
+        self._stores = {CooldownKind.SUMMARY: cooldowns, CooldownKind.IDIOM: idiom_cooldowns}
         self.clock = clock or (lambda: datetime.now(UTC))
         self.monotonic = monotonic or time.monotonic
         self._active: dict[tuple[int, int], ActiveJob] = {}
-        self._deadline: dict[tuple[int, int], float] = {}
-        self._expired: set[tuple[int, int]] = set()
+        self._deadline: dict[tuple[CooldownKind, int, int], float] = {}
+        self._expired: set[tuple[CooldownKind, int, int]] = set()
         self._guard = asyncio.Lock()
 
     async def begin(self, guild_id: int, channel_id: int) -> bool:
@@ -61,6 +70,7 @@ class ChannelStates:
     async def admit(
         self, guild_id: int, channel_id: int, *,
         scope: RangeScope | None = None, mode: SummaryMode = SummaryMode.SHORT,
+        kind: CooldownKind = CooldownKind.SUMMARY,
     ) -> Admission:
         """Admit one job per channel; BUSY returns the running job's scope, never the new one."""
         key = guild_id, channel_id
@@ -68,7 +78,7 @@ class ChannelStates:
             active = self._active.get(key)
             if active is not None:
                 return Admission(AdmissionKind.BUSY, job=active)
-            remaining = await self._remaining_locked(key)
+            remaining = await self._remaining_locked(key, kind)
             if remaining > 0:
                 return Admission(AdmissionKind.COOLDOWN, remaining)
             job = ActiveJob(scope, mode)
@@ -84,37 +94,44 @@ class ChannelStates:
         async with self._guard:
             return self._active.get((guild_id, channel_id))
 
-    async def _remaining_locked(self, key: tuple[int, int]) -> int:
-        if self.cooldowns is None or key in self._expired:
+    async def _remaining_locked(self, key: tuple[int, int], kind: CooldownKind) -> int:
+        store = self._stores[kind]
+        timer = kind, *key
+        if store is None or timer in self._expired:
             return 0
-        if key in self._deadline:
-            remaining = max(0, math.ceil(self._deadline[key] - self.monotonic()))
+        if timer in self._deadline:
+            remaining = max(0, math.ceil(self._deadline[timer] - self.monotonic()))
             if remaining == 0:
-                del self._deadline[key]
-                self._expired.add(key)
+                del self._deadline[timer]
+                self._expired.add(timer)
             return remaining
-        remaining = await asyncio.to_thread(self.cooldowns.remaining, *key, self.clock())
+        remaining = await asyncio.to_thread(store.remaining, *key, self.clock())
         if remaining > 0:
-            self._deadline[key] = self.monotonic() + remaining
+            self._deadline[timer] = self.monotonic() + remaining
         else:
-            self._expired.add(key)
+            self._expired.add(timer)
         return remaining
 
-    async def finish_success(self, guild_id: int, channel_id: int, at: datetime) -> None:
+    async def finish_success(
+        self, guild_id: int, channel_id: int, at: datetime,
+        kind: CooldownKind = CooldownKind.SUMMARY,
+    ) -> None:
         key = guild_id, channel_id
+        timer = kind, guild_id, channel_id
+        store = self._stores[kind]
         async with self._guard:
-            if self.cooldowns is not None:
-                await asyncio.to_thread(self.cooldowns.record_success, guild_id, channel_id, at)
-                expiry = at + timedelta(seconds=self.cooldowns.duration_seconds)
-                remaining = min(self.cooldowns.duration_seconds, max(
+            if store is not None:
+                await asyncio.to_thread(store.record_success, guild_id, channel_id, at)
+                expiry = at + timedelta(seconds=store.duration_seconds)
+                remaining = min(store.duration_seconds, max(
                     0, math.ceil((expiry - self.clock()).total_seconds())
                 ))
-                self._expired.discard(key)
+                self._expired.discard(timer)
                 if remaining > 0:
-                    self._deadline[key] = self.monotonic() + remaining
+                    self._deadline[timer] = self.monotonic() + remaining
                 else:
-                    self._deadline.pop(key, None)
-                    self._expired.add(key)
+                    self._deadline.pop(timer, None)
+                    self._expired.add(timer)
             self._release_locked(key)
 
     async def finish(self, guild_id: int, channel_id: int) -> None:
@@ -125,6 +142,6 @@ class ChannelStates:
         async with self._guard:
             if (guild_id, channel_id) in self._active:
                 return ChannelStatus.SUMMARIZING
-            if await self._remaining_locked((guild_id, channel_id)) > 0:
+            if await self._remaining_locked((guild_id, channel_id), CooldownKind.SUMMARY) > 0:
                 return ChannelStatus.COOLDOWN
             return ChannelStatus.IDLE

@@ -91,7 +91,9 @@ class CommandLimitError(ValueError):
     """A syntactically valid option exceeds the configured range."""
 
 
-USAGE_NOTICE = "🤔 그 명은 알아듣기 어렵소. `!!요약좀 도움`에서 사용법을 살펴보시오. 📜"
+USAGE_NOTICE = "🤔 그 명은 알아듣기 어렵소. `/도움말`에서 사용법을 살펴보시오. 📜"
+# 1.3.1: the help is shown only to the caller through `/도움말`; the text route points there.
+HELP_MOVED_NOTICE = "📜 사용법은 `/도움말`로 보시오. 부른 사람에게만 보이오. 🙈"
 POLITE_ENDINGS = ("부탁하오", "부탁해요", "해주세요")
 OPTION_PATTERN = re.compile(r"([0-9]+)\s*(개|분|시간|일|주)?\Z")
 UNIT_KIND = {
@@ -260,6 +262,6 @@ def validate_option(option: ParsedOption, settings: Settings) -> ParsedOption:
     maximum, unit = limits[option.kind]
     if option.value is None or not 1 <= option.value <= maximum:
         raise CommandLimitError(
-            f"📏 {unit} 단위는 1부터 {maximum}까지 고르시오. `!!요약좀 도움`에서 사용법을 살펴보시오. 📜"
+            f"📏 {unit} 단위는 1부터 {maximum}까지 고르시오. `/도움말`에서 사용법을 살펴보시오. 📜"
         )
     return option

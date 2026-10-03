@@ -41,7 +41,8 @@ from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError
 from yoyackbot.rating_pool import SQLiteRecentRatings
 from yoyackbot.scope import busy_notice, start_notice
-from yoyackbot.state import AdmissionKind, ChannelStates
+from yoyackbot.speed import SQLiteSpeedStore
+from yoyackbot.state import AdmissionKind, ChannelStates, CooldownKind
 from yoyackbot.tone import SQLiteToneStore
 from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
 from yoyackbot.watch_gate import ChannelLease
@@ -70,6 +71,7 @@ class SummaryWorkflow:
     readiness: Callable[[int, int], Awaitable[bool]] | None = None
     ratings: SQLiteRecentRatings | None = None
     tones: SQLiteToneStore | None = None
+    speeds: SQLiteSpeedStore | None = None
     closing: bool = False
     _jobs: set[asyncio.Task] = field(default_factory=set, init=False, repr=False)
 
@@ -82,7 +84,7 @@ class SummaryWorkflow:
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
         can_continue: Callable[[], Awaitable[bool]], recent_ratings: Sequence[str] = (),
-        tone: str | None = None,
+        tone: str | None = None, fast: bool = False,
     ) -> SummaryResult:
         if self.queue is not None:
             waiting_since = time.monotonic()
@@ -99,13 +101,13 @@ class SummaryWorkflow:
                     messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
                     mode=mode, request_note=request_note, channel=channel, lease=lease,
                     metrics=metrics, can_continue=can_continue, recent_ratings=recent_ratings,
-                    tone=tone,
+                    tone=tone, fast=fast,
                 )
         return await self._run_model_guarded(
             messages, channel_name=channel_name, trigger_message_id=trigger_message_id,
             mode=mode, request_note=request_note, channel=channel, lease=lease,
             metrics=metrics, can_continue=can_continue, recent_ratings=recent_ratings,
-            tone=tone,
+            tone=tone, fast=fast,
         )
 
     async def _run_model_guarded(
@@ -113,7 +115,7 @@ class SummaryWorkflow:
         trigger_message_id: int | None, mode: SummaryMode, request_note: str | None,
         channel: discord.TextChannel, lease: ChannelLease, metrics: RequestMetrics,
         can_continue: Callable[[], Awaitable[bool]], recent_ratings: Sequence[str] = (),
-        tone: str | None = None,
+        tone: str | None = None, fast: bool = False,
     ) -> SummaryResult:
         if not await can_continue():
             raise JobInvalidated
@@ -122,7 +124,7 @@ class SummaryWorkflow:
             messages, channel_name=channel_name, range_label="선택한 대화",
             trigger_message_id=trigger_message_id, mode=mode, request_note=request_note,
             on_input_size=lambda size: setattr(metrics, "input_bytes", size),
-            recent_ratings=tuple(recent_ratings), tone=tone,
+            recent_ratings=tuple(recent_ratings), tone=tone, fast=fast,
         ))
         try:
             while True:
@@ -152,7 +154,7 @@ class SummaryWorkflow:
         send_notice: Callable[[str], Awaitable[None]], *, accepted_at: datetime,
         trigger_message_id: int | None,
     ) -> None:
-        """`!!말하자면`: the same channel slot, queue, readiness and success cooldown as summaries."""
+        """`!!말하자면`: the summaries' channel slot, queue and readiness; its own cooldown (1.3.1)."""
         metrics = IdiomMetrics()
         task = asyncio.current_task()
         if task is not None:
@@ -192,7 +194,7 @@ class SummaryWorkflow:
             metrics.outcome = "limit"
             await send_notice(idiom.LIMIT_NOTICE)
             return
-        admission = await self.states.admit(guild_id, channel_id)
+        admission = await self.states.admit(guild_id, channel_id, kind=CooldownKind.IDIOM)
         if admission.kind is AdmissionKind.BUSY:
             metrics.outcome = "busy"
             await send_notice(idiom.BUSY_NOTICE)
@@ -220,11 +222,7 @@ class SummaryWorkflow:
                 metrics.outcome = "not_ready"
                 await send_notice(idiom.NOT_READY_NOTICE)
                 return
-            try:
-                await send_notice(idiom.START_NOTICE)
-            except (discord.DiscordException, OSError):
-                metrics.outcome = "notice_error"
-                return
+            # No start notice (1.3.1): the answer line is the only post on success.
             if admission.job is not None:
                 admission.job.announced.set()
             outcome = await self.collector.collect(
@@ -242,10 +240,11 @@ class SummaryWorkflow:
                 return
             if not await can_continue():
                 raise JobInvalidated
+            fast = await self._fast(guild_id, metrics)
             result = await self._guarded_model(
                 lambda: self.engine.idiom(
                     outcome.messages, channel_name=channel.name,
-                    trigger_message_id=trigger_message_id,
+                    trigger_message_id=trigger_message_id, fast=fast,
                 ),
                 guild_id=guild_id, size=len(outcome.messages), metrics=metrics,
                 can_continue=can_continue,
@@ -259,7 +258,9 @@ class SummaryWorkflow:
             except (discord.DiscordException, OSError):
                 metrics.outcome = "post_error"
                 return
-            await self.states.finish_success(guild_id, channel_id, self.collector.clock())
+            await self.states.finish_success(
+                guild_id, channel_id, self.collector.clock(), CooldownKind.IDIOM,
+            )
             metrics.outcome = "success"
             completed = True
         except JobInvalidated:
@@ -321,6 +322,17 @@ class SummaryWorkflow:
             if not await can_continue():
                 raise JobInvalidated
             return await guarded()
+
+    async def _fast(self, guild_id: int, metrics: RequestMetrics | IdiomMetrics) -> bool:
+        """`/속도 설정` for this server; an unreadable store means the standard tier."""
+        fast = False
+        if self.speeds is not None:
+            try:
+                fast = await asyncio.to_thread(self.speeds.fast, guild_id)
+            except sqlite3.Error:
+                LOGGER.warning("speed_read_failed")
+        metrics.speed = "fast" if fast else "standard"
+        return fast
 
     async def _tone(self, guild_id: int, metrics: RequestMetrics) -> str | None:
         """This server's tone; an unreadable store falls back to the default tone."""
@@ -469,7 +481,7 @@ class SummaryWorkflow:
                 mode=request.mode, request_note=request.request_note, channel=channel,
                 lease=lease, metrics=metrics, can_continue=can_continue,
                 recent_ratings=await self._recent_ratings(guild_id, channel_id),
-                tone=await self._tone(guild_id, metrics),
+                tone=await self._tone(guild_id, metrics), fast=await self._fast(guild_id, metrics),
             )
             metrics.model_result = "success"
             metrics.rating = result.rating
@@ -594,6 +606,9 @@ def build_workflow(
         DiscordSummaryPublisher(client, watches, settings, clock=collector.clock),
         ChannelStates(SQLiteCooldownStore(
             settings.database_path, duration_seconds=settings.success_cooldown_seconds
+        ), idiom_cooldowns=SQLiteCooldownStore(
+            settings.database_path, duration_seconds=settings.success_cooldown_seconds,
+            table="idiom_cooldowns",
         ), clock=collector.clock),
         SummaryJobQueue(
             concurrency=settings.codex_concurrency, capacity=settings.queue_capacity,
@@ -604,4 +619,5 @@ def build_workflow(
             settings.database_path, retention_days=settings.cache_retention_days, clock=clock,
         ),
         tones=SQLiteToneStore(settings.database_path),
+        speeds=SQLiteSpeedStore(settings.database_path),
     )

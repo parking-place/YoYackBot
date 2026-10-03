@@ -30,7 +30,7 @@ def main() -> None:
     version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     package = (REPO / "src/yoyackbot/__init__.py").read_text(encoding="utf-8")
-    assert version == project["project"]["version"] == "1.3.0"
+    assert version == project["project"]["version"] == "1.3.1"
     assert f'__version__ = "{version}"' in package
 
     matrix = (PLAN / "TEST_MATRIX.md").read_text()
@@ -222,6 +222,19 @@ def main() -> None:
     fixes_done, fixes_checks = seven_phase("1.2.0", "T120", "A-D", 28)
     tone_next_done, tone_next_checks = seven_phase("1.3.0", "T130", "A-C", 16)
 
+    tidy = PLAN / "1.3.1"
+    assert len(sorted(tidy.glob("0[1-4]-*.md"))) == 4, "1.3.1: expected four phase documents"
+    tidy_checks = re.findall(
+        r"^\| `(T131-P[1-4]-[AB])` \|", (tidy / "TEST_MATRIX.md").read_text(), re.MULTILINE
+    )
+    assert len(tidy_checks) == len(set(tidy_checks)) == 8
+    tidy_rows = [
+        line for line in (tidy / "STATUS.md").read_text().splitlines()
+        if re.match(r"^\| \[1\.3\.1-P[1-4]\]", line)
+    ]
+    assert len(tidy_rows) == 4
+    tidy_done = sum("| DONE |" in row for row in tidy_rows)
+
     for document in [REPO / "README.md", *PLAN.rglob("*.md")]:
         text = document.read_text()
         assert text.count("```") % 2 == 0, f"unclosed fence: {document}"
@@ -251,7 +264,8 @@ def main() -> None:
         f"1.1.3 {manager_done}/3 phases, {len(manager_checks)} checks; "
         f"1.1.3a {notice_emoji_done}/3 phases, {len(notice_emoji_checks)} checks; "
         f"1.2.0 {fixes_done}/7 phases, {fixes_checks} checks; "
-        f"1.3.0 {tone_next_done}/7 phases, {tone_next_checks} checks"
+        f"1.3.0 {tone_next_done}/7 phases, {tone_next_checks} checks; "
+        f"1.3.1 {tidy_done}/4 phases, {len(tidy_checks)} checks"
     )
 
 

@@ -1,4 +1,7 @@
-"""Persist only successful summary publication times and bounded expiry."""
+"""Persist only successful summary publication times and bounded expiry.
+
+`!!말하자면` keeps its own table (1.3.1) so the two commands never block each other.
+"""
 
 import math
 import sqlite3
@@ -8,18 +11,25 @@ from pathlib import Path
 from yoyackbot.message_store import _datetime, _microseconds
 from yoyackbot.watch_store import SQLiteWatchStore
 
+TABLES = ("summary_cooldowns", "idiom_cooldowns")
+
 
 class CooldownStoreError(RuntimeError):
     """The success cooldown could not be persisted or read."""
 
 
 class SQLiteCooldownStore:
-    def __init__(self, path: Path, *, duration_seconds: int = 300) -> None:
+    def __init__(
+        self, path: Path, *, duration_seconds: int = 300, table: str = "summary_cooldowns",
+    ) -> None:
         if duration_seconds < 0:
             raise ValueError("Cooldown duration must not be negative")
+        if table not in TABLES:
+            raise ValueError("Unknown cooldown table")
         SQLiteWatchStore(path)
         self.path = path
         self.duration_seconds = duration_seconds
+        self.table = table
 
     def record_success(self, guild_id: int, channel_id: int, at: datetime) -> None:
         if min(guild_id, channel_id) < 1:
@@ -30,12 +40,12 @@ class SQLiteCooldownStore:
             with sqlite3.connect(self.path, timeout=5) as connection:
                 connection.execute("BEGIN IMMEDIATE")
                 connection.execute(
-                    "INSERT INTO summary_cooldowns "
+                    f"INSERT INTO {self.table} "
                     "(guild_id, channel_id, last_success_us, expires_at_us) "
                     "VALUES (?, ?, ?, ?) ON CONFLICT(guild_id, channel_id) DO UPDATE SET "
                     "last_success_us=excluded.last_success_us, "
                     "expires_at_us=excluded.expires_at_us "
-                    "WHERE excluded.last_success_us >= summary_cooldowns.last_success_us",
+                    f"WHERE excluded.last_success_us >= {self.table}.last_success_us",
                     (guild_id, channel_id, when, expiry),
                 )
         except sqlite3.Error as exc:
@@ -48,8 +58,7 @@ class SQLiteCooldownStore:
         try:
             with sqlite3.connect(self.path, timeout=5) as connection:
                 row = connection.execute(
-                    "SELECT expires_at_us FROM summary_cooldowns "
-                    "WHERE guild_id=? AND channel_id=?",
+                    f"SELECT expires_at_us FROM {self.table} WHERE guild_id=? AND channel_id=?",
                     (guild_id, channel_id),
                 ).fetchone()
         except sqlite3.Error as exc:

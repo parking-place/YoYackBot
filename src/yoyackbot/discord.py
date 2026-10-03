@@ -43,6 +43,7 @@ from yoyackbot.collection_status import (
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
 from yoyackbot.health import COLLECTION_OK, write_heartbeat
+from yoyackbot.help_command import install_help_command
 from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
 from yoyackbot.manager_roles import (
     ManagerRoleStore,
@@ -51,6 +52,7 @@ from yoyackbot.manager_roles import (
 )
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.parser import (
+    HELP_MOVED_NOTICE,
     CommandLimitError,
     CommandSyntaxError,
     RouteKind,
@@ -63,6 +65,8 @@ from yoyackbot.reply_range import ReplyRangeRefused, reply_reference, resolve_re
 from yoyackbot.reply_refs import reply_target
 from yoyackbot.role_config import install_role_commands
 from yoyackbot.scope import RangeScope, describe_range
+from yoyackbot.speed import SQLiteSpeedStore
+from yoyackbot.speed_config import install_speed_command
 from yoyackbot.status_report import StatusReport, collect_status, status_message
 from yoyackbot.tone import SQLiteToneStore
 from yoyackbot.tone_config import install_tone_command
@@ -197,9 +201,13 @@ class YoYackClient(discord.Client):
         self.tree = app_commands.CommandTree(self)
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
         install_role_commands(self.tree, self.manager_roles)
+        install_help_command(self.tree, settings)
         if settings is not None and isinstance(self.watch_store, SQLiteWatchStore):
             install_tone_command(
                 self.tree, SQLiteToneStore(settings.database_path), self.manager_roles,
+            )
+            install_speed_command(
+                self.tree, SQLiteSpeedStore(settings.database_path), self.manager_roles,
             )
 
     async def setup_hook(self) -> None:
@@ -674,8 +682,9 @@ class YoYackClient(discord.Client):
             LOGGER.info("gateway_test_human_event has_content=%s", bool(message.content))
         route = route_trigger(message.content)
         if route.kind is RouteKind.HELP:
+            LOGGER.info("help_request surface=text")
             await message.channel.send(
-                help_text(self.settings), allowed_mentions=discord.AllowedMentions.none()
+                HELP_MOVED_NOTICE, allowed_mentions=discord.AllowedMentions.none()
             )
             return
         assert message.guild is not None
