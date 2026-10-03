@@ -158,7 +158,7 @@ def run(ctx, *events):
 def test_the_last_thirty_messages_reach_both_calls(tmp_path, monkeypatch, count, selected) -> None:
     ctx = context(tmp_path, monkeypatch, count, Runner([FOUR, PICK]))
     sent = run(ctx, event(ctx, reply=True))
-    assert sent == [idiom.START_NOTICE, "말하자면 우왕좌왕? 🎯"]
+    assert sent == ["말하자면 우왕좌왕? 🎯"]  # no start notice since 1.3.1
     first, second = ctx.runner.calls
     bodies = [r["body"] for r in first[1] if r["type"] == "message"]
     assert len(bodies) == selected and bodies[-1] == f"대화 {count}"
@@ -183,7 +183,7 @@ def test_no_model_call_at_the_boundaries(tmp_path, monkeypatch, case, notice) ->
     sent = run(ctx, event(ctx, "!!말하자면 100개" if case == "usage" else "!!말하자면"))
     assert sent[-1] == notice and ctx.runner.calls == []
     if case == "empty":
-        assert sent == [idiom.START_NOTICE, idiom.EMPTY_NOTICE]
+        assert sent == [idiom.EMPTY_NOTICE]
 
 
 # T130-P5-B ------------------------------------------------------------------------------
@@ -258,7 +258,7 @@ def test_no_tone_rating_or_request_reaches_the_prompts() -> None:
 
 # T130-P5-C ------------------------------------------------------------------------------
 
-def test_shared_cooldown_and_busy_with_summaries(tmp_path, monkeypatch, caplog) -> None:
+def test_cooldown_and_busy_with_summaries(tmp_path, monkeypatch, caplog) -> None:
     caplog.set_level(logging.INFO)
     ctx = context(tmp_path, monkeypatch, 5, Runner([FOUR, PICK]))
     before = SQLiteRecentRatings(ctx.path, clock=lambda: NOW).recent(1, 2)
@@ -267,17 +267,16 @@ def test_shared_cooldown_and_busy_with_summaries(tmp_path, monkeypatch, caplog) 
         try:
             await ctx.client.on_message(event(ctx))
             workflow = ctx.client.summary_workflow
-            assert await workflow.states.status(1, 2) is ChannelStatus.COOLDOWN
+            # 1.3.1: the idiom cooldown is its own; summaries stay free (tests/test_p131_*).
+            assert await workflow.states.status(1, 2) is ChannelStatus.IDLE
             await ctx.client.on_message(event(ctx))
-            await ctx.client.on_message(SimpleNamespace(**{**vars(event(ctx)), "content": "!!요약좀"}))
         finally:
             await ctx.client.close()
 
     asyncio.run(scenario())
     sent = [call.args[0] for call in ctx.channel.send.await_args_list]
-    assert sent[:2] == [idiom.START_NOTICE, "말하자면 우왕좌왕? 🎯"]
-    assert sent[2].startswith("🧊 조금만 쉬었다가 다시 불러줘.")
-    assert sent[3].startswith("🧊 아직은 때가 아니오.")  # the summary sees the same cooldown
+    assert sent[0] == "말하자면 우왕좌왕? 🎯" and len(sent) == 2
+    assert sent[1].startswith("🧊 조금만 쉬었다가 다시 불러줘.")
     assert SQLiteRecentRatings(ctx.path, clock=lambda: NOW).recent(1, 2) == before
     record = json.loads(next(r.message for r in caplog.records if '"idiom_request"' in r.message))
     assert (record["outcome"], record["calls"], record["selected_count"], record["selected_kind"]) == (
@@ -314,7 +313,7 @@ def test_failures_leave_no_cooldown(tmp_path, monkeypatch, answers, send_fails, 
     ctx = context(tmp_path, monkeypatch, 5, Runner(answers))
     if send_fails:
         response = SimpleNamespace(status=500, reason="x")
-        ctx.channel.send = AsyncMock(side_effect=[None, discord.HTTPException(response, "x")])
+        ctx.channel.send = AsyncMock(side_effect=discord.HTTPException(response, "x"))
 
     async def scenario():
         try:
@@ -326,7 +325,7 @@ def test_failures_leave_no_cooldown(tmp_path, monkeypatch, answers, send_fails, 
     assert asyncio.run(scenario()) is ChannelStatus.IDLE
     sent = [call.args[0] for call in ctx.channel.send.await_args_list]
     if notice:
-        assert sent == [idiom.START_NOTICE, notice]
+        assert sent == [notice]
     assert not list((tmp_path / "inputs").glob("request-*"))
 
 
@@ -344,7 +343,7 @@ def test_input_byte_limit(tmp_path, monkeypatch) -> None:
 
 
 def test_casual_fixed_notices() -> None:
-    notices = [idiom.START_NOTICE, idiom.USAGE_NOTICE, idiom.EMPTY_NOTICE, idiom.FAILED_NOTICE, idiom.BUSY_NOTICE,
+    notices = [idiom.USAGE_NOTICE, idiom.EMPTY_NOTICE, idiom.FAILED_NOTICE, idiom.BUSY_NOTICE,
                idiom.NOT_READY_NOTICE, idiom.UNWATCHED_NOTICE, idiom.UNAVAILABLE_NOTICE, idiom.LIMIT_NOTICE,
                idiom.TOO_LARGE_NOTICE, idiom.INVALIDATED_NOTICE, idiom.QUEUE_NOTICE, idiom.cooldown_notice(30)]
     emoji = re.compile(r"^[\U0001F000-\U0001FAFF☀-➿⬀-⯿⌀-⏿]")

@@ -41,7 +41,7 @@ from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError
 from yoyackbot.rating_pool import SQLiteRecentRatings
 from yoyackbot.scope import busy_notice, start_notice
-from yoyackbot.state import AdmissionKind, ChannelStates
+from yoyackbot.state import AdmissionKind, ChannelStates, CooldownKind
 from yoyackbot.tone import SQLiteToneStore
 from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
 from yoyackbot.watch_gate import ChannelLease
@@ -152,7 +152,7 @@ class SummaryWorkflow:
         send_notice: Callable[[str], Awaitable[None]], *, accepted_at: datetime,
         trigger_message_id: int | None,
     ) -> None:
-        """`!!말하자면`: the same channel slot, queue, readiness and success cooldown as summaries."""
+        """`!!말하자면`: the summaries' channel slot, queue and readiness; its own cooldown (1.3.1)."""
         metrics = IdiomMetrics()
         task = asyncio.current_task()
         if task is not None:
@@ -192,7 +192,7 @@ class SummaryWorkflow:
             metrics.outcome = "limit"
             await send_notice(idiom.LIMIT_NOTICE)
             return
-        admission = await self.states.admit(guild_id, channel_id)
+        admission = await self.states.admit(guild_id, channel_id, kind=CooldownKind.IDIOM)
         if admission.kind is AdmissionKind.BUSY:
             metrics.outcome = "busy"
             await send_notice(idiom.BUSY_NOTICE)
@@ -220,11 +220,7 @@ class SummaryWorkflow:
                 metrics.outcome = "not_ready"
                 await send_notice(idiom.NOT_READY_NOTICE)
                 return
-            try:
-                await send_notice(idiom.START_NOTICE)
-            except (discord.DiscordException, OSError):
-                metrics.outcome = "notice_error"
-                return
+            # No start notice (1.3.1): the answer line is the only post on success.
             if admission.job is not None:
                 admission.job.announced.set()
             outcome = await self.collector.collect(
@@ -259,7 +255,9 @@ class SummaryWorkflow:
             except (discord.DiscordException, OSError):
                 metrics.outcome = "post_error"
                 return
-            await self.states.finish_success(guild_id, channel_id, self.collector.clock())
+            await self.states.finish_success(
+                guild_id, channel_id, self.collector.clock(), CooldownKind.IDIOM,
+            )
             metrics.outcome = "success"
             completed = True
         except JobInvalidated:
@@ -594,6 +592,9 @@ def build_workflow(
         DiscordSummaryPublisher(client, watches, settings, clock=collector.clock),
         ChannelStates(SQLiteCooldownStore(
             settings.database_path, duration_seconds=settings.success_cooldown_seconds
+        ), idiom_cooldowns=SQLiteCooldownStore(
+            settings.database_path, duration_seconds=settings.success_cooldown_seconds,
+            table="idiom_cooldowns",
         ), clock=collector.clock),
         SummaryJobQueue(
             concurrency=settings.codex_concurrency, capacity=settings.queue_capacity,

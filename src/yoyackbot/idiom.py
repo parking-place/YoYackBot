@@ -17,7 +17,6 @@ MIN_SALVAGED = 2
 EMOJI = ("🤔", "🙃", "😅", "😏", "🤝", "🧩", "💡", "🎯")
 DEFAULT_EMOJI = "🤔"
 
-START_NOTICE = "🔎 최근 대화를 살펴보는 중이야."
 USAGE_NOTICE = "📝 `!!말하자면`은 다른 말 없이 단독으로만 써줘. 🙏"
 EMPTY_NOTICE = "💬 아직 읽을 대화가 없어."
 FAILED_NOTICE = "🤔 지금은 어울리는 네 글자를 고르기 어려워."
