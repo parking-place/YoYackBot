@@ -4,7 +4,7 @@
 
 | 검사 ID | 단계 | 환경 | 통과 기준 | 결과 |
 |---|---|---|---|---|
-| `T132-P1-A` | [P1](01-request-timing.md) | LXC 합성 | 단계·호출 이름·순서, 첫 출력 탐지, 실패·취소, 동시 요청 분리 | NOT_RUN |
-| `T132-P1-B` | [P1](01-request-timing.md) | LXC 합성 | 모든 결과에서 한 줄, 내용 없음·허용 목록, 기존 동작 불변, 표 스크립트, 회귀 | NOT_RUN |
+| `T132-P1-A` | [P1](01-request-timing.md) | LXC 합성 | 단계·호출 이름·순서, 첫 출력 탐지, 실패·취소, 동시 요청 분리 | PASS |
+| `T132-P1-B` | [P1](01-request-timing.md) | LXC 합성 | 모든 결과에서 한 줄, 내용 없음·허용 목록, 기존 동작 불변, 표 스크립트, 회귀 | PASS |
 | `T132-P2-A` | [P2](02-release.md) | LXC 실제 모델/CI | 실제 호출의 시작·첫 출력·끝, 총 시간 일치, 회귀·버전·문서·2/4 집계 | NOT_RUN |
 | `T132-P2-B` | [P2](02-release.md) | LXC/시험 Discord | 배포, 실제 명령 로그, 사용자 확인, main CI, 태그·Release | NOT_RUN |
