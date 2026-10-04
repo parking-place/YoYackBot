@@ -10,7 +10,7 @@ from datetime import datetime
 
 import discord
 
-from yoyackbot import idiom
+from yoyackbot import idiom, timing
 from yoyackbot.backfill import NOT_READY_NOTICE, SQLiteBackfillStore
 from yoyackbot.cache_collector import BackfillNotReady, CacheCollectionOutcome, CacheOnlyCollector
 from yoyackbot.channel_config import valid_channel
@@ -95,6 +95,7 @@ class SummaryWorkflow:
             finally:
                 metrics.queue_ms = max(0, round((time.monotonic() - waiting_since) * 1000))
             async with slot:
+                timing.mark("queued")
                 if not await can_continue():
                     raise JobInvalidated
                 return await self._run_model_guarded(
@@ -156,6 +157,7 @@ class SummaryWorkflow:
     ) -> None:
         """`!!말하자면`: the summaries' channel slot, queue and readiness; its own cooldown (1.3.1)."""
         metrics = IdiomMetrics()
+        timeline = timing.claim()
         task = asyncio.current_task()
         if task is not None:
             self._jobs.add(task)
@@ -173,6 +175,7 @@ class SummaryWorkflow:
             raise
         finally:
             metrics.emit()
+            timeline.emit("idiom", metrics.request_id, metrics.outcome)
             if task is not None:
                 self._jobs.discard(task)
 
@@ -203,6 +206,7 @@ class SummaryWorkflow:
             metrics.outcome = "cooldown"
             await send_notice(idiom.cooldown_notice(admission.remaining_seconds))
             return
+        timing.mark("admitted")
         completed = False
         outcome: CollectionOutcome | None = None
 
@@ -233,6 +237,7 @@ class SummaryWorkflow:
                 ),
                 can_continue=can_continue,
             )
+            timing.mark("collected")
             metrics.selected_count = len(outcome.messages)
             if not outcome.messages:
                 metrics.outcome = "empty"
@@ -258,6 +263,7 @@ class SummaryWorkflow:
             except (discord.DiscordException, OSError):
                 metrics.outcome = "post_error"
                 return
+            timing.mark("posted")
             await self.states.finish_success(
                 guild_id, channel_id, self.collector.clock(), CooldownKind.IDIOM,
             )
@@ -319,6 +325,7 @@ class SummaryWorkflow:
             return await guarded()
         slot = await self.queue.acquire(guild_id=guild_id, size_hint=size)
         async with slot:
+            timing.mark("queued")
             if not await can_continue():
                 raise JobInvalidated
             return await guarded()
@@ -359,6 +366,7 @@ class SummaryWorkflow:
         lease: ChannelLease, send_notice: Callable[[str], Awaitable[None]],
     ) -> None:
         metrics = RequestMetrics(request.requested_range.kind.value, mode=request.mode.value)
+        timeline = timing.claim()
         task = asyncio.current_task()
         if task is not None:
             self._jobs.add(task)
@@ -378,6 +386,7 @@ class SummaryWorkflow:
             raise
         finally:
             metrics.emit()
+            timeline.emit("summary", metrics.request_id, metrics.outcome)
             if task is not None:
                 self._jobs.discard(task)
 
@@ -421,6 +430,7 @@ class SummaryWorkflow:
             metrics.outcome = "cooldown"
             await send_notice(cooldown_notice(admission.remaining_seconds))
             return
+        timing.mark("admitted")
         completed = False
         try:
             if self.readiness is not None and not await self.readiness(guild_id, channel_id):
@@ -436,6 +446,7 @@ class SummaryWorkflow:
                     metrics.failure_detail = "send"
                     LOGGER.warning("summary_start_notice_failed")
                     return
+                timing.mark("start_notice")
             if admission.job is not None:
                 admission.job.announced.set()
 
@@ -463,6 +474,7 @@ class SummaryWorkflow:
                 metrics.collection_ms = max(
                     0, round((time.monotonic() - collecting_since) * 1000)
                 )
+            timing.mark("collected")
             metrics.selected_count = len(outcome.messages)
             metrics.cache_count = outcome.cache_count
             metrics.history_count = outcome.history_count
@@ -499,6 +511,7 @@ class SummaryWorkflow:
             else:
                 receipt = await self.publisher.publish(request, result, outcome.messages)
             metrics.post_result = "success"
+            timing.mark("posted")
             await self.states.finish_success(guild_id, channel_id, receipt.last_success_at)
             if result.rating_text is not None and self.ratings is not None:
                 try:
