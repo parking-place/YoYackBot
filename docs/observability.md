@@ -14,6 +14,13 @@
 
 1.0.0c의 기본 모델 작업 정책은 실행 1건·대기 8건·대기 최대 600초다. `collection_ms`, `queue_ms`, `model_ms`, `duration_ms`와 `queue_full`·`queue_timeout`을 함께 보면 수집·모델·게시 중 병목을 구분할 수 있다. 첫 수집은 한 번에 전체 3페이지·서버당 2페이지로 제한하고 서버별 순번으로 진행한다. 병렬 수집에서도 권한 거부·429·DB 잠금은 채널별로 분리 기록한다. 1.2.0부터 재시도 시각 저장(`defer`)이나 영구 차단 기록(`block`)마저 실패하면 `initial_backfill_state_write_failed action=defer|block`을 남기고 그 채널만 메모리에서 5초부터 최대 300초까지 지수 backoff로 보류한다. 다른 채널은 계속 진행한다. 수집 loop가 예기치 않게 끝나면 `backfill_worker_restarting failures=N`과 함께 1초부터 최대 60초 간격으로 다시 시작한다. 예외 문자열은 기록하지 않는다. 실제 운영값이 환경 변수에 명시돼 있으면 이 기본값과 다를 수 있다.
 
+`request_timing`(1.3.2부터, 로거 `yoyackbot.timing`)은 `summary_request`·`idiom_request` 바로 뒤에 같은 `request_id`로 남는 JSON 한 줄이다. 봇이 명령을 받은 시각을 0ms로 두고 다음을 기록한다.
+- `steps`: `received`·`admitted`(슬롯·쿨타임 통과)·`start_notice`·`collected`(메시지 조회 완료)·`queued`(모델 대기열 확보)·`posted`의 누적 ms
+- `codex`: 호출마다 `call` 이름, `start`·`first_output`·`end`(누적 ms), `result`(`ok`/`error`/`cancelled`). 재시도는 `summary_retry`·`candidates_retry`·`idiom_candidates_retry`로 따로 보인다. `first_output`은 Codex CLI가 시작 머리말 뒤 처음 내보낸 모델 출력 줄(`codex`·`thinking`·`exec`)의 도착 시각이며, 답이 흘러나오기 시작한 시각이 아니다.
+- `discord_delay_ms`(Discord 메시지 시각 → 수신, 시계 차이 포함 참고값), `total_ms`, `outcome`
+
+이름은 허용 목록뿐이고 나머지는 숫자다. 메시지·프롬프트·답·CLI 출력은 남기지 않는다. 명령 해석 전에 거절된 요청(비주시·사용법 오류·수집 미완료)은 줄이 없다. 표로 보려면 서비스 호스트에서 `journalctl --namespace yoyackbot-dev -u yoyackbot-dev -o cat | python scripts/show_timings.py 5`를 실행한다.
+
 ## 보존 및 알림
 
 개발 서비스는 `LogNamespace=yoyackbot-dev`로 분리한다. 설치 시 `deploy/journald-yoyackbot-dev.conf`를 `/etc/systemd/journald@yoyackbot-dev.conf`에 놓고 `systemctl restart systemd-journald@yoyackbot-dev.service`, `systemctl daemon-reload`, `systemctl restart yoyackbot-dev.service` 순으로 반영한다. 전용 journal은 최대 50 MiB, 파일당 5 MiB, 최대 7일 보존이며, 단위 로그는 분당 120건을 넘으면 억제한다. `journalctl --namespace=yoyackbot-dev -u yoyackbot-dev.service`로 확인한다. 이 분리는 다른 서비스의 로그 정책을 바꾸지 않는다.
