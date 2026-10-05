@@ -13,14 +13,37 @@ from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from yoyackbot.codex import FAST_SERVICE_TIER, CodexContract, CodexFailure, classify_cli_failure
+from yoyackbot.codex import (
+    ALLOWED_EFFORTS,
+    FAST_SERVICE_TIER,
+    CodexContract,
+    CodexFailure,
+    classify_cli_failure,
+)
 from yoyackbot.input_files import InputWorkspace
-from yoyackbot.timing import OutputWatch
+from yoyackbot.timing import OutputWatch, neutralize_markers
 
 _ANSI = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))")
 _DIAGNOSTIC_STREAM_LIMIT_BYTES = 5_000_000
 # Set by the engine for one request of a server with `/속도 설정` on; every call reads it.
 _FAST = ContextVar("yoyack_fast_tier", default=False)
+
+
+# 1.3.3: the engine lowers the reasoning effort of some calls (judge, idiom pick) per call.
+_EFFORT = ContextVar("yoyack_call_effort", default=None)
+
+
+class call_effort:
+    """Run the Codex calls inside this block with this reasoning effort (used like a function)."""
+
+    def __init__(self, effort: str | None) -> None:
+        self.effort = effort if effort in ALLOWED_EFFORTS else None
+
+    async def __aenter__(self) -> None:
+        self._token = _EFFORT.set(self.effort)
+
+    async def __aexit__(self, *_exc: object) -> None:
+        _EFFORT.reset(self._token)
 
 
 class fast_tier:
@@ -57,7 +80,7 @@ async def _bounded_read(
     total = 0
     while chunk := await stream.read(8192):
         if watch is not None:
-            watch.feed(chunk)  # 1.3.2: notes when the model's first output line arrives
+            watch.feed(chunk)  # 1.3.2: first model output; 1.3.3: tool runs and tokens too
         total += len(chunk)
         if total > limit:
             raise _OutputExceeded
@@ -66,6 +89,9 @@ async def _bounded_read(
         tail.extend(chunk)
         if len(tail) > 4096:
             del tail[:-4096]
+    if watch is not None:
+        watch.finish()
+        return watch.diagnostics()
     if total <= 8192:
         return bytes(first)
     return bytes(first[:4096] + tail)
@@ -102,7 +128,10 @@ async def _invoke(
         asyncio.create_task(_send_prompt(process.stdin, prompt)),
         asyncio.create_task(_bounded_read(process.stdout, _DIAGNOSTIC_STREAM_LIMIT_BYTES)),
         asyncio.create_task(
-            _bounded_read(process.stderr, _DIAGNOSTIC_STREAM_LIMIT_BYTES, OutputWatch())
+            _bounded_read(
+                process.stderr, _DIAGNOSTIC_STREAM_LIMIT_BYTES,
+                OutputWatch(echo_lines=prompt.count(b"\n") + 1),
+            )
         ),
         asyncio.create_task(process.wait()),
     ]
@@ -188,11 +217,12 @@ class SandboxedCodex:
         cli = replace(
             self.contract, executable="/bin/codex",
             service_tier=FAST_SERVICE_TIER if _FAST.get() else None,
+            reasoning_effort=_EFFORT.get() or self.contract.reasoning_effort,
         ).arguments(
             working_directory=Path("/work"), output_file=Path("/output/final.txt"),
             restricted=True,
         )
-        return [
+        sandbox = [
             str(self.bwrap_executable), "--die-with-parent", "--unshare-all", "--share-net",
             "--new-session", "--tmpfs", "/", "--dir", "/bin", "--dir", "/lib",
             "--dir", "/lib64", "--dir", "/etc",
@@ -211,20 +241,23 @@ class SandboxedCodex:
             "--ro-bind", "/etc/resolv.conf", "/etc/resolv.conf",
             "--ro-bind", "/etc/hosts", "/etc/hosts",
             "--bind", str(self.auth_file.parent), "/auth",
-            "--ro-bind", str(workspace.log_file), "/work/conversation.jsonl",
             "--bind", str(workspace.output_directory), "/output",
             "--clearenv", "--setenv", "HOME", "/empty",
             "--setenv", "CODEX_HOME", "/auth", "--setenv", "PATH", "/bin",
             "--setenv", "TMPDIR", "/tmp", "--setenv", "LANG", "C.UTF-8",
             "--chdir", "/work", *cli,
         ]
+        if not workspace.inline:  # before 1.3.3 (D11) the model read the conversation file
+            at = sandbox.index(str(workspace.output_directory)) - 1
+            sandbox[at:at] = ["--ro-bind", str(workspace.log_file), "/work/conversation.jsonl"]
+        return sandbox
 
     async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
         """Return the final model message and delete this request's files on every exit."""
         temporary_auth: Path | None = None
         auth_snapshot: bytes | None = None
         try:
-            encoded = prompt.encode("utf-8")
+            encoded = neutralize_markers(prompt).rstrip("\n").encode("utf-8")
             if not encoded or len(encoded) > self.max_prompt_bytes:
                 raise CodexRunError(CodexFailure.INPUT_LIMIT)
             if self.timeout_seconds <= 0 or self.max_output_bytes < 1:

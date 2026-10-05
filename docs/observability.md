@@ -16,7 +16,7 @@
 
 `request_timing`(1.3.2부터, 로거 `yoyackbot.timing`)은 `summary_request`·`idiom_request` 바로 뒤에 같은 `request_id`로 남는 JSON 한 줄이다. 봇이 명령을 받은 시각을 0ms로 두고 다음을 기록한다.
 - `steps`: `received`·`admitted`(슬롯·쿨타임 통과)·`start_notice`·`collected`(메시지 조회 완료)·`queued`(모델 대기열 확보)·`posted`의 누적 ms
-- `codex`: 호출마다 `call` 이름, `start`·`first_output`·`end`(누적 ms), `result`(`ok`/`error`/`cancelled`). 재시도는 `summary_retry`·`candidates_retry`·`idiom_candidates_retry`로 따로 보인다. `first_output`은 Codex CLI가 시작 머리말 뒤 처음 내보낸 모델 출력 줄(`codex`·`thinking`·`exec`)의 도착 시각이며, 답이 흘러나오기 시작한 시각이 아니다.
+- `codex`: 호출마다 `call` 이름, `start`·`first_output`·`end`(누적 ms), `result`(`ok`/`error`/`cancelled`). 재시도는 `summary_retry`·`candidates_retry`·`idiom_candidates_retry`로 따로 보인다. 1.3.3부터 대화를 프롬프트로 넣으므로 정상 호출의 `execs`는 0이고, `first_output`은 사실상 답이 도착하는 시각에 가깝다. 같은 버전부터 호출마다 `effort`(그 호출의 추론 강도: `judge`·`idiom_select`는 `low`, 나머지는 설정값), `execs`(CLI가 실행한 도구 명령 수 — 대화를 파일로 읽던 때는 읽기 턴 수), `tokens`(CLI가 끝에 보고한 사용 토큰 수, 캐시 제외 입력+출력)도 남긴다. 실패·취소한 호출은 `execs`·`tokens`가 비어 있다. `first_output`은 Codex CLI가 시작 머리말 뒤 처음 내보낸 모델 출력 줄(`codex`·`thinking`·`exec`)의 도착 시각이며, 답이 흘러나오기 시작한 시각이 아니다.
 - `discord_delay_ms`(Discord 메시지 시각 → 수신, 시계 차이 포함 참고값), `total_ms`, `outcome`
 
 이름은 허용 목록뿐이고 나머지는 숫자다. 메시지·프롬프트·답·CLI 출력은 남기지 않는다. 명령 해석 전에 거절된 요청(비주시·사용법 오류·수집 미완료)은 줄이 없다. 표로 보려면 서비스 호스트에서 `journalctl --namespace yoyackbot-dev -u yoyackbot-dev -o cat | python scripts/show_timings.py 5`를 실행한다.

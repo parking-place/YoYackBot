@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from rating_fakes import candidates, is_rating_step, skip_rating_step
+from rating_fakes import candidates, instructions, is_rating_step, skip_rating_step
 
 from yoyackbot.codex import CodexContract
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -94,7 +94,7 @@ def run(tmp_path: Path, answers: list[str], *, ratings: list[str] | None = None,
             if ratings is None:
                 skip_rating_step(workspace, prompt)
             records = [json.loads(line) for line in workspace.log_file.read_text().splitlines()]
-            seen.append((prompt, records))
+            seen.append((instructions(prompt), records))
             workspace.close()
             if is_rating_step(prompt):
                 return ratings.pop(0)  # type: ignore[union-attr]

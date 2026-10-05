@@ -224,7 +224,8 @@ def test_two_calls_and_a_fixed_line(tmp_path) -> None:
     result, runner = engine_run(tmp_path, [FOUR, PICK])
     assert result.text == "말하자면 우왕좌왕? 🎯" and result.calls == 2
     assert (result.idioms, result.words, result.selected_kind) == (3, 1, "idiom")
-    assert [call[0] for call in runner.calls] == [IDIOM_CANDIDATES_PROMPT, IDIOM_SELECT_PROMPT]
+    # 1.3.3: the conversation follows the fixed prompt as a data block (tests/test_p133_*).
+    assert [call[0].split("\n\n<<<자료 ")[0] for call in runner.calls] == [IDIOM_CANDIDATES_PROMPT, IDIOM_SELECT_PROMPT]
     assert re.fullmatch(r"말하자면 [가-힣]{4}\? .", result.text)
 
 
@@ -233,7 +234,7 @@ def test_word_fallback_and_one_regeneration(tmp_path) -> None:
             '{"term": "배고픈날", "kind": "word"}, {"term": "식사시간", "kind": "word"}]}'
     result, runner = engine_run(tmp_path, ["형식이 틀린 답", words, '{"selected_index": 1, "emoji": "😅"}'])
     assert result.text == "말하자면 점심고민? 😅" and result.calls == 3 and result.selected_kind == "word"
-    assert runner.calls[1][0].endswith(idiom.IDIOM_RETRY_NOTE)
+    assert runner.calls[1][0].split("\n\n<<<자료 ")[0].endswith(idiom.IDIOM_RETRY_NOTE)
     assert "형식이 틀린 답" not in runner.calls[1][0]
 
 

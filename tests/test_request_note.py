@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import discord
 import pytest
+from rating_fakes import instructions
 
 from yoyackbot.codex import CodexContract
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -107,7 +108,7 @@ def test_engine_writes_the_note_into_the_private_input(tmp_path: Path) -> None:
         contract = CodexContract("/usr/local/bin/yoyack-codex", "gpt-6-luna", "low")
 
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
-            seen.append((prompt, workspace.log_file.read_bytes()))
+            seen.append((instructions(prompt), workspace.log_file.read_bytes()))
             workspace.close()
             return "가람이 금요일 배포를 들이밀었소."
 

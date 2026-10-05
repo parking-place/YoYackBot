@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -23,8 +24,12 @@ CALLS = frozenset({
 })
 KINDS = frozenset({"summary", "idiom"})
 RESULTS = frozenset({"ok", "error", "cancelled", "running"})
+EFFORTS = frozenset({"low", "medium"})
 # First model output lines the CLI writes to stderr after its start banner.
 MODEL_OUTPUT_LINES = frozenset({"codex", "thinking", "exec"})
+# Lines the CLI prints itself; a prompt line that looks like one is neutralized before sending.
+CLI_MARKER_LINES = MODEL_OUTPUT_LINES | {"user", "tokens used"}
+_TOKENS = re.compile(r"[0-9][0-9,]{0,14}")
 
 
 @dataclass
@@ -35,6 +40,9 @@ class CodexCall:
     first_output_ms: int | None = None
     end_ms: int | None = None
     result: str = "running"
+    effort: str | None = None  # 1.3.3: the reasoning effort this call ran with
+    execs: int | None = None   # tool commands the CLI reported running (each is a model turn)
+    tokens: int | None = None  # the CLI's closing "tokens used" figure
 
 
 @dataclass
@@ -65,6 +73,8 @@ class Timeline:
                     "n": number, "call": call.label if call.label in CALLS else "unknown",
                     "start": call.start_ms, "first_output": call.first_output_ms,
                     "end": call.end_ms, "result": call.result if call.result in RESULTS else "error",
+                    "effort": call.effort if call.effort in EFFORTS else None,
+                    "execs": call.execs, "tokens": call.tokens,
                 }
                 for number, call in enumerate(self.calls, start=1)
             ],
@@ -109,14 +119,15 @@ def mark(stage: str) -> None:
 class codex_call:
     """One Codex CLI run inside the current request's timeline (no-op without one)."""
 
-    def __init__(self, label: str) -> None:
+    def __init__(self, label: str, effort: str | None = None) -> None:
         self.label = label
+        self.effort = effort
         self.call: CodexCall | None = None
 
     async def __aenter__(self) -> None:
         timeline = _TIMELINE.get()
         if timeline is not None:
-            self.call = CodexCall(self.label, timeline.now_ms(), timeline)
+            self.call = CodexCall(self.label, timeline.now_ms(), timeline, effort=self.effort)
             timeline.calls.append(self.call)
         self._token = _CALL.set(self.call)
 
@@ -128,6 +139,8 @@ class codex_call:
                 "ok" if kind is None
                 else "cancelled" if issubclass(kind, asyncio.CancelledError) else "error"
             )
+            if kind is not None:  # counts of a run that did not finish are not comparable
+                self.call.execs = self.call.tokens = None
 
 
 def first_output() -> None:
@@ -136,22 +149,81 @@ def first_output() -> None:
         call.first_output_ms = call.timeline.now_ms()
 
 
-class OutputWatch:
-    """Find the first model output line in CLI stderr chunks, across chunk boundaries."""
+def neutralize_markers(prompt: str) -> str:
+    """Prefix prompt lines that read like CLI markers (e.g. a server tone line `exec`), so the
+    CLI's echo of the prompt cannot be mistaken for model output or counted as a tool run."""
+    lines = prompt.split("\n")
+    if not any(line.strip() in CLI_MARKER_LINES for line in lines):
+        return prompt
+    return "\n".join("\u200b" + line if line.strip() in CLI_MARKER_LINES else line for line in lines)
 
-    def __init__(self) -> None:
+
+class OutputWatch:
+    """Read CLI stderr chunks across boundaries: the first model output line, tool runs
+    (`exec` lines) and the closing `tokens used` figure, into the current Codex call.
+
+    The CLI echoes the prompt line for line right after its first `user` line (checked on
+    0.158.0). With `echo_lines`, exactly that many lines are skipped, so conversation text in
+    the prompt (1.3.3) is never read as a marker or kept for failure classification.
+    """
+
+    _KEEP = 4096
+    _LONG = 2048
+
+    def __init__(self, echo_lines: int = 0) -> None:
         self.found = False
+        self.execs = 0
+        self.tokens: int | None = None
+        self.echo_lines = echo_lines
+        self._echo_left: int | None = None
+        self._previous = ""
         self._partial = b""
+        self._head = bytearray()
+        self._tail = bytearray()
 
     def feed(self, chunk: bytes) -> None:
-        if self.found:
-            return
         data = self._partial + chunk
         *lines, self._partial = data.split(b"\n")
-        if len(self._partial) > 64:
-            self._partial = b"#"  # a long line can never be a bare marker line
+        if len(self._partial) > self._LONG:
+            self._partial = self._partial[:self._LONG]  # still one line; never a marker
         for line in lines:
-            if line.strip().decode("utf-8", "replace") in MODEL_OUTPUT_LINES:
-                self.found = True
-                first_output()
-                return
+            self._line(line)
+
+    def finish(self) -> None:
+        if self._partial:
+            self._line(self._partial)
+            self._partial = b""
+        call = _CALL.get()
+        if call is not None:
+            call.execs, call.tokens = self.execs, self.tokens
+
+    def diagnostics(self) -> bytes:
+        """The CLI's own lines (head and tail, at most 8 KiB) without the prompt echo."""
+        return bytes(self._head + self._tail)
+
+    def _keep(self, raw: bytes) -> None:
+        line = raw[:self._LONG] + b"\n"
+        if len(self._head) < self._KEEP:
+            self._head.extend(line[:self._KEEP - len(self._head)])
+            return
+        self._tail.extend(line)
+        if len(self._tail) > self._KEEP:
+            del self._tail[:-self._KEEP]
+
+    def _line(self, raw: bytes) -> None:
+        if self._echo_left:
+            self._echo_left -= 1
+            return
+        self._keep(raw)
+        line = raw.strip().decode("utf-8", "replace") if len(raw) <= 64 else "#"
+        if line == "user" and self._echo_left is None and self.echo_lines:
+            self._echo_left = self.echo_lines
+            return
+        if line in MODEL_OUTPUT_LINES and not self.found:
+            self.found = True
+            first_output()
+        if line == "exec":
+            self.execs += 1
+        if self._previous == "tokens used" and _TOKENS.fullmatch(line):
+            self.tokens = int(line.replace(",", ""))
+        self._previous = line

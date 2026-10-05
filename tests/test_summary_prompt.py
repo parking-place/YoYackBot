@@ -44,8 +44,9 @@ def test_twenty_synthetic_cases_have_reviewable_truth_and_speaker_boundaries() -
 
 
 def test_trusted_prompt_has_explicit_version_and_excludes_fixture_text() -> None:
-    assert PROMPT_VERSION == "1.3.0-p6-v3"
-    assert "/work/conversation.jsonl" in SUMMARY_PROMPT
+    assert PROMPT_VERSION == "1.3.3-p4-v1"
+    # 1.3.3 (D11): the conversation is a data block at the end of the prompt, not a file.
+    assert "<<<자료" in SUMMARY_PROMPT and "/work/conversation.jsonl" not in SUMMARY_PROMPT
     assert "YOYACK_INPUT_UNAVAILABLE" in SUMMARY_PROMPT
     assert "간접 인용" in SUMMARY_PROMPT and "명시적으로" in SUMMARY_PROMPT
     cases = json.loads(FIXTURES.read_text())
