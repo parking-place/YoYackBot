@@ -43,7 +43,7 @@
 |---|---|---|---|
 | 1 | [P1 — 호출별 추론 강도·호출 계측](01-call-effort.md) | `T133-P1-A/B` | DONE |
 | 2 | [P2 — `!!말하자면` 대화 직접 전달](02-idiom-inline.md) | `T133-P2-A/B` | DONE |
-| 3 | [P3 — 요약 대화 직접 전달·입력 상한](03-summary-inline.md) | `T133-P3-A/B` | PLANNED |
+| 3 | [P3 — 요약 대화 직접 전달·입력 상한](03-summary-inline.md) | `T133-P3-A/B` | DONE |
 | 4 | [P4 — 요약·평가 후보 동시 실행](04-parallel-candidates.md) | `T133-P4-A/B` | PLANNED |
 | 5 | [P5 — 실제 모델 평가](05-evaluation.md) | `T133-P5-A/B/C` | PLANNED |
 | 6 | [P6 — 통합·배포·출시](06-release.md) | `T133-P6-A/B` | PLANNED |
