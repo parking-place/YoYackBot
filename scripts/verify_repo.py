@@ -30,7 +30,7 @@ def main() -> None:
     version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     package = (REPO / "src/yoyackbot/__init__.py").read_text(encoding="utf-8")
-    assert version == project["project"]["version"] == "1.3.2"
+    assert version == project["project"]["version"] == "1.3.3"
     assert f'__version__ = "{version}"' in package
 
     matrix = (PLAN / "TEST_MATRIX.md").read_text()
@@ -248,6 +248,19 @@ def main() -> None:
     assert len(timed_rows) == 2
     timed_done = sum("| DONE |" in row for row in timed_rows)
 
+    faster = PLAN / "1.3.3"
+    assert len(sorted(faster.glob("0[1-6]-*.md"))) == 6, "1.3.3: expected six phase documents"
+    faster_checks = re.findall(
+        r"^\| `(T133-P[1-6]-[ABC])` \|", (faster / "TEST_MATRIX.md").read_text(), re.MULTILINE
+    )
+    assert len(faster_checks) == len(set(faster_checks)) == 13
+    faster_rows = [
+        line for line in (faster / "STATUS.md").read_text().splitlines()
+        if re.match(r"^\| \[1\.3\.3-P[1-6]\]", line)
+    ]
+    assert len(faster_rows) == 6
+    faster_done = sum("| DONE |" in row for row in faster_rows)
+
     for document in [REPO / "README.md", *PLAN.rglob("*.md")]:
         text = document.read_text()
         assert text.count("```") % 2 == 0, f"unclosed fence: {document}"
@@ -279,7 +292,8 @@ def main() -> None:
         f"1.2.0 {fixes_done}/7 phases, {fixes_checks} checks; "
         f"1.3.0 {tone_next_done}/7 phases, {tone_next_checks} checks; "
         f"1.3.1 {tidy_done}/4 phases, {len(tidy_checks)} checks; "
-        f"1.3.2 {timed_done}/2 phases, {len(timed_checks)} checks"
+        f"1.3.2 {timed_done}/2 phases, {len(timed_checks)} checks; "
+        f"1.3.3 {faster_done}/6 phases, {len(faster_checks)} checks"
     )
 
 
