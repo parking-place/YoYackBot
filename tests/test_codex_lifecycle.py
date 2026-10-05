@@ -47,7 +47,7 @@ def test_diagnostic_limit_cannot_be_raised_with_final_output_limit() -> None:
 def _child_state(pid: int) -> str | None:
     try:
         return Path(f"/proc/{pid}/stat").read_text().split()[2]
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):  # gone, or vanished while being read
         return None
 
 

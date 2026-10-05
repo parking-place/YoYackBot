@@ -20,7 +20,7 @@ from yoyackbot.idiom import (
 )
 from yoyackbot.idiom import parse_candidates as parse_idiom_candidates
 from yoyackbot.idiom import parse_choice as parse_idiom_choice
-from yoyackbot.input_files import InputWorkspace, message_keys, serialize_conversation
+from yoyackbot.input_files import InputWorkspace, message_keys, serialize_conversation, with_data
 from yoyackbot.output_quality import (
     OutputIssue,
     inspect_output,
@@ -51,6 +51,8 @@ from yoyackbot.timing import codex_call
 # 1.3.3 user decision: the judge and the idiom pick run at low; every other call keeps the
 # configured effort. Low is the lowest allowed, so this never raises a call above the setting.
 LOW_EFFORT_CALLS = frozenset({"judge", "idiom_select"})
+# Fixed instructions, notes and quoted request/tone around the data block (well above today's).
+PROMPT_ALLOWANCE_BYTES = 65_536
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,8 @@ class CodexSummaryEngine:
             contract, settings.codex_auth_directory / "auth.json",
             timeout_seconds=settings.codex_timeout_seconds,
             max_output_bytes=settings.max_output_bytes,
+            # 1.3.3 (D11): the data rides in the prompt, so the prompt may carry a full input.
+            max_prompt_bytes=settings.max_input_bytes + PROMPT_ALLOWANCE_BYTES,
         ))
 
     async def summarize(
@@ -196,7 +200,8 @@ class CodexSummaryEngine:
                 calls += 1
                 answer = await self._execute(
                     "idiom_candidates_retry" if retry else "idiom_candidates",
-                    InputWorkspace.create(root, data), idiom_candidates_prompt(retry=retry),
+                    InputWorkspace.create(root, data, inline=True),
+                    with_data(idiom_candidates_prompt(retry=retry), data),
                 )
                 found = parse_idiom_candidates(answer, names, salvage=retry)
                 if found is not None:
@@ -208,9 +213,10 @@ class CodexSummaryEngine:
                 ensure_ascii=False,
             ).encode() + b"\n" for index, item in enumerate(found, start=1))
             calls += 1
+            picking = data.rstrip(b"\n") + b"\n" + lines
             answer = await self._execute(
-                "idiom_select", InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + lines),
-                IDIOM_SELECT_PROMPT,
+                "idiom_select", InputWorkspace.create(root, picking, inline=True),
+                with_data(IDIOM_SELECT_PROMPT, picking),
             )
         choice = parse_idiom_choice(answer, len(found))
         if choice is None:

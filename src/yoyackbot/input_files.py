@@ -4,6 +4,7 @@ import fcntl
 import json
 import os
 import re
+import secrets
 import shutil
 import stat
 import tempfile
@@ -148,14 +149,28 @@ def _private_root(root: Path) -> None:
         raise InputFileError("Input directory must be private and owned by the bot")
 
 
+def with_data(prompt: str, data: bytes) -> str:
+    """1.3.3 (D11): the request's JSONL data as a block at the very end of the prompt.
+
+    A fresh random marker per call closes the block, so text inside the data can neither end
+    it nor forge another one; every JSONL line is one JSON value anyway.
+    """
+    nonce = secrets.token_hex(8)
+    body = data.decode("utf-8")
+    if not body.endswith("\n"):
+        body += "\n"
+    return f"{prompt}\n\n<<<자료 {nonce}>>>\n{body}<<<자료 {nonce} 끝>>>"
+
+
 @dataclass
 class InputWorkspace:
     directory: Path
     log_file: Path
     output_directory: Path
+    inline: bool = False  # 1.3.3: the data travels in the prompt; the file is not mounted
 
     @classmethod
-    def create(cls, root: Path, data: bytes) -> "InputWorkspace":
+    def create(cls, root: Path, data: bytes, *, inline: bool = False) -> "InputWorkspace":
         _private_root(root)
         try:
             directory = Path(tempfile.mkdtemp(prefix="request-", dir=root))
@@ -164,7 +179,7 @@ class InputWorkspace:
             fd, name = tempfile.mkstemp(prefix="conversation-", suffix=".jsonl", dir=directory)
             with os.fdopen(fd, "wb") as output:
                 output.write(data)
-            return cls(directory, Path(name), output_directory)
+            return cls(directory, Path(name), output_directory, inline)
         except BaseException as exc:
             if "directory" in locals():
                 shutil.rmtree(directory)

@@ -160,20 +160,32 @@ def neutralize_markers(prompt: str) -> str:
 
 class OutputWatch:
     """Read CLI stderr chunks across boundaries: the first model output line, tool runs
-    (`exec` lines) and the closing `tokens used` figure, into the current Codex call."""
+    (`exec` lines) and the closing `tokens used` figure, into the current Codex call.
 
-    def __init__(self) -> None:
+    The CLI echoes the prompt line for line right after its first `user` line (checked on
+    0.158.0). With `echo_lines`, exactly that many lines are skipped, so conversation text in
+    the prompt (1.3.3) is never read as a marker or kept for failure classification.
+    """
+
+    _KEEP = 4096
+    _LONG = 2048
+
+    def __init__(self, echo_lines: int = 0) -> None:
         self.found = False
         self.execs = 0
         self.tokens: int | None = None
+        self.echo_lines = echo_lines
+        self._echo_left: int | None = None
         self._previous = ""
         self._partial = b""
+        self._head = bytearray()
+        self._tail = bytearray()
 
     def feed(self, chunk: bytes) -> None:
         data = self._partial + chunk
         *lines, self._partial = data.split(b"\n")
-        if len(self._partial) > 64:
-            self._partial = b"#"  # a long line can never be a bare marker line
+        if len(self._partial) > self._LONG:
+            self._partial = self._partial[:self._LONG]  # still one line; never a marker
         for line in lines:
             self._line(line)
 
@@ -185,8 +197,28 @@ class OutputWatch:
         if call is not None:
             call.execs, call.tokens = self.execs, self.tokens
 
+    def diagnostics(self) -> bytes:
+        """The CLI's own lines (head and tail, at most 8 KiB) without the prompt echo."""
+        return bytes(self._head + self._tail)
+
+    def _keep(self, raw: bytes) -> None:
+        line = raw[:self._LONG] + b"\n"
+        if len(self._head) < self._KEEP:
+            self._head.extend(line[:self._KEEP - len(self._head)])
+            return
+        self._tail.extend(line)
+        if len(self._tail) > self._KEEP:
+            del self._tail[:-self._KEEP]
+
     def _line(self, raw: bytes) -> None:
+        if self._echo_left:
+            self._echo_left -= 1
+            return
+        self._keep(raw)
         line = raw.strip().decode("utf-8", "replace") if len(raw) <= 64 else "#"
+        if line == "user" and self._echo_left is None and self.echo_lines:
+            self._echo_left = self.echo_lines
+            return
         if line in MODEL_OUTPUT_LINES and not self.found:
             self.found = True
             first_output()
