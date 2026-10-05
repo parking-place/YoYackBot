@@ -44,7 +44,12 @@ def render(item: dict) -> str:
         if call["first_output"] is not None:
             events.append((call["first_output"], f"{tag} 첫 출력", f"시작 +{ms(first)}"))
         if call["end"] is not None:
-            events.append((call["end"], f"{tag} 완료({call['result']})", f"호출 {ms(took)}"))
+            extra = "".join((
+                f" · {call['effort']}" if call.get("effort") else "",
+                f" · 도구 {call['execs']}회" if call.get("execs") is not None else "",
+                f" · {ms(call['tokens'])}토큰" if call.get("tokens") is not None else "",
+            ))  # 1.3.3 fields; older lines simply lack them
+            events.append((call["end"], f"{tag} 완료({call['result']})", f"호출 {ms(took)}{extra}"))
     events.sort(key=lambda event: event[0])
     previous = 0
     for at, name, note in events:

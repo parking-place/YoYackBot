@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Self
 
 from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
-from yoyackbot.codex_runner import CodexRunError, SandboxedCodex, fast_tier
+from yoyackbot.codex_runner import CodexRunError, SandboxedCodex, call_effort, fast_tier
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode, SummaryResult
 from yoyackbot.idiom import (
@@ -47,6 +47,10 @@ from yoyackbot.summary_prompt import (
     rating_judge_prompt,
 )
 from yoyackbot.timing import codex_call
+
+# 1.3.3 user decision: the judge and the idiom pick run at low; every other call keeps the
+# configured effort. Low is the lowest allowed, so this never raises a call above the setting.
+LOW_EFFORT_CALLS = frozenset({"judge", "idiom_select"})
 
 
 @dataclass(frozen=True)
@@ -224,8 +228,10 @@ class CodexSummaryEngine:
         return strip_emoji(text) if note is not None and wants_no_emoji(note) else text
 
     async def _execute(self, label: str, workspace: InputWorkspace, prompt: str) -> str:
-        """One Codex run, timed under its call name for the request's timing line (1.3.2)."""
-        async with codex_call(label):
+        """One Codex run, timed under its call name (1.3.2) with its call's effort (1.3.3)."""
+        configured = getattr(getattr(self.runner, "contract", None), "reasoning_effort", None)
+        effort = "low" if label in LOW_EFFORT_CALLS else configured
+        async with codex_call(label, effort), call_effort(effort):
             return await self.runner.execute(workspace, prompt)
 
     async def _ask(
