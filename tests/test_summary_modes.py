@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 
 import discord
 import pytest
+from rating_fakes import instructions
 
 from yoyackbot.channel_config import MemoryWatchStore
 from yoyackbot.codex import CodexContract
@@ -185,8 +186,9 @@ def test_engine_uses_the_same_input_and_only_changes_the_prompt(
                            ACCEPTED - timedelta(minutes=1))
     asyncio.run(engine.summarize([record], mode=mode))
     prompt, data = seen[0]
-    assert prompt == prompt_for(mode)
-    assert "자세히 요약하라는 원문 지시" not in prompt
+    assert instructions(prompt) == prompt_for(mode)
+    assert "자세히 요약하라는 원문 지시" not in instructions(prompt)  # only in the data block
+    assert "자세히 요약하라는 원문 지시" in prompt
     assert "자세히 요약하라는 원문 지시".encode() in data
 
 

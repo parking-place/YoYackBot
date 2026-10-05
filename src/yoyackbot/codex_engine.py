@@ -99,11 +99,11 @@ class CodexSummaryEngine:
         )
         root = self.settings.input_directory.absolute()
         async with self._slots, fast_tier(fast):
-            workspace = InputWorkspace.create(root, data)
+            workspace = InputWorkspace.create(root, data, inline=True)
             skip_rating = request_note is not None and wants_no_rating(request_note)
-            result = await self._execute("summary", workspace, prompt_for(
+            result = await self._execute("summary", workspace, with_data(prompt_for(
                 mode, note=request_note, skip_rating=skip_rating, tone=tone,
-            ))
+            ), data))
             source_bodies = [item.content for item in included]
             keys = frozenset(message_keys(sorted(
                 included, key=lambda item: (item.created_at, item.message_id),
@@ -114,19 +114,19 @@ class CodexSummaryEngine:
                 OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM, OutputIssue.NO_BODY,
                 OutputIssue.MESSAGE_KEY,
             ):
-                retry_workspace = InputWorkspace.create(root, data)
-                result = await self._execute("summary_retry", retry_workspace, prompt_for(
+                retry_workspace = InputWorkspace.create(root, data, inline=True)
+                result = await self._execute("summary_retry", retry_workspace, with_data(prompt_for(
                     mode, note=request_note, skip_rating=skip_rating, tone=tone,
                     speaker_retry=issue is OutputIssue.SPEAKER_KEY,
                     hate_retry=issue is OutputIssue.HATE_TERM,
                     message_key_retry=issue is OutputIssue.MESSAGE_KEY,
-                ))
+                ), data))
             elif issue is None and narrator_mocks_ongoing(split_rating(result)[0]):
                 ongoing = "retried"
-                retry_workspace = InputWorkspace.create(root, data)
-                retried = await self._execute("summary_retry", retry_workspace, prompt_for(
+                retry_workspace = InputWorkspace.create(root, data, inline=True)
+                retried = await self._execute("summary_retry", retry_workspace, with_data(prompt_for(
                     mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True, tone=tone,
-                ))
+                ), data))
                 if summary_issue(retried, source_bodies, keys) is None:
                     result = retried
             body, rating = split_rating(result)
@@ -242,12 +242,15 @@ class CodexSummaryEngine:
 
     async def _ask(
         self, root: Path, data: bytes, extra: Sequence[dict], prompt: str, label: str,
+        *, conversation: bool = True,
     ) -> str | None:
-        """One auxiliary call over the conversation plus data lines; failures return None."""
+        """One auxiliary call over the conversation (unless left out) plus data lines; failures
+        return None. 1.3.3: the data rides in the prompt (D11); the judge gets no conversation."""
         lines = b"".join(json.dumps(item, ensure_ascii=False).encode() + b"\n" for item in extra)
-        workspace = InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + lines)
+        payload = data.rstrip(b"\n") + b"\n" + lines if conversation else lines
+        workspace = InputWorkspace.create(root, payload, inline=True)
         try:
-            return await self._execute(label, workspace, prompt)
+            return await self._execute(label, workspace, with_data(prompt, payload))
         except CodexRunError:
             return None
 
@@ -283,7 +286,7 @@ class CodexSummaryEngine:
             answer = await self._ask(root, data, [*context, *(
                 {"type": "candidate", "number": index, "text": item}
                 for index, item in enumerate(found, start=1)
-            )], rating_judge_prompt(custom_tone=tone is not None), "judge")
+            )], rating_judge_prompt(custom_tone=tone is not None), "judge", conversation=False)
             verdict = parse_judgement(answer, len(found)) if answer is not None else None
             if verdict is None:
                 return found[0], "fallback_first", len(found), 0

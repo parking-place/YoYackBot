@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from rating_fakes import candidates, is_rating_step, skip_rating_step
+from rating_fakes import candidates, instructions, is_rating_step, skip_rating_step
 
 from yoyackbot.codex import CodexContract
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -84,7 +84,7 @@ def engine(tmp_path: Path, answers: list[str], prompts: list[str],
         async def execute(self, workspace: InputWorkspace, prompt: str) -> str:
             if ratings is None:
                 skip_rating_step(workspace, prompt)
-            prompts.append(prompt)
+            prompts.append(instructions(prompt))
             workspace.close()
             return ratings.pop(0) if is_rating_step(prompt) else answers.pop(0)  # type: ignore[union-attr]
 

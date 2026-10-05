@@ -32,3 +32,8 @@ def candidates(*lines: str) -> str:
     return "\n".join(
         f"{index}. **요약창섭의 떡밥 한줄 평가** : {line}" for index, line in enumerate(lines, 1)
     )
+
+
+def instructions(prompt: str) -> str:
+    """1.3.3 (D11): the fixed instructions, without the trailing per-call data block."""
+    return prompt.split("\n\n<<<자료 ", 1)[0]

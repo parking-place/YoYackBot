@@ -55,7 +55,9 @@ def test_engine_excludes_trigger_and_returns_selected_count(tmp_path: Path) -> N
     assert result.model == "gpt-6-luna" and result.request_message_count == 1
     assert len(seen["rows"]) == 2
     assert seen["rows"][1]["body"] == "합성 대화"
-    assert "합성 대화" not in seen["prompt"]
+    # 1.3.3 (D11): conversation text appears only inside the trailing data block.
+    fixed, _, block = seen["prompt"].partition("\n\n<<<자료 ")
+    assert "합성 대화" not in fixed and "합성 대화" in block
     assert not seen["directory"].exists()
 
 

@@ -157,7 +157,9 @@ class Settings:
             codex_concurrency=model_concurrency,
             queue_capacity=_integer(values, "YOYACK_QUEUE_CAPACITY", 8, minimum=0),
             queue_wait_seconds=_integer(values, "YOYACK_QUEUE_WAIT_SECONDS", 600),
-            max_input_bytes=_integer(values, "YOYACK_MAX_INPUT_BYTES", 1_000_000),
+            # 1.3.3 (D11): the whole input rides in the prompt; ~2.7 bytes per token keeps 500 KB
+            # (~185k tokens) plus instructions inside gpt-6-luna's usable 258k-token window.
+            max_input_bytes=_integer(values, "YOYACK_MAX_INPUT_BYTES", 500_000),
             max_output_bytes=_integer(values, "YOYACK_MAX_OUTPUT_BYTES", 50_000),
             max_history_pages=_integer(values, "YOYACK_MAX_HISTORY_PAGES", 100),
             dev_guild_id=dev_guild_id,

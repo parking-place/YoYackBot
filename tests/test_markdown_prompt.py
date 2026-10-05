@@ -40,7 +40,7 @@ def test_every_prompt_asks_for_markdown(mode: SummaryMode, variant: dict) -> Non
     for old in ("`↳ *한줄 비평*`", "`**🚀 주제 이름**`", "`**✅ 결정 난 거**`", "`>`는 원문 인용 전용",
                 "'↳ *"):
         assert old not in text, old
-    assert PROMPT_VERSION == "1.3.0-p6-v3"
+    assert PROMPT_VERSION == "1.3.3-p3-v1"
 
 
 def test_short_example_uses_the_new_markdown_with_synthetic_names() -> None:

@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock
 
 import discord
 import pytest
-from rating_fakes import candidates, is_candidates, is_judge
+from rating_fakes import candidates, instructions, is_candidates, is_judge
 
 from yoyackbot.codex import CodexContract, CodexFailure
 from yoyackbot.codex_engine import CodexSummaryEngine
@@ -110,7 +110,7 @@ def test_zero_valid_candidates_regenerate_once(tmp_path) -> None:
     result = run(tmp_path, runner)
     assert (result.rating, result.rating_text) == ("regenerated", RATING_LABEL + TEN[3])
     assert runner.kinds == ["summary", "cands", "cands"]
-    assert runner.calls[2][2].endswith(RATING_CANDIDATES_RETRY_NOTE)
+    assert instructions(runner.calls[2][2]).endswith(RATING_CANDIDATES_RETRY_NOTE)
     runner = Runner([f"{BODY}\n\n{OWN}"], [bad, bad])
     result = run(tmp_path, runner)
     assert result.rating == "fallback_summary" and result.text.endswith(OWN)
