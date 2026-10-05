@@ -1,6 +1,6 @@
 # 1.3.3-P6 — 통합·배포·출시
 
-- 상태: **PUSH_PENDING** · 검사: `T133-P6-A/B` **PASS** ([증거](../evidence/1.3.3-P6.md)) · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **DONE** · 검사: `T133-P6-A/B` **PASS** ([증거](../evidence/1.3.3-P6.md)) · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 작업
 
