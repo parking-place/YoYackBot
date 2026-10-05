@@ -45,7 +45,7 @@
 | 2 | [P2 — `!!말하자면` 대화 직접 전달](02-idiom-inline.md) | `T133-P2-A/B` | DONE |
 | 3 | [P3 — 요약 대화 직접 전달·입력 상한](03-summary-inline.md) | `T133-P3-A/B` | DONE |
 | 4 | [P4 — 요약·평가 후보 동시 실행](04-parallel-candidates.md) | `T133-P4-A/B` | DONE |
-| 5 | [P5 — 실제 모델 평가](05-evaluation.md) | `T133-P5-A/B/C` | PLANNED |
+| 5 | [P5 — 실제 모델 평가](05-evaluation.md) | `T133-P5-A/B/C` | DONE |
 | 6 | [P6 — 통합·배포·출시](06-release.md) | `T133-P6-A/B` | PLANNED |
 
 방식·보호 장치·실패 처리는 [계약](CONTRACT.md)에, 검사는 [검증 목록](TEST_MATRIX.md)에 있다. 각 단계는 구현 C → LXC 검증 → 증거 E → E의 CI 성공 → 종료 D의 순서를 따른다([Git 규칙](../GIT_WORKFLOW.md)).
