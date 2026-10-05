@@ -8,8 +8,8 @@
 | `T133-P1-B` | [P1](01-call-effort.md) | LXC 합성 | `effort`·`execs`·`tokens` 기록(숫자·허용 목록, 되찍힌 프롬프트 무시), 표 스크립트, 회귀 | PASS |
 | `T133-P2-A` | [P2](02-idiom-inline.md) | LXC 합성 | 사자성어 두 호출의 자료 블록·nonce·위조 방지, 대화 파일 마운트 제거, 최악 입력 상한 | PASS |
 | `T133-P2-B` | [P2](02-idiom-inline.md) | LXC 합성 | 실패 분류가 대화 글에 속지 않음, 기존 사자성어 시험 유지, 내용 없는 로그, 회귀 | PASS |
-| `T133-P3-A` | [P3](03-summary-inline.md) | LXC 합성 | 요약 경로 호출별 자료 블록(심사는 대화 없음), 기존 입력 요소 전달, 입력 상한 경계 | NOT_RUN |
-| `T133-P3-B` | [P3](03-summary-inline.md) | LXC 합성 + CLI 확인 | 출력 검사·후보 거르기·심사 파싱 유지, 주입 사례, 프롬프트 버전, 상한 확정 근거, 회귀 | NOT_RUN |
+| `T133-P3-A` | [P3](03-summary-inline.md) | LXC 합성 | 요약 경로 호출별 자료 블록(심사는 대화 없음), 기존 입력 요소 전달, 입력 상한 경계 | PASS |
+| `T133-P3-B` | [P3](03-summary-inline.md) | LXC 합성 + CLI 확인 | 출력 검사·후보 거르기·심사 파싱 유지, 주입 사례, 프롬프트 버전, 상한 확정 근거, 회귀 | PASS |
 | `T133-P4-A` | [P4](04-parallel-candidates.md) | LXC 합성 | 요약·후보 동시 시작, 심사 따로, 본문+평가 한 번에 게시, 결과 범주·상한 5회 | NOT_RUN |
 | `T133-P4-B` | [P4](04-parallel-candidates.md) | LXC 합성 | 실패·권한 회수·종료 시 취소와 정리, 자리 없으면 순서 실행, 다른 채널 비간섭, 회귀 | NOT_RUN |
 | `T133-P5-A` | [P5](05-evaluation.md) | LXC 실제 모델 | 앞·가운데·뒤 주제 모두 반영(8~2,000개·상한 근처), 1.3.2 대비 | NOT_RUN |
