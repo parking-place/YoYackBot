@@ -55,14 +55,44 @@ LOW_EFFORT_CALLS = frozenset({"judge", "idiom_select"})
 PROMPT_ALLOWANCE_BYTES = 65_536
 
 
+class ModelSlots:
+    """The engine's concurrent model runs. 1.3.3: a summary may borrow one more slot for its
+    rating candidates, but only without waiting and only while another slot stays free, so a
+    borrowed slot never makes another channel's request wait."""
+
+    def __init__(self, capacity: int) -> None:
+        self.capacity = capacity
+        self.busy = 0
+        self._semaphore = asyncio.Semaphore(capacity)
+
+    async def __aenter__(self) -> None:
+        await self._semaphore.acquire()
+        self.busy += 1
+
+    async def __aexit__(self, *_exc: object) -> None:
+        self.release()
+
+    def try_borrow(self) -> bool:
+        if self.capacity - self.busy < 2 or self._semaphore.locked():
+            return False
+        # Free and nobody waiting: acquiring cannot suspend, so the check above still holds.
+        self._semaphore._value -= 1
+        self.busy += 1
+        return True
+
+    def release(self) -> None:
+        self.busy -= 1
+        self._semaphore.release()
+
+
 @dataclass(frozen=True)
 class CodexSummaryEngine:
     settings: Settings
     runner: SandboxedCodex
-    _slots: asyncio.Semaphore = field(init=False, repr=False, compare=False)
+    _slots: ModelSlots = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "_slots", asyncio.Semaphore(self.settings.codex_concurrency))
+        object.__setattr__(self, "_slots", ModelSlots(self.settings.codex_concurrency))
 
     @classmethod
     def from_settings(cls, settings: Settings) -> Self:
@@ -98,63 +128,99 @@ class CodexSummaryEngine:
             on_size=on_input_size, request_note=request_note,
         )
         root = self.settings.input_directory.absolute()
+        source_bodies = [item.content for item in included]
+        keys = frozenset(message_keys(sorted(
+            included, key=lambda item: (item.created_at, item.message_id),
+        )).values())
+        names = [*speaker_labels(included).values(), *(item.author_name for item in included)]
+        skip_rating = request_note is not None and wants_no_rating(request_note)
+        early: asyncio.Task[list[str] | None] | None = None
         async with self._slots, fast_tier(fast):
-            workspace = InputWorkspace.create(root, data, inline=True)
-            skip_rating = request_note is not None and wants_no_rating(request_note)
-            result = await self._execute("summary", workspace, with_data(prompt_for(
-                mode, note=request_note, skip_rating=skip_rating, tone=tone,
-            ), data))
-            source_bodies = [item.content for item in included]
-            keys = frozenset(message_keys(sorted(
-                included, key=lambda item: (item.created_at, item.message_id),
-            )).values())
-            issue = summary_issue(result, source_bodies, keys)
-            ongoing = "none"
-            if issue in (
-                OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM, OutputIssue.NO_BODY,
-                OutputIssue.MESSAGE_KEY,
-            ):
-                retry_workspace = InputWorkspace.create(root, data, inline=True)
-                result = await self._execute("summary_retry", retry_workspace, with_data(prompt_for(
-                    mode, note=request_note, skip_rating=skip_rating, tone=tone,
-                    speaker_retry=issue is OutputIssue.SPEAKER_KEY,
-                    hate_retry=issue is OutputIssue.HATE_TERM,
-                    message_key_retry=issue is OutputIssue.MESSAGE_KEY,
-                ), data))
-            elif issue is None and narrator_mocks_ongoing(split_rating(result)[0]):
-                ongoing = "retried"
-                retry_workspace = InputWorkspace.create(root, data, inline=True)
-                retried = await self._execute("summary_retry", retry_workspace, with_data(prompt_for(
-                    mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True, tone=tone,
-                ), data))
-                if summary_issue(retried, source_bodies, keys) is None:
-                    result = retried
-            body, rating = split_rating(result)
-            if summary_issue(result, source_bodies, keys) is not None:
-                # Only an unusable rating may be dropped; a bad body is never published.
-                if rating is None or summary_issue(body, source_bodies, keys) is not None:
-                    raise CodexRunError(CodexFailure.OUTPUT_INVALID)
-                rating = None
-            elif rating is not None and rating_issue(rating, source_bodies, keys) is not None:
-                rating = None
-            if (
-                request_note is not None and wants_refusal_notice(request_note)
-                and REFUSAL_NOTICE not in body
-            ):
-                body = f"{body}\n\n{REFUSAL_NOTICE}"
-            names = [*speaker_labels(included).values(), *(item.author_name for item in included)]
-            candidates = similar = 0
-            if skip_rating:
-                rating, status = None, "skipped"
-            else:
-                # The summary's own line is only a fallback; ten candidates and a judge pick it.
-                own = rating if rating is not None and usable_rating(
-                    rating, source_bodies, names, keys,
-                ) else None
-                rating, status, candidates, similar = await self._pick_rating(
-                    root, data, body, source_bodies, names, keys, request_note,
-                    recent_ratings, own, tone,
+            if not skip_rating and self._slots.try_borrow():
+                # 1.3.3 user decision 4: rating candidates start with the summary when a slot is
+                # free; they read the conversation and recent ratings, not the summary.
+                early = asyncio.create_task(self._borrowed_candidates(
+                    root, data, recent_ratings, source_bodies, names, keys, request_note, tone,
+                ))
+            try:
+                return await self._summarize_in_slot(
+                    root, data, included, mode, request_note, tone, recent_ratings,
+                    source_bodies, keys, names, skip_rating, early,
                 )
+            finally:
+                if early is not None and not early.done():
+                    early.cancel()
+                if early is not None:
+                    await asyncio.gather(early, return_exceptions=True)
+
+    async def _borrowed_candidates(
+        self, root: Path, data: bytes, recent: Sequence[str], source_bodies: Sequence[str],
+        names: Sequence[str], keys: frozenset[str], note: str | None, tone: str | None,
+    ) -> list[str] | None:
+        try:
+            return await self._candidates(
+                root, data, _recent_lines(recent), source_bodies, names, keys, note,
+                regenerate=False, tone=tone,
+            )
+        finally:
+            self._slots.release()
+
+    async def _summarize_in_slot(
+        self, root: Path, data: bytes, included: Sequence[MessageRecord], mode: SummaryMode,
+        request_note: str | None, tone: str | None, recent_ratings: Sequence[str],
+        source_bodies: Sequence[str], keys: frozenset[str], names: Sequence[str],
+        skip_rating: bool, early: "asyncio.Task[list[str] | None] | None",
+    ) -> SummaryResult:
+        workspace = InputWorkspace.create(root, data, inline=True)
+        result = await self._execute("summary", workspace, with_data(prompt_for(
+            mode, note=request_note, skip_rating=skip_rating, tone=tone,
+        ), data))
+        issue = summary_issue(result, source_bodies, keys)
+        ongoing = "none"
+        if issue in (
+            OutputIssue.SPEAKER_KEY, OutputIssue.HATE_TERM, OutputIssue.NO_BODY,
+            OutputIssue.MESSAGE_KEY,
+        ):
+            retry_workspace = InputWorkspace.create(root, data, inline=True)
+            result = await self._execute("summary_retry", retry_workspace, with_data(prompt_for(
+                mode, note=request_note, skip_rating=skip_rating, tone=tone,
+                speaker_retry=issue is OutputIssue.SPEAKER_KEY,
+                hate_retry=issue is OutputIssue.HATE_TERM,
+                message_key_retry=issue is OutputIssue.MESSAGE_KEY,
+            ), data))
+        elif issue is None and narrator_mocks_ongoing(split_rating(result)[0]):
+            ongoing = "retried"
+            retry_workspace = InputWorkspace.create(root, data, inline=True)
+            retried = await self._execute("summary_retry", retry_workspace, with_data(prompt_for(
+                mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True, tone=tone,
+            ), data))
+            if summary_issue(retried, source_bodies, keys) is None:
+                result = retried
+        body, rating = split_rating(result)
+        if summary_issue(result, source_bodies, keys) is not None:
+            # Only an unusable rating may be dropped; a bad body is never published.
+            if rating is None or summary_issue(body, source_bodies, keys) is not None:
+                raise CodexRunError(CodexFailure.OUTPUT_INVALID)
+            rating = None
+        elif rating is not None and rating_issue(rating, source_bodies, keys) is not None:
+            rating = None
+        if (
+            request_note is not None and wants_refusal_notice(request_note)
+            and REFUSAL_NOTICE not in body
+        ):
+            body = f"{body}\n\n{REFUSAL_NOTICE}"
+        candidates = similar = 0
+        if skip_rating:
+            rating, status = None, "skipped"
+        else:
+            # The summary's own line is only a fallback; ten candidates and a judge pick it.
+            own = rating if rating is not None and usable_rating(
+                rating, source_bodies, names, keys,
+            ) else None
+            rating, status, candidates, similar = await self._pick_rating(
+                root, data, body, source_bodies, names, keys, request_note,
+                recent_ratings, own, tone, early,
+            )
         text = self._compose(body, rating, request_note)
         if inspect_output(text, source_bodies, keys) is not None:
             # The composed result passes the same checks; a rating that breaks it is left out.
@@ -271,11 +337,15 @@ class CodexSummaryEngine:
         self, root: Path, data: bytes, body: str, source_bodies: Sequence[str],
         names: Sequence[str], keys: frozenset[str], note: str | None,
         recent: Sequence[str], own: str | None, tone: str | None = None,
+        early: "asyncio.Task[list[str] | None] | None" = None,
     ) -> tuple[str | None, str, int, int]:
-        """(rating, status, valid candidates, similar). At most three calls are added here."""
-        context = [{"type": "summary", "body": body},
-                   *({"type": "recent_rating", "text": item} for item in recent)]
-        found = await self._candidates(
+        """(rating, status, valid candidates, similar). At most three calls are added here.
+
+        1.3.3: candidates see the conversation and recent ratings (not the summary), so they may
+        already be running; the judge sees the final summary, the candidates and recent ratings.
+        """
+        context = _recent_lines(recent)
+        found = await early if early is not None else await self._candidates(
             root, data, context, source_bodies, names, keys, note, regenerate=False, tone=tone,
         )
         fallback = (own, "fallback_summary") if own is not None else (None, "missing")
@@ -283,7 +353,7 @@ class CodexSummaryEngine:
             return (*fallback, 0, 0)
         similar = 0
         if found:
-            answer = await self._ask(root, data, [*context, *(
+            answer = await self._ask(root, data, [{"type": "summary", "body": body}, *context, *(
                 {"type": "candidate", "number": index, "text": item}
                 for index, item in enumerate(found, start=1)
             )], rating_judge_prompt(custom_tone=tone is not None), "judge", conversation=False)
@@ -303,6 +373,10 @@ class CodexSummaryEngine:
         if again:
             return again[0], "regenerated", len(again), similar
         return (*fallback, len(found), similar)
+
+
+def _recent_lines(recent: Sequence[str]) -> list[dict]:
+    return [{"type": "recent_rating", "text": item} for item in recent]
 
 
 def summary_issue(

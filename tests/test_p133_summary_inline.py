@@ -68,9 +68,10 @@ def test_each_call_gets_the_right_data(tmp_path) -> None:
     assert summary == retry and types(summary) == {"scope", "message"}
     assert summary[0]["request_note"] == "짧게 해줘" and [r["body"] for r in summary[1:]] == [r.content for r in ROWS]
     for block in (cands, again):
-        assert types(block) == {"scope", "message", "summary", "recent_rating"}
+        assert types(block) == {"scope", "message", "recent_rating"}  # no summary since P4
         assert {"type": "recent_rating", "text": RATING_LABEL + "지난 평가이오"} in block
     assert types(judge) == {"summary", "candidate", "recent_rating"}       # no conversation for the judge
+    assert {"type": "summary", "body": BODY} in judge
     assert not any(row.content in json.dumps(judge, ensure_ascii=False) for row in ROWS)
     assert runner.fixed[0] == prompt_for(SummaryMode.SHORT, note="짧게 해줘", tone="보고서체로 쓰시오")
     assert runner.fixed[2] == rating_candidates_prompt("짧게 해줘", tone="보고서체로 쓰시오")
@@ -93,7 +94,7 @@ def test_reply_links_still_reach_the_summary(tmp_path) -> None:
 
 
 def test_the_prompts_no_longer_mention_the_file() -> None:
-    assert PROMPT_VERSION == "1.3.3-p3-v1"
+    assert PROMPT_VERSION == "1.3.3-p4-v1"
     for prompt in (SUMMARY_PROMPT, RATING_CANDIDATES_PROMPT, RATING_JUDGE_PROMPT):
         assert "/work/conversation.jsonl" not in prompt and "<<<자료" in prompt
         assert "파일을 읽거나 명령을 실행하지" in prompt

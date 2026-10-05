@@ -66,10 +66,14 @@ def test_five_summary_calls_are_named_in_order(tmp_path) -> None:
 
     payload = asyncio.run(scenario())
     calls = payload["codex"]
-    assert [c["call"] for c in calls] == ["summary", "summary_retry", "candidates", "judge", "candidates_retry"]
+    # 1.3.3: the candidates start with the summary (P4); the rest stays in order.
+    assert [c["call"] for c in calls] == ["summary", "candidates", "summary_retry", "judge", "candidates_retry"]
     assert [c["n"] for c in calls] == [1, 2, 3, 4, 5]
     assert all(ordered(c) and c["result"] == "ok" for c in calls)
-    assert all(a["end"] <= b["start"] for a, b in pairwise(calls))
+    summary, cands, retry, judge, again = calls
+    assert cands["start"] < summary["end"]
+    assert all(a["end"] <= b["start"] for a, b in pairwise([summary, retry, judge, again]))
+    assert judge["start"] >= max(retry["end"], cands["end"])
 
 
 def test_idiom_calls_with_a_regeneration(tmp_path) -> None:

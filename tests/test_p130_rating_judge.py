@@ -80,9 +80,11 @@ def test_normal_flow_picks_the_judged_candidate(tmp_path) -> None:
     assert result.rating_text == RATING_LABEL + TEN[6]
     assert runner.kinds == ["summary", "cands", "judge"]
     cand_records = runner.calls[1][1]
-    assert {"type": "summary", "body": BODY} in cand_records
+    # 1.3.3: candidates run beside the summary and never see it; the judge does.
+    assert not any(r["type"] == "summary" for r in cand_records)
     assert {"type": "recent_rating", "text": RATING_LABEL + "지난번 평가이오"} in cand_records
     judge_records = runner.calls[2][1]
+    assert {"type": "summary", "body": BODY} in judge_records
     assert [r["number"] for r in judge_records if r["type"] == "candidate"] == list(range(1, 11))
 
 
