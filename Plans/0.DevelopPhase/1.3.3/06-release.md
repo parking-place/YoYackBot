@@ -4,7 +4,7 @@
 
 ## 작업
 
-[P1~P5](STATUS.md)의 원격 완료와 1.3.2 출시를 확인한다. 패키지·`VERSION`을 `1.3.3`으로 올리고 저장소 검증기에 6단계·13검사를 넣는다. 결정 D11의 확정 단계, README·CHANGELOG·`docs/observability.md`·`docs/upgrade-rollback-1.3.3.md`·`.env.example`을 갱신한다. 운영 서비스 환경의 입력 상한 값을 확인하고 필요하면 맞춘다(사용자 확인 뒤). 배포 뒤 사용자가 시험 채널에서 긴 범위 요약·`!!말하자면`·빠른 모드를 확인한다.
+[P1~P5](STATUS.md)의 원격 완료를 확인한다. 패키지·`VERSION`을 `1.3.3`으로 올리고 저장소 검증기에 6단계·13검사를 넣는다. 결정 D11의 확정 단계, README·CHANGELOG·`docs/observability.md`·`docs/upgrade-rollback-1.3.3.md`·`.env.example`을 갱신한다. 운영 서비스 환경의 입력 상한 값을 확인하고 필요하면 맞춘다(사용자 확인 뒤). 배포 뒤 사용자가 시험 채널에서 긴 범위 요약·`!!말하자면`·빠른 모드를 확인한다.
 
 ## 검증·완료 기준
 
