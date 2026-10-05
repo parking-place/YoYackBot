@@ -12,9 +12,9 @@
 | `T133-P3-B` | [P3](03-summary-inline.md) | LXC 합성 + CLI 확인 | 출력 검사·후보 거르기·심사 파싱 유지, 주입 사례, 프롬프트 버전, 상한 확정 근거, 회귀 | PASS |
 | `T133-P4-A` | [P4](04-parallel-candidates.md) | LXC 합성 | 요약·후보 동시 시작, 심사 따로, 본문+평가 한 번에 게시, 결과 범주·상한 5회 | PASS |
 | `T133-P4-B` | [P4](04-parallel-candidates.md) | LXC 합성 | 실패·권한 회수·종료 시 취소와 정리, 자리 없으면 순서 실행, 다른 채널 비간섭, 회귀 | PASS |
-| `T133-P5-A` | [P5](05-evaluation.md) | LXC 실제 모델 | 앞·가운데·뒤 주제 모두 반영(8~2,000개·상한 근처), 1.3.2 대비 | FAIL(기준 미달, 사용자 결정 대기) |
+| `T133-P5-A` | [P5](05-evaluation.md) | LXC 실제 모델 | 앞·가운데·뒤 주제 모두 반영(8~2,000개·상한 근처), 1.3.2 대비 | PASS(사용자 결정으로 기준 조정) |
 | `T133-P5-B` | [P5](05-evaluation.md) | LXC 실제 모델 | 요청·호출별 시간(보통·빠른), 도구 턴 0, 겹침, 토큰, 주간 사용량 변화 | PASS |
-| `T133-P5-C` | [P5](05-evaluation.md) | LXC 실제 모델 | 평가 세트·주입 사례 품질 기준, low 심사·선택·대화 없는 심사·요약 없는 후보 비교, 사용자 예시 확인 | 자동 점검 PASS, 사용자 확인 대기 |
+| `T133-P5-C` | [P5](05-evaluation.md) | LXC 실제 모델 | 평가 세트·주입 사례 품질 기준, low 심사·선택·대화 없는 심사·요약 없는 후보 비교, 사용자 예시 확인 | PASS |
 | `T133-P6-A` | [P6](06-release.md) | LXC/CI | 전체 회귀·버전·문서·6/13 집계, 복귀 대상 호환 | NOT_RUN |
 | `T133-P6-B` | [P6](06-release.md) | LXC/시험 Discord | 배포·SHA 대조, 운영 `request_timing` 확인, 사용자 확인, main CI, 태그·Release | NOT_RUN |
 
