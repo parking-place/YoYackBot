@@ -1,10 +1,10 @@
 # 1.3.3 진행 상태
 
-기준일: 2026-10-05. **6단계 모두 PLANNED.** 기준은 `v1.3.2`(`6604a61`, `main` 병합 `e22a6b1`)이며 브랜치는 `develop/1.3.3`이다.
+기준일: 2026-10-05. **P1 증거 기록, 나머지 PLANNED.** 기준은 `v1.3.2`(`6604a61`, `main` 병합 `e22a6b1`)이며 브랜치는 `develop/1.3.3`이다.
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
-| [1.3.3-P1](01-call-effort.md) | 호출별 추론 강도·호출 계측 | PLANNED | — | 기준 `v1.3.2` |
+| [1.3.3-P1](01-call-effort.md) | 호출별 추론 강도·호출 계측 | PUSH_PENDING | C `27c5c4281e35ca7160f7249fd1df6c8f89e25f28` / E 증거 push 뒤 기록 | 기준 `v1.3.2`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37265698459) |
 | [1.3.3-P2](02-idiom-inline.md) | `!!말하자면` 대화 직접 전달 | PLANNED | — | P1 D |
 | [1.3.3-P3](03-summary-inline.md) | 요약 대화 직접 전달·입력 상한 | PLANNED | — | P2 D |
 | [1.3.3-P4](04-parallel-candidates.md) | 요약·평가 후보 동시 실행 | PLANNED | — | P3 D |

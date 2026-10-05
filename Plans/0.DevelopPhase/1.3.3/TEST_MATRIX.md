@@ -4,8 +4,8 @@
 
 | 검사 ID | 단계 | 환경 | 통과 기준 | 결과 |
 |---|---|---|---|---|
-| `T133-P1-A` | [P1](01-call-effort.md) | LXC 합성 | 호출별 강도(`judge`·`idiom_select`만 low, 설정보다 높이지 않음), 빠른 등급·동시 요청과 분리 | NOT_RUN |
-| `T133-P1-B` | [P1](01-call-effort.md) | LXC 합성 | `effort`·`execs`·`tokens` 기록(숫자·허용 목록, 되찍힌 프롬프트 무시), 표 스크립트, 회귀 | NOT_RUN |
+| `T133-P1-A` | [P1](01-call-effort.md) | LXC 합성 | 호출별 강도(`judge`·`idiom_select`만 low, 설정보다 높이지 않음), 빠른 등급·동시 요청과 분리 | PASS |
+| `T133-P1-B` | [P1](01-call-effort.md) | LXC 합성 | `effort`·`execs`·`tokens` 기록(숫자·허용 목록, 되찍힌 프롬프트 무시), 표 스크립트, 회귀 | PASS |
 | `T133-P2-A` | [P2](02-idiom-inline.md) | LXC 합성 | 사자성어 두 호출의 자료 블록·nonce·위조 방지, 대화 파일 마운트 제거, 최악 입력 상한 | NOT_RUN |
 | `T133-P2-B` | [P2](02-idiom-inline.md) | LXC 합성 | 실패 분류가 대화 글에 속지 않음, 기존 사자성어 시험 유지, 내용 없는 로그, 회귀 | NOT_RUN |
 | `T133-P3-A` | [P3](03-summary-inline.md) | LXC 합성 | 요약 경로 호출별 자료 블록(심사는 대화 없음), 기존 입력 요소 전달, 입력 상한 경계 | NOT_RUN |
