@@ -15,6 +15,7 @@ from pathlib import Path
 
 from yoyackbot.codex import FAST_SERVICE_TIER, CodexContract, CodexFailure, classify_cli_failure
 from yoyackbot.input_files import InputWorkspace
+from yoyackbot.timing import OutputWatch
 
 _ANSI = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))")
 _DIAGNOSTIC_STREAM_LIMIT_BYTES = 5_000_000
@@ -47,12 +48,16 @@ class _OutputExceeded(RuntimeError):
     """Internal signal to stop a CLI that exceeds its output budget."""
 
 
-async def _bounded_read(stream: asyncio.StreamReader, limit: int) -> bytes:
+async def _bounded_read(
+    stream: asyncio.StreamReader, limit: int, watch: OutputWatch | None = None,
+) -> bytes:
     """Drain verbose CLI diagnostics without retaining their private full text."""
     first = bytearray()
     tail = bytearray()
     total = 0
     while chunk := await stream.read(8192):
+        if watch is not None:
+            watch.feed(chunk)  # 1.3.2: notes when the model's first output line arrives
         total += len(chunk)
         if total > limit:
             raise _OutputExceeded
@@ -96,7 +101,9 @@ async def _invoke(
     tasks = [
         asyncio.create_task(_send_prompt(process.stdin, prompt)),
         asyncio.create_task(_bounded_read(process.stdout, _DIAGNOSTIC_STREAM_LIMIT_BYTES)),
-        asyncio.create_task(_bounded_read(process.stderr, _DIAGNOSTIC_STREAM_LIMIT_BYTES)),
+        asyncio.create_task(
+            _bounded_read(process.stderr, _DIAGNOSTIC_STREAM_LIMIT_BYTES, OutputWatch())
+        ),
         asyncio.create_task(process.wait()),
     ]
     try:

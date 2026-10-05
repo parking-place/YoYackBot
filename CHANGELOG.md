@@ -1,5 +1,13 @@
 # 변경 기록
 
+## 1.3.2
+
+- **요청 단계별 소요 시간 로그**: `!!요약좀`·`!!말하자면` 요청마다 서비스 로그에 `request_timing` JSON 한 줄을 남긴다(로거 `yoyackbot.timing`, 지표와 같은 `request_id`).
+  - 명령 수신(0ms) 기준으로 `admitted`·`start_notice`·`collected`(메시지 조회)·`queued`·`posted`, 그리고 Codex 호출마다 이름(`summary`·`summary_retry`·`candidates`·`judge`·`candidates_retry`·`idiom_candidates`·`idiom_candidates_retry`·`idiom_select`)과 시작·첫 출력·끝·결과를 기록한다. `discord_delay_ms`·`total_ms`도 남긴다.
+  - 첫 출력은 Codex CLI가 시작 머리말 뒤 처음 내는 모델 출력 줄의 도착 시각이다.
+  - 내용(메시지·프롬프트·답)은 남기지 않는다. `scripts/show_timings.py`로 표를 볼 수 있다.
+- 동작·DB·프롬프트 변경 없음. 1.3.1로 복귀할 수 있다([승격·복귀](docs/upgrade-rollback-1.3.2.md)).
+
 ## 1.3.1
 
 - **`!!말하자면`**: 시작 안내(“🔎 최근 대화를 살펴보는 중이야.”) 없이 바로 결과 한 줄만 올린다. 성공 쿨타임을 `!!요약좀`과 따로 센다(길이는 같은 설정값, 선택 테이블 `idiom_cooldowns`). 한 채널에서 한 작업만 도는 제한과 모델 대기열은 계속 같이 쓴다.

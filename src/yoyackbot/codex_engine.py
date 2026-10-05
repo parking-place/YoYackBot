@@ -46,6 +46,7 @@ from yoyackbot.summary_prompt import (
     rating_candidates_prompt,
     rating_judge_prompt,
 )
+from yoyackbot.timing import codex_call
 
 
 @dataclass(frozen=True)
@@ -92,9 +93,9 @@ class CodexSummaryEngine:
         async with self._slots, fast_tier(fast):
             workspace = InputWorkspace.create(root, data)
             skip_rating = request_note is not None and wants_no_rating(request_note)
-            result = await self.runner.execute(
-                workspace, prompt_for(mode, note=request_note, skip_rating=skip_rating, tone=tone)
-            )
+            result = await self._execute("summary", workspace, prompt_for(
+                mode, note=request_note, skip_rating=skip_rating, tone=tone,
+            ))
             source_bodies = [item.content for item in included]
             keys = frozenset(message_keys(sorted(
                 included, key=lambda item: (item.created_at, item.message_id),
@@ -106,7 +107,7 @@ class CodexSummaryEngine:
                 OutputIssue.MESSAGE_KEY,
             ):
                 retry_workspace = InputWorkspace.create(root, data)
-                result = await self.runner.execute(retry_workspace, prompt_for(
+                result = await self._execute("summary_retry", retry_workspace, prompt_for(
                     mode, note=request_note, skip_rating=skip_rating, tone=tone,
                     speaker_retry=issue is OutputIssue.SPEAKER_KEY,
                     hate_retry=issue is OutputIssue.HATE_TERM,
@@ -115,7 +116,7 @@ class CodexSummaryEngine:
             elif issue is None and narrator_mocks_ongoing(split_rating(result)[0]):
                 ongoing = "retried"
                 retry_workspace = InputWorkspace.create(root, data)
-                retried = await self.runner.execute(retry_workspace, prompt_for(
+                retried = await self._execute("summary_retry", retry_workspace, prompt_for(
                     mode, note=request_note, skip_rating=skip_rating, ongoing_retry=True, tone=tone,
                 ))
                 if summary_issue(retried, source_bodies, keys) is None:
@@ -189,7 +190,8 @@ class CodexSummaryEngine:
             found = None
             for retry in (False, True):
                 calls += 1
-                answer = await self.runner.execute(
+                answer = await self._execute(
+                    "idiom_candidates_retry" if retry else "idiom_candidates",
                     InputWorkspace.create(root, data), idiom_candidates_prompt(retry=retry),
                 )
                 found = parse_idiom_candidates(answer, names, salvage=retry)
@@ -202,8 +204,8 @@ class CodexSummaryEngine:
                 ensure_ascii=False,
             ).encode() + b"\n" for index, item in enumerate(found, start=1))
             calls += 1
-            answer = await self.runner.execute(
-                InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + lines),
+            answer = await self._execute(
+                "idiom_select", InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + lines),
                 IDIOM_SELECT_PROMPT,
             )
         choice = parse_idiom_choice(answer, len(found))
@@ -221,12 +223,19 @@ class CodexSummaryEngine:
         text = body if rating is None else f"{body}\n\n{rating}"
         return strip_emoji(text) if note is not None and wants_no_emoji(note) else text
 
-    async def _ask(self, root: Path, data: bytes, extra: Sequence[dict], prompt: str) -> str | None:
+    async def _execute(self, label: str, workspace: InputWorkspace, prompt: str) -> str:
+        """One Codex run, timed under its call name for the request's timing line (1.3.2)."""
+        async with codex_call(label):
+            return await self.runner.execute(workspace, prompt)
+
+    async def _ask(
+        self, root: Path, data: bytes, extra: Sequence[dict], prompt: str, label: str,
+    ) -> str | None:
         """One auxiliary call over the conversation plus data lines; failures return None."""
         lines = b"".join(json.dumps(item, ensure_ascii=False).encode() + b"\n" for item in extra)
         workspace = InputWorkspace.create(root, data.rstrip(b"\n") + b"\n" + lines)
         try:
-            return await self.runner.execute(workspace, prompt)
+            return await self._execute(label, workspace, prompt)
         except CodexRunError:
             return None
 
@@ -237,6 +246,7 @@ class CodexSummaryEngine:
     ) -> list[str] | None:
         answer = await self._ask(
             root, data, context, rating_candidates_prompt(note, regenerate=regenerate, tone=tone),
+            "candidates_retry" if regenerate else "candidates",
         )
         if answer is None:
             return None
@@ -261,7 +271,7 @@ class CodexSummaryEngine:
             answer = await self._ask(root, data, [*context, *(
                 {"type": "candidate", "number": index, "text": item}
                 for index, item in enumerate(found, start=1)
-            )], rating_judge_prompt(custom_tone=tone is not None))
+            )], rating_judge_prompt(custom_tone=tone is not None), "judge")
             verdict = parse_judgement(answer, len(found)) if answer is not None else None
             if verdict is None:
                 return found[0], "fallback_first", len(found), 0

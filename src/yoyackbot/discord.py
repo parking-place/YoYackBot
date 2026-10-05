@@ -12,7 +12,7 @@ from typing import Protocol
 import discord
 from discord import app_commands
 
-from yoyackbot import __version__, idiom
+from yoyackbot import __version__, idiom, timing
 from yoyackbot.backfill import (
     NOT_READY_NOTICE,
     BackfillError,
@@ -681,6 +681,8 @@ class YoYackClient(discord.Client):
         if self.observe_channel_id is not None and message.channel.id == self.observe_channel_id:
             LOGGER.info("gateway_test_human_event has_content=%s", bool(message.content))
         route = route_trigger(message.content)
+        if route.kind in (RouteKind.SUMMARY, RouteKind.IDIOM):
+            timing.begin(getattr(message, "created_at", None))  # 0 ms of `request_timing`
         if route.kind is RouteKind.HELP:
             LOGGER.info("help_request surface=text")
             await message.channel.send(
