@@ -1,6 +1,6 @@
 # 1.3.4-P2 — 통합·배포·출시
 
-- 상태: **PLANNED** · 검사: `T134-P2-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **PUSH_PENDING** · 검사: `T134-P2-A` **PASS**, `T134-P2-B` 사용자 확인 대기 ([증거](../evidence/1.3.4-P2.md)) · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 작업
 

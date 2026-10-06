@@ -6,5 +6,5 @@
 |---|---|---|---|---|
 | `T134-P1-A` | [P1](01-idiom-slash.md) | LXC 합성 | 등록·누구나, 성공 시 결과만 채널 일반 메시지·대기 삭제, 쿨타임·자리 공유, 30개 범위 | PASS |
 | `T134-P1-B` | [P1](01-idiom-slash.md) | LXC 합성 | 모든 안내는 부른 사람에게만·채널 0건, 지표 `surface`·타이밍·로그, 회귀 | PASS |
-| `T134-P2-A` | [P2](02-release.md) | LXC/CI | 전체 회귀·버전·문서·2/4 집계, 복귀 호환 | NOT_RUN |
+| `T134-P2-A` | [P2](02-release.md) | LXC/CI | 전체 회귀·버전·문서·2/4 집계, 복귀 호환 | PASS |
 | `T134-P2-B` | [P2](02-release.md) | LXC/시험 Discord | 배포·명령 동기화, 사용자 확인, main CI, 태그·Release | NOT_RUN |
