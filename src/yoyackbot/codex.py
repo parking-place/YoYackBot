@@ -15,6 +15,8 @@ PINNED_CLI_VERSION = "codex-cli 0.158.0"
 REQUIRED_MODEL = "gpt-6-luna"
 # low is the default; operators may raise it to medium in the service environment.
 ALLOWED_EFFORTS = frozenset({"low", "medium"})
+# 1.4.0 user decision: rewriting a server's notices runs at high; only per call, never configured.
+CALL_EFFORTS = ALLOWED_EFFORTS | {"high"}
 # 1.3.1 `/속도 설정`: the model catalog's "Fast" tier (1.5x speed) for servers that turn it on.
 FAST_SERVICE_TIER = "priority"
 

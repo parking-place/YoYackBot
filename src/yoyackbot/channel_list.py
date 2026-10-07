@@ -9,6 +9,7 @@ from typing import Any
 import discord
 
 from yoyackbot.channel_config import WatchStore
+from yoyackbot.notices import localize
 
 LOGGER = logging.getLogger(__name__)
 LIST_HEADER = "📡👀 지금 본인이 보고 있는 채널을 알려주겠소"
@@ -107,7 +108,9 @@ async def deliver_channel_list(
             current = (version, tuple((channel.id, channel.name) for channel in channels))
             if expected is None:
                 expected = current
-                parts = channel_list_messages([channel.name for channel in channels], limit=limit)
+                parts = [localize(guild.id, part) for part in channel_list_messages(
+                    [channel.name for channel in channels], limit=limit,
+                )]
             elif current != expected:
                 raise ValueError("channel selection changed")
             await member.send(

@@ -14,7 +14,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from yoyackbot.codex import (
-    ALLOWED_EFFORTS,
+    CALL_EFFORTS,
     FAST_SERVICE_TIER,
     CodexContract,
     CodexFailure,
@@ -37,7 +37,7 @@ class call_effort:
     """Run the Codex calls inside this block with this reasoning effort (used like a function)."""
 
     def __init__(self, effort: str | None) -> None:
-        self.effort = effort if effort in ALLOWED_EFFORTS else None
+        self.effort = effort if effort in CALL_EFFORTS else None
 
     async def __aenter__(self) -> None:
         self._token = _EFFORT.set(self.effort)

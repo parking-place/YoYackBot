@@ -16,6 +16,7 @@ from discord import app_commands
 from yoyackbot.channel_config import allowed, command_group, gated, reject, valid_channel
 from yoyackbot.execution import SQLiteExecutionStore
 from yoyackbot.manager_roles import ManagerRoleStore
+from yoyackbot.notices import localize
 from yoyackbot.role_config import valid_role
 
 LOGGER = logging.getLogger(__name__)
@@ -125,7 +126,7 @@ class SettingsView(discord.ui.View):
         self.finish()
         if self.message is not None:
             try:
-                await self.message.edit(content=EXPIRED, view=self)
+                await self.message.edit(content=localize(self.guild_id, EXPIRED), view=self)
             except discord.HTTPException:
                 LOGGER.warning("execution_settings_view_expired_edit_failed")
 
@@ -179,12 +180,19 @@ class ChannelView(SettingsView):
         LOGGER.info("execution_channel_saved set=%s", "true" if self.draft else "false")
         self.finish()
         await interaction.edit_original_response(
-            content=f"💾✅ 저장했소.\n{channel_message(guild, self.draft)}", view=self,
+            content=localize(
+                interaction.guild_id,
+                f"💾✅ 저장했소.\n{channel_message(guild, self.draft)}",
+            ),
+            view=self,
         )
 
     async def _close(self, interaction: discord.Interaction) -> None:
         self.finish()
-        await interaction.edit_original_response(content=CLOSED, view=self)
+        await interaction.edit_original_response(
+            content=localize(interaction.guild_id, CLOSED),
+            view=self,
+        )
 
 
 class RolesView(SettingsView):
@@ -235,12 +243,19 @@ class RolesView(SettingsView):
         LOGGER.info("execution_roles_saved count=%d", len(draft))
         self.finish()
         await interaction.edit_original_response(
-            content=f"💾✅ 저장했소.\n{roles_message(guild, draft)}", view=self,
+            content=localize(
+                interaction.guild_id,
+                f"💾✅ 저장했소.\n{roles_message(guild, draft)}",
+            ),
+            view=self,
         )
 
     async def _close(self, interaction: discord.Interaction) -> None:
         self.finish()
-        await interaction.edit_original_response(content=CLOSED, view=self)
+        await interaction.edit_original_response(
+            content=localize(interaction.guild_id, CLOSED),
+            view=self,
+        )
 
 
 def install_execution_settings(
@@ -261,7 +276,11 @@ def install_execution_settings(
             return
         view = ChannelView(store, roles, guild.id, interaction.user.id, current)
         await interaction.edit_original_response(
-            content=f"{channel_message(guild, current)}\n🛠️ 채널을 고르고 저장하거나 해제하시오. 👇", view=view,
+            content=localize(
+                interaction.guild_id,
+                f"{channel_message(guild, current)}\n🛠️ 채널을 고르고 저장하거나 해제하시오. 👇",
+            ),
+            view=view,
         )
         view.message = await interaction.original_response()
 
@@ -278,7 +297,10 @@ def install_execution_settings(
             return
         view = RolesView(store, guild.id, interaction.user.id, current)
         await interaction.edit_original_response(
-            content=f"{roles_message(guild, current)}\n🛠️ 역할을 고르고 저장하시오. 👑 관리자는 언제나 쓸 수 있소. 👇",
+            content=localize(
+                interaction.guild_id,
+                f"{roles_message(guild, current)}\n🛠️ 역할을 고르고 저장하시오. 👑 관리자는 언제나 쓸 수 있소. 👇",
+            ),
             view=view,
         )
         view.message = await interaction.original_response()

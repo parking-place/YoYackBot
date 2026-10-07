@@ -51,6 +51,8 @@ from yoyackbot.timing import codex_call
 # 1.3.3 user decision: the judge and the idiom pick run at low; every other call keeps the
 # configured effort. Low is the lowest allowed, so this never raises a call above the setting.
 LOW_EFFORT_CALLS = frozenset({"judge", "idiom_select"})
+# 1.4.0 user decision: a server's notices are rewritten for its tone at high.
+HIGH_EFFORT_CALLS = frozenset({"notices"})
 # Fixed instructions, notes and quoted request/tone around the data block (well above today's).
 PROMPT_ALLOWANCE_BYTES = 65_536
 
@@ -294,6 +296,14 @@ class CodexSummaryEngine:
             picked.kind, len(included),
         )
 
+    async def rewrite_notices(self, prompt: str, data: bytes) -> str:
+        """1.4.0: one batch of a server's notices in its tone; no conversation is involved."""
+        root = self.settings.input_directory.absolute()
+        async with self._slots:
+            return await self._execute(
+                "notices", InputWorkspace.create(root, data, inline=True), with_data(prompt, data),
+            )
+
     @staticmethod
     def _compose(body: str, rating: str | None, note: str | None) -> str:
         text = body if rating is None else f"{body}\n\n{rating}"
@@ -302,7 +312,10 @@ class CodexSummaryEngine:
     async def _execute(self, label: str, workspace: InputWorkspace, prompt: str) -> str:
         """One Codex run, timed under its call name (1.3.2) with its call's effort (1.3.3)."""
         configured = getattr(getattr(self.runner, "contract", None), "reasoning_effort", None)
-        effort = "low" if label in LOW_EFFORT_CALLS else configured
+        effort = (
+            "low" if label in LOW_EFFORT_CALLS else "high" if label in HIGH_EFFORT_CALLS
+            else configured
+        )
         async with codex_call(label, effort), call_effort(effort):
             return await self.runner.execute(workspace, prompt)
 

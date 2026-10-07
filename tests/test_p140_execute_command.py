@@ -52,7 +52,7 @@ def world(tmp_path, *, caller=None, me=None):
 
 
 def ask(home, caller_id=CALLER):
-    return SimpleNamespace(guild=home, user=SimpleNamespace(id=caller_id),
+    return SimpleNamespace(guild=home, guild_id=home.id, user=SimpleNamespace(id=caller_id),
                            response=SimpleNamespace(defer=AsyncMock()),
                            followup=SimpleNamespace(send=AsyncMock()))
 

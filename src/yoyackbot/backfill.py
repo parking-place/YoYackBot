@@ -18,6 +18,7 @@ from yoyackbot.backfill_state import advance_progress, reset_recheck
 from yoyackbot.domain import MessageRecord
 from yoyackbot.history import DiscordHistorySource, HistoryPageSource
 from yoyackbot.message_store import SQLiteMessageStore, _microseconds
+from yoyackbot.notices import localize
 from yoyackbot.parser import RouteKind, route_trigger
 from yoyackbot.reply_refs import reply_target
 from yoyackbot.watch_store import SQLiteWatchStore, _new_backfill, insert_backfills
@@ -672,7 +673,7 @@ class BackfillNotifier:
         author_id = self.bot_user_id()
         if author_id is None:
             raise BackfillError("Bot account is not ready to announce collection")
-        content = READY_NOTICE if ready else START_NOTICE
+        content = localize(state.guild_id, READY_NOTICE if ready else START_NOTICE)
         attempt_us = (
             current.ready_notice_attempt_us if ready else current.started_notice_attempt_us
         )

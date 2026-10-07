@@ -289,6 +289,15 @@ class SQLiteWatchStore:
                         "role_id INTEGER NOT NULL CHECK(role_id > 0), "
                         "updated_us INTEGER NOT NULL, PRIMARY KEY(guild_id, role_id))"
                     )
+                    # 1.4.0: each server's notices rewritten for the tone version they were
+                    # written for; rows of an older version are never used.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS guild_notices ("
+                        "guild_id INTEGER NOT NULL CHECK(guild_id > 0), "
+                        "notice_key TEXT NOT NULL, content TEXT NOT NULL, "
+                        "tone_version INTEGER NOT NULL CHECK(tone_version > 0), "
+                        "updated_us INTEGER NOT NULL, PRIMARY KEY(guild_id, notice_key))"
+                    )
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS deleted_messages ("
                         "guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, "
@@ -500,6 +509,7 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM guild_fast_mode WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM execution_settings WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM execution_roles WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM guild_notices WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
             raise WatchStoreError("Settings Guild removal failed") from exc

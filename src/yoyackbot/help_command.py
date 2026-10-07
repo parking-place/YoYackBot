@@ -8,6 +8,7 @@ import discord
 from discord import app_commands
 
 from yoyackbot.config import Settings
+from yoyackbot.notices import localize
 from yoyackbot.parser import help_text
 
 LOGGER = logging.getLogger(__name__)
@@ -19,7 +20,8 @@ def install_help_command(tree: app_commands.CommandTree, settings: Settings | No
     async def show_help(interaction: discord.Interaction) -> None:
         LOGGER.info("help_request surface=slash")
         await interaction.response.send_message(
-            help_text(settings), ephemeral=True, allowed_mentions=discord.AllowedMentions.none(),
+            localize(interaction.guild_id, help_text(settings)), ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none(),
         )
 
     tree.add_command(app_commands.Command(

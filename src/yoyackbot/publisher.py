@@ -51,6 +51,7 @@ class DiscordSummaryPublisher:
         parts = format_summary(
             request.requested_range, selected, result, self.settings.timezone,
             limit=self.settings.discord_message_limit, posted_at=self.clock(),
+            guild_id=request.guild_id,
         )
         sent_ids: list[int] = []
         last_success_at: datetime | None = None

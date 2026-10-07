@@ -95,13 +95,15 @@ def test_the_sandbox_command_uses_the_call_effort_with_or_without_fast(tmp_path)
                 return isolated.command(workspace)
 
     async def scenario():
-        return await asyncio.gather(one("low", True), one(None, False), one("medium", True), one("high", False))
+        return await asyncio.gather(one("low", True), one(None, False), one("medium", True),
+                                    one("xhigh", False), one("high", False))
 
-    low_fast, default, medium_fast, refused = asyncio.run(scenario())
+    low_fast, default, medium_fast, refused, high = asyncio.run(scenario())
     assert "model_reasoning_effort=low" in low_fast and 'service_tier="priority"' in low_fast
     assert "model_reasoning_effort=medium" in default and 'service_tier="priority"' not in default
     assert "model_reasoning_effort=medium" in medium_fast
     assert "model_reasoning_effort=medium" in refused  # an unknown effort never reaches the CLI
+    assert "model_reasoning_effort=high" in high  # 1.4.0: the notice rewrite, per call only
     assert _EFFORT.get() is None
 
 

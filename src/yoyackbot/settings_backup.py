@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
+from yoyackbot.notices import CATALOG, problem
 from yoyackbot.summary_prompt import TONE_LIMIT
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 
@@ -20,7 +21,8 @@ class BackupError(RuntimeError):
 
 
 def backup_settings(database: Path, backup_root: Path) -> Path:
-    """Write only watch revisions, channels, cooldowns, manager roles, tones and fast mode (0600)."""
+    """Write only watch revisions, channels, cooldowns, manager roles, tones, fast mode, 처형
+    settings and server notices (0600)."""
     if not database.is_file():
         raise BackupError("Settings database unavailable")
     try:
@@ -48,6 +50,7 @@ def backup_settings(database: Path, backup_root: Path) -> Path:
                 "tones": _tone_rows(connection),
                 "fast_mode": _fast_rows(connection),
                 **_execution_rows(connection),
+                "notices": _notice_rows(connection),
             }
         backup_root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if backup_root.is_symlink() or backup_root.stat().st_mode & 0o077:
@@ -129,6 +132,41 @@ def _execution_rows(connection: sqlite3.Connection) -> dict[str, list[tuple[int,
     }
 
 
+def _notice_rows(connection: sqlite3.Connection) -> list[list[object]]:
+    """Each server's rewritten notices (1.4.0); older databases have no table."""
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='guild_notices'"
+    ).fetchone() is None:
+        return []
+    return [list(row) for row in connection.execute(
+        "SELECT guild_id, notice_key, content, tone_version, updated_us FROM guild_notices "
+        "ORDER BY guild_id, notice_key"
+    )]
+
+
+def _validated_notices(data: dict) -> list[tuple[int, str, str, int, int]]:
+    """Rows are checked like a fresh rewrite; a key this release does not know is dropped."""
+    rows = data.get("notices", [])
+    if not isinstance(rows, list):
+        raise BackupError("Settings backup is invalid")
+    valid = []
+    for row in rows:
+        if (
+            not isinstance(row, list) or len(row) != 5
+            or type(row[0]) is not int or row[0] < 1 or not isinstance(row[1], str)
+            or not isinstance(row[2], str) or type(row[3]) is not int or row[3] < 1
+            or type(row[4]) is not int or row[4] < 0
+        ):
+            raise BackupError("Settings backup is invalid")
+        entry = CATALOG.get(row[1])
+        if entry is None:
+            continue
+        if problem(entry, row[2]) is not None:
+            raise BackupError("Settings backup is invalid")
+        valid.append((row[0], row[1], row[2], row[3], row[4]))
+    return valid
+
+
 def _validated_tones(data: dict) -> list[tuple[int, int, str | None, int]]:
     rows = data.get("tones", [])
     if not isinstance(rows, list):
@@ -190,6 +228,7 @@ def restore_settings(
             _validated_rows(data, "execution_channel", 3) if "execution_channel" in data else []
         )
         exec_roles = _validated_rows(data, "execution_roles", 3) if "execution_roles" in data else []
+        notices = _validated_notices(data)  # before 1.4.0 there are none
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         os.close(descriptor)
@@ -230,6 +269,10 @@ def restore_settings(
                 connection.executemany(
                     "INSERT INTO execution_roles(guild_id, role_id, updated_us) VALUES (?, ?, ?)",
                     exec_roles,
+                )
+                connection.executemany(
+                    "INSERT INTO guild_notices(guild_id, notice_key, content, tone_version, "
+                    "updated_us) VALUES (?, ?, ?, ?, ?)", notices,
                 )
                 connection.commit()
             SQLiteMessageStore(target).prune_before(

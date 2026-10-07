@@ -12,6 +12,7 @@ import discord
 from discord import app_commands
 
 from yoyackbot.execution import SQLiteExecutionStore
+from yoyackbot.notices import localize
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SECONDS = 30
@@ -87,7 +88,10 @@ def refusal(guild: discord.Guild, caller: object, target: object) -> str | None:
 
 
 async def _answer(interaction: discord.Interaction, text: str) -> None:
-    await interaction.followup.send(text, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+    await interaction.followup.send(
+        localize(interaction.guild_id, text), ephemeral=True,
+        allowed_mentions=discord.AllowedMentions.none(),
+    )
 
 
 async def run_execution(
