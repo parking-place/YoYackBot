@@ -87,8 +87,11 @@ async def main_async(names: list[str]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("tones", nargs="*", default=list(TONES), choices=list(TONES))
-    asyncio.run(main_async(parser.parse_args().tones))
+    parser.add_argument("tones", nargs="*", help=f"some of {', '.join(TONES)} (default: all)")
+    names = parser.parse_args().tones or list(TONES)
+    if unknown := sorted(set(names) - set(TONES)):
+        parser.error(f"unknown tone: {', '.join(unknown)}")
+    asyncio.run(main_async(names))
 
 
 if __name__ == "__main__":
