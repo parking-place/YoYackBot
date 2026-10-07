@@ -58,7 +58,16 @@ from yoyackbot.notice_writer import (
     parse_answer,
     rewrite_notices,
 )
-from yoyackbot.notices import BOOK, CATALOG, MESSAGE_LIMIT, localize, problem, render, unmatched
+from yoyackbot.notices import (
+    BOOK,
+    CATALOG,
+    MESSAGE_LIMIT,
+    SENTENCE_FIELDS,
+    localize,
+    problem,
+    render,
+    unmatched,
+)
 from yoyackbot.parser import (
     HELP_MOVED_NOTICE,
     REQUEST_TOO_LONG_NOTICE,
@@ -105,7 +114,11 @@ def empty_book():
 
 
 def toned(text: str) -> str:
-    """A synthetic rewrite that keeps every rule (placeholders, commands, numbers, emoji)."""
+    """A synthetic rewrite that keeps every rule (placeholders, commands, numbers, emoji, and
+    nothing after a sentence placeholder)."""
+    if text.endswith(tuple(f"{{{name}}}" for name in SENTENCE_FIELDS)):
+        last = text.rindex("{")
+        return f"{text[:last]}~습니다 {text[last:]}"
     return text.rstrip() + " ~습니다"
 
 
@@ -245,6 +258,8 @@ def test_rewrite_runs_batches_with_the_tone_only() -> None:
         assert {line["type"] for line in lines} == {"tone", "notice"}   # no conversation at all
     hinted = next(line for _, lines in calls for line in lines if line.get("key") == "summary.start")
     assert set(hinted["hints"]) == {"scope", "mode"}
+    sentence = next(line for _, lines in calls for line in lines if line.get("key") == "status.last")
+    assert "뒤에 아무것도 붙이지 마시오" in sentence["hints"]["value"]
 
 
 def test_notice_calls_run_at_high(tmp_path) -> None:
@@ -279,6 +294,8 @@ def test_notice_calls_run_at_high(tmp_path) -> None:
     ("summary.busy", "⏳ 요약중이니 기다려라 이 짱깨야", "hate"),
     ("summary.busy", "요약중입니다. 🙏", "emoji"),
     ("summary.busy", "   ", "empty"),
+    ("status.channels", "📡 주시 채널은 {value}요.", "placeholder"),      # "3곳이오.요."
+    ("execution_log.reason", "📝 사유: {reason}이오", "placeholder"),
 ])
 def test_checks_reject_unsafe_rewrites(key, text, reason) -> None:
     assert problem(CATALOG[key], text) == reason

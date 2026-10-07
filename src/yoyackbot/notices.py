@@ -24,6 +24,8 @@ _COMMAND = re.compile(r"`[^`\n]+`|[!/][!가-힣A-Za-z]+")
 _DIGITS = re.compile(r"[0-9]+(?:[,.][0-9]+)*")
 _MENTION_LIKE = re.compile(r"<[@#&!:a-z]|@everyone|@here|https?://|discord\.gg", re.IGNORECASE)
 _EMOJI_LEAD = re.compile(r"^[^\w\s`*(<{\[\"'‘“«#>-]+")
+# Filled with a finished short sentence ("3곳이오.") or someone's own words, so nothing may follow.
+SENTENCE_FIELDS = ("value", "stage", "reason")
 
 
 @dataclass(frozen=True)
@@ -356,6 +358,9 @@ def problem(entry: Notice, text: str) -> str | None:
         return "placeholder"
     if "{" in _FIELD.sub("", text) or "}" in _FIELD.sub("", text):
         return "brace"
+    if any(entry.text.endswith(f"{{{name}}}") and not text.rstrip().endswith(f"{{{name}}}")
+           for name in SENTENCE_FIELDS):
+        return "placeholder"
     if _commands(text) != _commands(entry.text):
         return "command"
     if sorted(_DIGITS.findall(_FIELD.sub(" ", text))) != sorted(_DIGITS.findall(entry.literal)):
