@@ -30,7 +30,7 @@ def main() -> None:
     version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     package = (REPO / "src/yoyackbot/__init__.py").read_text(encoding="utf-8")
-    assert version == project["project"]["version"] == "1.4.1.1"
+    assert version == project["project"]["version"] == "1.4.1.2"
     assert f'__version__ = "{version}"' in package
 
     matrix = (PLAN / "TEST_MATRIX.md").read_text()
@@ -313,6 +313,19 @@ def main() -> None:
     assert len(relogged_rows) == 2
     relogged_done = sum("| DONE |" in row for row in relogged_rows)
 
+    marked = PLAN / "1.4.1c"
+    assert len(sorted(marked.glob("0[1-2]-*.md"))) == 2, "1.4.1c: expected two phase documents"
+    marked_checks = re.findall(
+        r"^\| `(T141c-P[1-2]-[AB])` \|", (marked / "TEST_MATRIX.md").read_text(), re.MULTILINE
+    )
+    assert len(marked_checks) == len(set(marked_checks)) == 4
+    marked_rows = [
+        line for line in (marked / "STATUS.md").read_text().splitlines()
+        if re.match(r"^\| \[1\.4\.1c-P[1-2]\]", line)
+    ]
+    assert len(marked_rows) == 2
+    marked_done = sum("| DONE |" in row for row in marked_rows)
+
     for document in [REPO / "README.md", *PLAN.rglob("*.md")]:
         text = document.read_text()
         assert text.count("```") % 2 == 0, f"unclosed fence: {document}"
@@ -349,7 +362,8 @@ def main() -> None:
         f"1.3.4 {hidden_done}/2 phases, {len(hidden_checks)} checks; "
         f"1.4.0 {executed_done}/7 phases, {len(executed_checks)} checks; "
         f"1.4.1 {pardoned_done}/2 phases, {len(pardoned_checks)} checks; "
-        f"1.4.1b {relogged_done}/2 phases, {len(relogged_checks)} checks"
+        f"1.4.1b {relogged_done}/2 phases, {len(relogged_checks)} checks; "
+        f"1.4.1c {marked_done}/2 phases, {len(marked_checks)} checks"
     )
 
 
