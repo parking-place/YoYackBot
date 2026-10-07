@@ -4,7 +4,7 @@
 
 | 검사 ID | 단계 | 환경 | 통과 기준 | 결과 |
 |---|---|---|---|---|
-| `T141b-P1-A` | [P1](01-log-and-help.md) | LXC 합성 | 적용·연장·해제 로그가 계약 예와 글자 단위 일치, 실행자·멘션 없음 | NOT_RUN |
-| `T141b-P1-B` | [P1](01-log-and-help.md) | LXC 합성 | `/처형도움` 등록·본문, 새 문구 목록·서버 말투·구분선 유지, 옛 문구 제외, 회귀 | NOT_RUN |
+| `T141b-P1-A` | [P1](01-log-and-help.md) | LXC 합성 | 적용·연장·해제 로그가 계약 예와 글자 단위 일치, 실행자·멘션 없음 | PASS |
+| `T141b-P1-B` | [P1](01-log-and-help.md) | LXC 합성 | `/처형도움` 등록·본문, 새 문구 목록·서버 말투·구분선 유지, 옛 문구 제외, 회귀 | PASS |
 | `T141b-P2-A` | [P2](02-release.md) | LXC/CI | 전체 회귀·버전·문서·2/4 집계, 복귀 호환 | NOT_RUN |
 | `T141b-P2-B` | [P2](02-release.md) | LXC/시험 Discord | 배포·명령 동기화, 사용자 확인, main CI, 태그·Release | NOT_RUN |
