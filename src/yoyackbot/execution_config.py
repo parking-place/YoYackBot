@@ -30,11 +30,19 @@ CLOSED = "👋 설정 화면을 닫았소."
 _SECONDS = 120
 
 
+AUDIT_WARNING = "⚠️ 봇에 감사 로그 보기 권한이 없어 지금은 처형 로그를 올릴 수 없소. 🔧"
+
+
 def channel_message(guild: discord.Guild, channel_id: int | None) -> str:
     if channel_id is None:
-        return "📜 처형 로그 채널: 없음(로그를 올리지 않음)"
-    channel = guild.get_channel(channel_id)
-    return f"📜 처형 로그 채널: {getattr(channel, 'mention', '삭제된 채널')}"
+        text = "📜 처형 로그 채널: 없음(로그를 올리지 않음)"
+    else:
+        channel = guild.get_channel(channel_id)
+        text = f"📜 처형 로그 채널: {getattr(channel, 'mention', '삭제된 채널')}"
+    permissions = getattr(getattr(guild, "me", None), "guild_permissions", None)
+    if permissions is not None and not getattr(permissions, "view_audit_log", True):
+        text += f"\n{AUDIT_WARNING}"
+    return text
 
 
 def roles_message(guild: discord.Guild, role_ids: frozenset[int] | set[int]) -> str:

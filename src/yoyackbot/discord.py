@@ -44,6 +44,7 @@ from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
 from yoyackbot.execution import SQLiteExecutionStore
 from yoyackbot.execution_config import install_execution_settings
+from yoyackbot.execution_log import log_message, timeout_event
 from yoyackbot.health import COLLECTION_OK, write_heartbeat
 from yoyackbot.help_command import install_help_command
 from yoyackbot.idiom_command import install_idiom_command
@@ -85,6 +86,7 @@ from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 from yoyackbot.workflow import SummaryWorkflow, build_workflow
 
 LOGGER = logging.getLogger(__name__)
+EXECUTION_MATCH_SECONDS = 120  # /처형 call → its audit log entry
 # A loop that survived this long starts its restart backoff from the beginning again.
 WORKER_STABLE_SECONDS = 300
 # One pass handles at most 20 channels, each page or notice bounded by 60 seconds.
@@ -122,11 +124,12 @@ def classify_message(message: MessageCandidate) -> MessageClass:
 
 
 def required_intents() -> discord.Intents:
-    """Request only guild, guild-message, and message-content events."""
+    """Request only guild, guild-message, message-content and (1.4.0) audit-log events."""
     intents = discord.Intents.none()
     intents.guilds = True
     intents.guild_messages = True
     intents.message_content = True
+    intents.moderation = True  # audit log entries for the 처형 log (not a privileged intent)
     return intents
 
 
@@ -203,6 +206,8 @@ class YoYackClient(discord.Client):
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
         self.executions: SQLiteExecutionStore | None = None
+        # (guild, target) -> (caller, expiry): a /처형 the bot ran, credited to its caller (1.4.0)
+        self._execution_callers: dict[tuple[int, int], tuple[int, float]] = {}
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
         install_role_commands(self.tree, self.manager_roles)
         install_help_command(self.tree, settings)
@@ -601,6 +606,50 @@ class YoYackClient(discord.Client):
                     LOGGER.info("execution_channel_deleted")
             except Exception:  # noqa: BLE001
                 LOGGER.warning("execution_channel_cleanup_failed")
+
+    def remember_execution(self, guild_id: int, target_id: int, caller_id: int) -> None:
+        """`/처형` is about to time out `target_id`; its audit entry names the bot, not the caller."""
+        now = time.monotonic()
+        self._execution_callers = {
+            key: value for key, value in self._execution_callers.items() if value[1] > now
+        }
+        self._execution_callers[guild_id, target_id] = caller_id, now + EXECUTION_MATCH_SECONDS
+
+    def _execution_caller(self, guild_id: int, target_id: int) -> int | None:
+        found = self._execution_callers.pop((guild_id, target_id), None)
+        return found[0] if found is not None and found[1] > time.monotonic() else None
+
+    async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry) -> None:
+        """1.4.0: post timeouts applied, extended or lifted to the server's 처형 log channel."""
+        event = timeout_event(entry)
+        guild = getattr(entry, "guild", None)
+        if event is None or guild is None or self.executions is None:
+            return
+        executor = event.executor_id
+        by_command = False
+        if self.user is not None and executor == self.user.id:
+            caller = self._execution_caller(guild.id, event.target_id)
+            if caller is not None:
+                executor, by_command = caller, True
+        try:
+            channel_id = await asyncio.to_thread(self.executions.log_channel, guild.id)
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("execution_log_settings_unreadable")
+            return
+        if channel_id is None:
+            return
+        channel = guild.get_channel(channel_id)
+        if channel is None or not valid_channel(guild, channel_id):
+            LOGGER.warning("execution_log_channel_unavailable")
+            return
+        try:
+            await channel.send(
+                log_message(event, executor), allowed_mentions=discord.AllowedMentions.none(),
+            )
+        except (discord.DiscordException, OSError):
+            LOGGER.warning("execution_log_post_failed")
+            return
+        LOGGER.info("execution_logged kind=%s by_command=%s", event.kind, by_command)
 
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         try:
