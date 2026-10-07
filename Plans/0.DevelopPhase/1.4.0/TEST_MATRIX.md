@@ -4,8 +4,8 @@
 
 | 검사 ID | 단계 | 환경 | 통과 기준 | 결과 |
 |---|---|---|---|---|
-| `T140-P1-A` | [P1](01-execution-settings.md) | LXC 합성 | 설정 권한·채널 하나·역할 선택·화면 규칙 | NOT_RUN |
-| `T140-P1-B` | [P1](01-execution-settings.md) | LXC 합성 | 정리·백업·로그·회귀 | NOT_RUN |
+| `T140-P1-A` | [P1](01-execution-settings.md) | LXC 합성 | 설정 권한·채널 하나·역할 선택·화면 규칙 | PASS |
+| `T140-P1-B` | [P1](01-execution-settings.md) | LXC 합성 | 정리·백업·로그·회귀 | PASS |
 | `T140-P2-A` | [P2](02-audit-log.md) | LXC 합성 | 적용·연장·해제 판별, 로그 형식·알림 없음, 미설정 0건 | NOT_RUN |
 | `T140-P2-B` | [P2](02-audit-log.md) | LXC 합성 | 봇 실행분 처형자 대체·중복 없음, 실패 처리, 사유 비기록, 권한 없음, 회귀 | NOT_RUN |
 | `T140-P3-A` | [P3](03-execute-command.md) | LXC 합성 | 기본값·시간 형식·허용 범위·성공 경로 | NOT_RUN |
