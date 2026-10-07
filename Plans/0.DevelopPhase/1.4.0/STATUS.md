@@ -1,10 +1,10 @@
 # 1.4.0 진행 상태
 
-기준일: 2026-10-07. **진행 중.** 기준은 `v1.3.4`(`1491025`, `main` 병합 `96ab776`)이며 브랜치는 `develop/1.4.0`이다.
+기준일: 2026-10-07. **1/7단계 완료.** 기준은 `v1.3.4`(`1491025`, `main` 병합 `96ab776`)이며 브랜치는 `develop/1.4.0`이다.
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
-| [1.4.0-P1](01-execution-settings.md) | 처형 설정 저장소와 `/처형설정` | PUSH_PENDING | C `531cfc994f0f86824ad05304b16d4a335ac5e30f` / E 증거 push 뒤 기록 | 기준 `v1.3.4`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37597825229) |
+| [1.4.0-P1](01-execution-settings.md) | 처형 설정 저장소와 `/처형설정` | DONE | C `531cfc994f0f86824ad05304b16d4a335ac5e30f` / E [`f4e4783`](https://github.com/parking-place/YoYackBot/commit/f4e478345027958947d19dc56fc1c3ba3cfe4a6e) | 기준 `v1.3.4`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37597825229), [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37598062830), 종료 D push 확인 |
 | [1.4.0-P2](02-audit-log.md) | 감사 로그 감시와 처형 로그 | PLANNED | — | P1 D |
 | [1.4.0-P3](03-execute-command.md) | `/처형` 명령 | PLANNED | — | P2 D |
 | [1.4.0-P4](04-tone-split.md) | 말투 프롬프트 분리 | PLANNED | — | P3 D |
