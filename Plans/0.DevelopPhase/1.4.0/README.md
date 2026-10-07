@@ -33,7 +33,7 @@
 | 3 | [P3 — `/처형` 명령](03-execute-command.md) | `T140-P3-A/B` | DONE |
 | 4 | [P4 — 말투 프롬프트 분리](04-tone-split.md) | `T140-P4-A/B` | DONE |
 | 5 | [P5 — 서버 말투 안내 문구](05-tone-notices.md) | `T140-P5-A/B` | DONE |
-| 6 | [P6 — 실제 모델 평가](06-evaluation.md) | `T140-P6-A/B/C` | IN_PROGRESS |
+| 6 | [P6 — 실제 모델 평가](06-evaluation.md) | `T140-P6-A/B/C` | DONE |
 | 7 | [P7 — 통합·배포·출시](07-release.md) | `T140-P7-A/B` | PLANNED |
 
 방식·권한·보호 장치는 [계약](CONTRACT.md)에 있다. 각 단계는 구현 C → LXC 검증 → 증거 E → E의 CI 성공 → 종료 D의 순서를 따른다([Git 규칙](../GIT_WORKFLOW.md)). 버전 표기는 계획·태그 `1.4.0` / `v1.4.0`, Python 패키지 `1.4.0`이다.
