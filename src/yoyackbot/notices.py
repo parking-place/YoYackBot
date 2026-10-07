@@ -246,6 +246,16 @@ _ENTRIES = (
     Notice("execute.bot_cannot", "🔧 봇에 타임아웃 권한이 없거나 봇의 역할이 그 사람보다 낮아 처형할 수 없소."),
     Notice("execute.failed", "⚠️ 처형하지 못했소. 잠시 후 다시 시도하시오. 🔧"),
     Notice("execute.read_failed", "⚠️ 처형 설정을 읽지 못했소. 잠시 후 다시 시도하시오. 🔧"),
+    # 1.4.1 /사면
+    Notice("pardon.done", "🕊️ {target}의 처형을 풀었소. 📝 사유: {reason}"),
+    Notice("pardon.not_allowed", "🚫 사면은 처형 역할이 있는 사람이나 관리자만 할 수 있소. 🙅"),
+    Notice("pardon.self", "🙃 자기 자신은 사면할 수 없소."),
+    Notice("pardon.bot", "🤖 봇은 사면할 대상이 아니오."),
+    Notice("pardon.protected", "🛡️ 서버 주인이나 관리자는 처형되지 않으니 사면할 것도 없소."),
+    Notice("pardon.higher", "⬆️ 자기와 같거나 높은 역할의 사람은 사면할 수 없소."),
+    Notice("pardon.bot_cannot", "🔧 봇에 타임아웃 권한이 없거나 봇의 역할이 그 사람보다 낮아 사면할 수 없소."),
+    Notice("pardon.not_timed_out", "🕊️ 그 사람은 지금 처형 중이 아니오."),
+    Notice("pardon.failed", "⚠️ 사면하지 못했소. 잠시 후 다시 시도하시오. 🔧"),
 )
 CATALOG: dict[str, Notice] = {entry.key: entry for entry in _ENTRIES}
 _EXACT = {entry.text: entry for entry in _ENTRIES if not entry.fields}
@@ -399,4 +409,8 @@ def _keep_line_ends(default: str, text: str) -> str:
 
 
 def entries(keys: Iterable[str] | None = None) -> list[Notice]:
-    return [CATALOG[key] for key in keys] if keys is not None else list(_ENTRIES)
+    """Catalog entries in catalog order, all or only `keys`."""
+    if keys is None:
+        return list(_ENTRIES)
+    wanted = set(keys)
+    return [entry for entry in _ENTRIES if entry.key in wanted]

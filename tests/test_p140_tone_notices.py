@@ -331,9 +331,10 @@ def test_store_keeps_rows_only_for_the_current_tone(tmp_path) -> None:
     path, tones, store = db(tmp_path)
     version = tones.save(1, TONE, expected_version=0)
     tones.save(2, TONE, expected_version=0)
-    assert store.missing() == [(1, version, TONE), (2, 1, TONE)]
+    assert store.pending() == [(1, version, TONE, frozenset()), (2, 1, TONE, frozenset())]
     assert store.replace(1, version, table_for("summary.busy")) is True
-    assert store.current() == {1: table_for("summary.busy")} and [g for g, *_ in store.missing()] == [2]
+    assert store.current() == {1: table_for("summary.busy")} and [(g, w) for g, _v, _t, w in store.pending()] == [
+        (1, frozenset({"summary.busy"})), (2, frozenset())]
     newer = tones.save(1, TONE + " 더", expected_version=version)
     assert store.current() == {} and store.replace(1, version, table_for()) is False   # stale
     assert store.replace(1, newer, table_for("summary.empty")) and store.current()[1] == table_for("summary.empty")
