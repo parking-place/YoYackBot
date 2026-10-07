@@ -17,5 +17,5 @@
 | `T140-P6-A` | [P6](06-evaluation.md) | LXC 실제 모델 | 기본 말투 품질 = `v1.3.4` 수준 | PASS |
 | `T140-P6-B` | [P6](06-evaluation.md) | LXC 실제 모델 | 서버 말투 반영·고정 규칙 유지 | PASS |
 | `T140-P6-C` | [P6](06-evaluation.md) | LXC 실제 모델 | 안내 문구 생성 품질·검증, 사용자 예시 확인 | PASS |
-| `T140-P7-A` | [P7](07-release.md) | LXC/CI | 회귀·버전·문서·7/15 집계, 복귀 호환 | NOT_RUN |
-| `T140-P7-B` | [P7](07-release.md) | LXC/시험 Discord | 배포·intent·사용자 확인, main CI, 태그·Release | NOT_RUN |
+| `T140-P7-A` | [P7](07-release.md) | LXC/CI | 회귀·버전·문서·7/15 집계, 복귀 호환 | PASS |
+| `T140-P7-B` | [P7](07-release.md) | LXC/시험 Discord | 배포·intent·사용자 확인, main CI, 태그·Release | PASS |

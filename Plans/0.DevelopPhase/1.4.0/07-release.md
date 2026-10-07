@@ -1,6 +1,6 @@
 # 1.4.0-P7 — 통합·배포·출시
 
-- 상태: **PLANNED** · 검사: `T140-P7-A/B` · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **PUSH_PENDING** · 검사: `T140-P7-A/B` **PASS** ([증거](../evidence/1.4.0-P7.md)) · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 작업
 
