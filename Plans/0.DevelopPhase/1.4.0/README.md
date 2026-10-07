@@ -29,7 +29,7 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [P1 — 처형 설정 저장소와 `/처형설정`](01-execution-settings.md) | `T140-P1-A/B` | DONE |
-| 2 | [P2 — 감사 로그 감시와 처형 로그](02-audit-log.md) | `T140-P2-A/B` | PLANNED |
+| 2 | [P2 — 감사 로그 감시와 처형 로그](02-audit-log.md) | `T140-P2-A/B` | DONE |
 | 3 | [P3 — `/처형` 명령](03-execute-command.md) | `T140-P3-A/B` | PLANNED |
 | 4 | [P4 — 말투 프롬프트 분리](04-tone-split.md) | `T140-P4-A/B` | PLANNED |
 | 5 | [P5 — 서버 말투 안내 문구](05-tone-notices.md) | `T140-P5-A/B` | PLANNED |
