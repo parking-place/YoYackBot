@@ -42,6 +42,8 @@ from yoyackbot.collection_status import (
 )
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
+from yoyackbot.execution import SQLiteExecutionStore
+from yoyackbot.execution_config import install_execution_settings
 from yoyackbot.health import COLLECTION_OK, write_heartbeat
 from yoyackbot.help_command import install_help_command
 from yoyackbot.idiom_command import install_idiom_command
@@ -200,6 +202,7 @@ class YoYackClient(discord.Client):
         self._connection_generation = 0
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
+        self.executions: SQLiteExecutionStore | None = None
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
         install_role_commands(self.tree, self.manager_roles)
         install_help_command(self.tree, settings)
@@ -211,6 +214,8 @@ class YoYackClient(discord.Client):
             install_speed_command(
                 self.tree, SQLiteSpeedStore(settings.database_path), self.manager_roles,
             )
+            self.executions = SQLiteExecutionStore(settings.database_path)
+            install_execution_settings(self.tree, self.executions, self.manager_roles)
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
@@ -250,6 +255,15 @@ class YoYackClient(discord.Client):
             self.ready_event.set()
         self._write_heartbeat()
         LOGGER.info("gateway_ready guild_count=%d", len(self.guilds))
+        if self.executions is not None and self.guilds:
+            try:  # settings of servers left while an older release ran (1.4.0)
+                removed = await asyncio.to_thread(
+                    self.executions.keep_only, [guild.id for guild in self.guilds],
+                )
+                if removed:
+                    LOGGER.info("execution_settings_pruned count=%d", removed)
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("execution_settings_prune_failed")
         if self.dev_guild_id is not None:
             for guild in self.guilds:
                 try:
@@ -581,6 +595,12 @@ class YoYackClient(discord.Client):
                 LOGGER.info("watched_channel_deleted")
         except Exception:  # noqa: BLE001
             LOGGER.warning("watched_channel_delete_cleanup_failed")
+        if self.executions is not None:
+            try:
+                if await asyncio.to_thread(self.executions.remove_channel, channel.guild.id, channel.id):
+                    LOGGER.info("execution_channel_deleted")
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("execution_channel_cleanup_failed")
 
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         try:
@@ -599,6 +619,12 @@ class YoYackClient(discord.Client):
                 LOGGER.info("manager_role_deleted")
         except Exception:  # noqa: BLE001
             LOGGER.warning("manager_role_cleanup_failed")
+        if self.executions is not None:
+            try:
+                if await asyncio.to_thread(self.executions.remove_role, role.guild.id, role.id):
+                    LOGGER.info("execution_role_deleted")
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("execution_role_cleanup_failed")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if classify_message(after) is not MessageClass.HUMAN_TEXT or after.guild is None:

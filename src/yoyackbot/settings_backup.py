@@ -47,6 +47,7 @@ def backup_settings(database: Path, backup_root: Path) -> Path:
                 **_manager_rows(connection),
                 "tones": _tone_rows(connection),
                 "fast_mode": _fast_rows(connection),
+                **_execution_rows(connection),
             }
         backup_root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if backup_root.is_symlink() or backup_root.stat().st_mode & 0o077:
@@ -110,6 +111,24 @@ def _fast_rows(connection: sqlite3.Connection) -> list[tuple[int, int]]:
     ).fetchall()
 
 
+def _execution_rows(connection: sqlite3.Connection) -> dict[str, list[tuple[int, ...]]]:
+    """처형 settings (1.4.0); older databases have no tables."""
+    names = {row[0] for row in connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' "
+        "AND name IN ('execution_settings', 'execution_roles')"
+    )}
+    if names != {"execution_settings", "execution_roles"}:
+        return {"execution_channel": [], "execution_roles": []}
+    return {
+        "execution_channel": connection.execute(
+            "SELECT guild_id, channel_id, updated_us FROM execution_settings ORDER BY guild_id"
+        ).fetchall(),
+        "execution_roles": connection.execute(
+            "SELECT guild_id, role_id, updated_us FROM execution_roles ORDER BY guild_id, role_id"
+        ).fetchall(),
+    }
+
+
 def _validated_tones(data: dict) -> list[tuple[int, int, str | None, int]]:
     rows = data.get("tones", [])
     if not isinstance(rows, list):
@@ -166,6 +185,11 @@ def restore_settings(
         )
         tones = _validated_tones(data)  # backups made before 1.3.0 have none
         fast = _validated_rows(data, "fast_mode", 2) if "fast_mode" in data else []  # before 1.3.1
+        # before 1.4.0 there are no 처형 settings
+        exec_channel = (
+            _validated_rows(data, "execution_channel", 3) if "execution_channel" in data else []
+        )
+        exec_roles = _validated_rows(data, "execution_roles", 3) if "execution_roles" in data else []
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         os.close(descriptor)
@@ -198,6 +222,14 @@ def restore_settings(
                 )
                 connection.executemany(
                     "INSERT INTO guild_fast_mode(guild_id, updated_us) VALUES (?, ?)", fast,
+                )
+                connection.executemany(
+                    "INSERT INTO execution_settings(guild_id, channel_id, updated_us) VALUES (?, ?, ?)",
+                    exec_channel,
+                )
+                connection.executemany(
+                    "INSERT INTO execution_roles(guild_id, role_id, updated_us) VALUES (?, ?, ?)",
+                    exec_roles,
                 )
                 connection.commit()
             SQLiteMessageStore(target).prune_before(
