@@ -11,4 +11,4 @@ def test_source_and_package_versions_match() -> None:
     declared = (root / "VERSION").read_text(encoding="utf-8").strip()
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
 
-    assert declared == project["project"]["version"] == __version__ == "1.4.1"
+    assert declared == project["project"]["version"] == __version__ == "1.4.1.1"
