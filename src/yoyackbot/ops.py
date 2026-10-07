@@ -114,6 +114,7 @@ class IdiomMetrics:
     words: int = 0
     selected_kind: str = "none"
     speed: str = "standard"
+    surface: str = "text"  # 1.3.4: `!!말하자면` (text) or `/말하자면` (slash)
     model_ms: int = 0
 
     def emit(self) -> None:
@@ -133,6 +134,7 @@ class IdiomMetrics:
             "words": min(4, max(0, self.words)),
             "selected_kind": self.selected_kind if self.selected_kind in {"idiom", "word"} else "none",
             "speed": self.speed if self.speed in {"standard", "fast"} else "standard",
+            "surface": self.surface if self.surface in {"text", "slash"} else "text",
             "model_ms": max(0, self.model_ms),
             "duration_ms": max(0, round((time.monotonic() - self.started) * 1000)),
         }

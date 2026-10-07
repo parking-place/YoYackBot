@@ -44,6 +44,7 @@ from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
 from yoyackbot.health import COLLECTION_OK, write_heartbeat
 from yoyackbot.help_command import install_help_command
+from yoyackbot.idiom_command import install_idiom_command
 from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
 from yoyackbot.manager_roles import (
     ManagerRoleStore,
@@ -202,6 +203,7 @@ class YoYackClient(discord.Client):
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
         install_role_commands(self.tree, self.manager_roles)
         install_help_command(self.tree, settings)
+        install_idiom_command(self.tree, self._on_idiom_slash)
         if settings is not None and isinstance(self.watch_store, SQLiteWatchStore):
             install_tone_command(
                 self.tree, SQLiteToneStore(settings.database_path), self.manager_roles,
@@ -795,12 +797,56 @@ class YoYackClient(discord.Client):
     async def _on_idiom(self, message: discord.Message, *, usage: bool) -> None:
         """`!!말하자면` (1.3.0): fixed casual notices; a reply never changes its range."""
         assert message.guild is not None
-        accepted_at = self.clock()
 
         async def send(notice: str) -> None:
             await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
 
+        await self._idiom_request(
+            message.guild, message.channel, send, accepted_at=self.clock(),
+            trigger_message_id=getattr(message, "id", None), usage=usage, surface="text",
+        )
+
+    async def _on_idiom_slash(self, interaction: discord.Interaction) -> None:
+        """`/말하자면` (1.3.4): only the caller sees the command and any notice; the answer is a
+        plain channel message, so it pops up with no visible set-up."""
+        timing.begin(getattr(interaction, "created_at", None))
+        accepted_at = self.clock()
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        noticed: list[str] = []
+
+        async def send(notice: str) -> None:
+            noticed.append(notice)
+            try:
+                await interaction.edit_original_response(content=notice)
+            except discord.HTTPException:
+                LOGGER.warning("idiom_slash_notice_failed")
+
+        guild, channel = interaction.guild, interaction.channel
+        if guild is None or channel is None:
+            await send(idiom.UNWATCHED_NOTICE)
+            return
+        outcome = await self._idiom_request(
+            guild, channel, send, accepted_at=accepted_at, trigger_message_id=None,
+            usage=False, surface="slash",
+        )
+        if outcome == "success":
+            try:
+                await interaction.delete_original_response()
+            except discord.HTTPException:
+                LOGGER.warning("idiom_slash_cleanup_failed")
+        elif not noticed:
+            await send(idiom.FAILED_NOTICE)
+
+    async def _idiom_request(
+        self, guild: discord.Guild, channel: discord.abc.Messageable,
+        send: Callable[[str], Awaitable[None]], *, accepted_at: datetime,
+        trigger_message_id: int | None, usage: bool, surface: str,
+    ) -> str | None:
+        """The shared `!!말하자면`/`/말하자면` path; returns the workflow outcome, if it ran."""
+        outcome: str | None = None
+
         async def handle(lease: ChannelLease) -> None:
+            nonlocal outcome
             if usage:
                 await send(idiom.USAGE_NOTICE)
                 return
@@ -823,7 +869,7 @@ class YoYackClient(discord.Client):
                 try:
                     backfill, _generation, pending = await asyncio.to_thread(
                         self.backfill_store.readiness_snapshot,
-                        message.guild.id, message.channel.id,
+                        guild.id, channel.id,
                         cutoff=self.clock() - timedelta(days=self.settings.cache_retention_days),
                     )
                 except BackfillError:
@@ -832,19 +878,20 @@ class YoYackClient(discord.Client):
                 if not self.cache_available() or pending or not summary_ready(backfill):
                     await send(idiom.NOT_READY_NOTICE)
                     return
-            LOGGER.info("idiom_request_parsed")
-            await self.summary_workflow.run_idiom(
-                message.guild.id, message.channel, lease, send,
-                accepted_at=accepted_at, trigger_message_id=getattr(message, "id", None),
+            LOGGER.info("idiom_request_parsed surface=%s", surface)
+            outcome = await self.summary_workflow.run_idiom(
+                guild.id, channel, lease, send, accepted_at=accepted_at,
+                trigger_message_id=trigger_message_id, surface=surface,
             )
 
         await self.watch_gate.request(
-            message.guild.id, message.channel.id, is_help=False,
+            guild.id, channel.id, is_help=False,
             help_reply=lambda: send(idiom.USAGE_NOTICE),
             unwatched_reply=lambda _notice: send(idiom.UNWATCHED_NOTICE),
             unavailable_reply=lambda _notice: send(idiom.UNAVAILABLE_NOTICE),
             summarize=handle,
         )
+        return outcome
 
     async def _read_usage(self) -> UsageSnapshot:
         if self.usage_reader is not None:

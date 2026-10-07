@@ -153,10 +153,11 @@ class SummaryWorkflow:
     async def run_idiom(
         self, guild_id: int, channel: discord.TextChannel, lease: ChannelLease,
         send_notice: Callable[[str], Awaitable[None]], *, accepted_at: datetime,
-        trigger_message_id: int | None,
-    ) -> None:
-        """`!!말하자면`: the summaries' channel slot, queue and readiness; its own cooldown (1.3.1)."""
-        metrics = IdiomMetrics()
+        trigger_message_id: int | None, surface: str = "text",
+    ) -> str:
+        """`!!말하자면` and `/말하자면` (1.3.4): the summaries' channel slot, queue and readiness;
+        its own cooldown (1.3.1). Returns the metrics outcome, e.g. "success"."""
+        metrics = IdiomMetrics(surface=surface)
         timeline = timing.claim()
         task = asyncio.current_task()
         if task is not None:
@@ -165,11 +166,11 @@ class SummaryWorkflow:
             if self.closing:
                 metrics.outcome = "queue_closed"
                 await send_notice(idiom.QUEUE_NOTICE)
-                return
-            await self._run_idiom(
-                guild_id, channel, lease, send_notice, metrics,
-                accepted_at=accepted_at, trigger_message_id=trigger_message_id,
-            )
+            else:
+                await self._run_idiom(
+                    guild_id, channel, lease, send_notice, metrics,
+                    accepted_at=accepted_at, trigger_message_id=trigger_message_id,
+                )
         except asyncio.CancelledError:
             metrics.outcome = "cancelled"
             raise
@@ -178,6 +179,7 @@ class SummaryWorkflow:
             timeline.emit("idiom", metrics.request_id, metrics.outcome)
             if task is not None:
                 self._jobs.discard(task)
+        return metrics.outcome
 
     async def _run_idiom(
         self, guild_id: int, channel: discord.TextChannel, lease: ChannelLease,
