@@ -5,6 +5,6 @@
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
 | [1.4.1-P1](01-pardon.md) | `/사면` 명령 | DONE | C `70cae3f34f76c08ca8ab8e5f21b82630a94a6222` / E [`e5078d6`](https://github.com/parking-place/YoYackBot/commit/e5078d6e31df8625b28a6a2330f8e8b5d5ad05ee) | 기준 `v1.4.0`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37613243867), [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37613435440), 종료 D push 확인 |
-| [1.4.1-P2](02-release.md) | 통합·배포·출시 | PLANNED | — | P1 D, 사용자 Discord 확인 |
+| [1.4.1-P2](02-release.md) | 통합·배포·출시 | PUSH_PENDING | C `18ec31e9101d4309dd393b56ff39ac9b576b484d` / E 증거 push 뒤 기록 | P1 D `a7eb231`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/37613767989), 태그 `v1.4.1`·[Release](https://github.com/parking-place/YoYackBot/releases/tag/v1.4.1), 사용자 Discord 확인 2026-10-07 |
 
 [버전 개요](README.md) · [공통 Git 규칙](../GIT_WORKFLOW.md)
