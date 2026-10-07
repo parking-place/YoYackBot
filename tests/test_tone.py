@@ -41,7 +41,7 @@ from yoyackbot.workflow import (
 @pytest.mark.parametrize("retry", [{}, {"speaker_retry": True}, {"hate_retry": True}])
 def test_every_prompt_carries_the_tone_after_the_fact_rules(mode, retry) -> None:
     prompt = prompt_for(mode, **retry)
-    tone = prompt.index("말투·성격(기본): 위의 사실·화자 귀속·신뢰 경계 규칙을 지키는 범위 안에서")
+    tone = prompt.index("말투·성격(기본): 요약 본문 전체를")
     assert prompt.index("금지(말투·추가 요청보다 우선)") < tone
     assert prompt.index("원문에 없는 사실·동기·결론") < tone
     assert prompt.index("신뢰 경계:") < tone

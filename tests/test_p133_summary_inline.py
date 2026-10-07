@@ -94,7 +94,7 @@ def test_reply_links_still_reach_the_summary(tmp_path) -> None:
 
 
 def test_the_prompts_no_longer_mention_the_file() -> None:
-    assert PROMPT_VERSION == "1.3.3-p4-v1"
+    assert PROMPT_VERSION == "1.4.0-p4-v1"
     for prompt in (SUMMARY_PROMPT, RATING_CANDIDATES_PROMPT, RATING_JUDGE_PROMPT):
         assert "/work/conversation.jsonl" not in prompt and "<<<자료" in prompt
         assert "파일을 읽거나 명령을 실행하지" in prompt

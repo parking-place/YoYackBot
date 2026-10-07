@@ -36,7 +36,7 @@ def test_every_prompt_has_emoji_and_topic_critique_rules(mode: SummaryMode, vari
                    "주제 묶음마다 **정확히 한 줄**을 그 묶음 맨 끝에 인용문 `> ↳ _한줄 비평_ 이모지` 형태로 따로 쓰시오.",
                    "비평 줄이 빠진 주제가 하나도 없어야 하오.",
                    "`⏳ 진행 중인 거` 묶음에는 비평 줄을 붙이지 마시오.",
-                   "짧고 신랄한 한 문장(40자 안팎)",
+                   "짧은 한 문장(40자 안팎)",  # 1.4.0: the voice is in the tone paragraph
                    "평가 문장에는 이모지를 마음껏 써도 되오."):
         assert phrase in text, phrase
     assert "최대 한 줄" not in text and "이모지 1개까지" not in text
