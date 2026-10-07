@@ -15,10 +15,11 @@ from dataclasses import dataclass, field
 from threading import RLock
 
 from yoyackbot.output_quality import HATE_TERMS
-from yoyackbot.parser import HELP_TEMPLATE
+from yoyackbot.parser import EXECUTION_HELP, HELP_TEMPLATE
 
 MESSAGE_LIMIT = 2000  # Discord's limit; a rewritten message that would not fit stays default
 HELP_LIMIT = 2000
+HELP_KEYS = frozenset({"help", "execution_help"})  # whole messages, rewritten on their own
 _FIELD = re.compile(r"\{([a-z_]+)\}")
 _COMMAND = re.compile(r"`[^`\n]+`|[!/][!가-힣A-Za-z]+")
 _DIGITS = re.compile(r"[0-9]+(?:[,.][0-9]+)*")
@@ -47,7 +48,7 @@ class Notice:
 
     @property
     def limit(self) -> int:
-        if self.key == "help":
+        if self.key in HELP_KEYS:
             return HELP_LIMIT
         return max(3 * len(self.text), 60)
 
@@ -71,6 +72,7 @@ def fill(template: str, values: Mapping[str, str]) -> str:
 _ENTRIES = (
     # 도움말 (1.3.1 `/도움말`); `{two_days}` is " `2일`" or empty, `{max_days}` the day limit.
     Notice("help", HELP_TEMPLATE),
+    Notice("execution_help", EXECUTION_HELP),
     Notice("help.moved", "📜 사용법은 `/도움말`로 보시오. 부른 사람에게만 보이오. 🙈"),
     Notice("command.unclear", "🤔 그 명은 알아듣기 어렵소. `/도움말`에서 사용법을 살펴보시오. 📜"),
     Notice("command.limit", "📏 {unit} 단위는 1부터 {maximum}까지 고르시오. `/도움말`에서 사용법을 살펴보시오. 📜"),
@@ -230,11 +232,17 @@ _ENTRIES = (
     Notice("execution_settings.channel_hint", "🛠️ 채널을 고르고 저장하거나 해제하시오. 👇"),
     Notice("execution_settings.roles_hint", "🛠️ 역할을 고르고 저장하시오. 👑 관리자는 언제나 쓸 수 있소. 👇"),
     # 처형 로그와 /처형
-    Notice("execution_log.apply", "⚔️ **처형** — 처형자 {executor} → 처형인 {target}"),
-    Notice("execution_log.extend", "⚔️ **처형 연장** — 처형자 {executor} → 처형인 {target}"),
-    Notice("execution_log.until", "⏱️ {duration} ({until}까지)"),
-    Notice("execution_log.reason", "📝 사유: {reason}"),
-    Notice("execution_log.release", "🕊️ **사면** — {executor}이(가) {target}의 처형을 풀었소."),
+    # 1.4.1b layout (new keys: a server's rewrites of the 1.4.0 lines are never reused)
+    Notice("execution_log.apply_title", "⚔️처형했소"),
+    Notice("execution_log.extend_title", "⚔️처형을 연장했소"),
+    Notice("execution_log.applied", "☠️{target} 을(를) 🗡️{executor} 이(가) 처형하였소."),
+    Notice("execution_log.extended", "☠️{target} 을(를) 🗡️{executor} 이(가) 처형을 연장하였소."),
+    Notice("execution_log.sentence", '📜사유는 "{reason}" 이며, ⏳{duration} 동안 시체요.'),
+    Notice("execution_log.come_back", "🕑{until} 이후에 오시오🚨"),
+    Notice("execution_log.release_title", "🕊️ 사면되었소"),
+    Notice("execution_log.released", "☠️{target} 을(를) 🗡️{executor} 이(가) 사면하였소"),
+    Notice("execution_log.release_reason", '📜사유는 "{reason}" 이였소.'),
+    Notice("execution_log.freedom", "🗽자유를 만끽하시오!⛓️‍💥"),
     Notice("execute.done", "⚔️ {target}을(를) {duration} 동안 처형했소. 📝 사유: {reason}"),
     Notice("execute.not_allowed", "🚫 처형은 처형 역할이 있는 사람이나 관리자만 할 수 있소. 🙅"),
     Notice("execute.bad_time", "⏱️ 시간은 `30초`·`10분`·`2시간`·`1일`처럼 쓰시오(숫자만 쓰면 초, 최대 28일). 📏"),
@@ -375,7 +383,7 @@ def problem(entry: Notice, text: str) -> str | None:
         return "command"
     if sorted(_DIGITS.findall(_FIELD.sub(" ", text))) != sorted(_DIGITS.findall(entry.literal)):
         return "number"
-    if text.count("\n") != entry.text.count("\n") and entry.key != "help":
+    if text.count("\n") != entry.text.count("\n") and entry.key not in HELP_KEYS:
         return "lines"
     if any(term in text for term in HATE_TERMS):
         return "hate"

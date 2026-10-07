@@ -206,5 +206,5 @@ def test_command_to_log_channel_names_the_caller(tmp_path, monkeypatch, caplog) 
 
     asyncio.run(scenario())
     posted = log_channel.send.await_args.args[0]
-    assert f"처형자 <@{CALLER}> → 처형인 <@{TARGET}>" in posted and "10분" in posted
+    assert f"☠️<@{TARGET}> 을(를) 🗡️<@{CALLER}> 이(가) 처형하였소." in posted and "⏳10분 동안" in posted
     assert "비밀 사유" not in caplog.text

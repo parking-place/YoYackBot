@@ -63,7 +63,7 @@ def test_every_slash_command_of_the_bot_is_visible_and_gated(tmp_path: Path) -> 
             clock=lambda: datetime(2026, 10, 1, 12, tzinfo=UTC),
         )
         try:
-            public = {"도움말", "말하자면"}  # 1.3.1, 1.3.4: commands every member may use
+            public = {"도움말", "말하자면", "처형도움"}  # 1.3.1, 1.3.4, 1.4.1b: open to every member
             everyone = [c for c in client.tree.get_commands() if c.name in public]
             top = [c for c in client.tree.get_commands() if c.name not in public]
             assert top, "the bot registers slash commands"

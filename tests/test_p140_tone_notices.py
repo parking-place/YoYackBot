@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -61,6 +62,7 @@ from yoyackbot.notice_writer import (
 from yoyackbot.notices import (
     BOOK,
     CATALOG,
+    HELP_KEYS,
     MESSAGE_LIMIT,
     SENTENCE_FIELDS,
     localize,
@@ -69,6 +71,7 @@ from yoyackbot.notices import (
     unmatched,
 )
 from yoyackbot.parser import (
+    EXECUTION_HELP,
     HELP_MOVED_NOTICE,
     REQUEST_TOO_LONG_NOTICE,
     USAGE_NOTICE,
@@ -151,7 +154,7 @@ def rendered_notices() -> list[str]:
         too_many_notice(2000), USAGE_UNAVAILABLE_NOTICE, USAGE_EXHAUSTED_NOTICE,
         DM_DELIVERED_NOTICE, DM_FAILED_NOTICE, *channel_list_messages([]),
         *channel_list_messages(["잡담", "공지"]),
-        "🚧 요약 요청을 해석했소. 실제 요약 기능은 아직 준비 중이오. 🛠️",
+        "🚧 요약 요청을 해석했소. 실제 요약 기능은 아직 준비 중이오. 🛠️", EXECUTION_HELP,
     ]
     for mode in SummaryMode:
         for scope in scopes:
@@ -213,8 +216,9 @@ def rendered_notices() -> list[str]:
 
 def test_every_notice_builder_is_in_the_catalog() -> None:
     for text in rendered_notices():
-        # channel names in the DM list are data, not notices
-        assert [line for line in unmatched(text) if not line.startswith(" - 💬 ")] == [], text
+        # channel names in the DM list are data; log rules and the spacing line carry no words
+        assert [line for line in unmatched(text)
+                if not line.startswith(" - 💬 ") and re.search("[가-힣]", line)] == [], text
 
 
 def test_idiom_notices_stay_fixed() -> None:
@@ -295,7 +299,7 @@ def test_notice_calls_run_at_high(tmp_path) -> None:
     ("summary.busy", "요약중입니다. 🙏", "emoji"),
     ("summary.busy", "   ", "empty"),
     ("status.channels", "📡 주시 채널은 {value}요.", "placeholder"),      # "3곳이오.요."
-    ("execution_log.reason", "📝 사유: {reason}이오", "placeholder"),
+    ("execute.done", "⚔️ {target}을(를) {duration} 동안 처형했소. 📝 사유: {reason}이오", "placeholder"),
 ])
 def test_checks_reject_unsafe_rewrites(key, text, reason) -> None:
     assert problem(CATALOG[key], text) == reason
@@ -308,7 +312,8 @@ def test_failed_batches_and_bad_entries_keep_the_defaults() -> None:
     def transform(text):
         return "엉망 {x}" if any(CATALOG[key].text == text for key in broken) else toned(text)
 
-    last = -(-(len(CATALOG) - 1) // BATCH_SIZE)         # the help, then the rest in batches
+    helps = len(HELP_KEYS)                              # each help alone, then the rest in batches
+    last = helps + -(-(len(CATALOG) - helps) // BATCH_SIZE) - 1
     result = asyncio.run(rewrite_notices(TONE, fake_ask(calls, transform=transform, fail_batch=last)))
     failed_keys = {line["key"] for line in calls[last][1] if line["type"] == "notice"}
     assert result.failed_calls == 1 and result.reasons == {"placeholder": 2}
@@ -390,7 +395,8 @@ def test_send_points_use_the_servers_notices(tmp_path, monkeypatch) -> None:
     try:
         asyncio.run(client.on_audit_log_entry_create(entry(None, NOW + timedelta(seconds=30), guild=home)))
         posted = log_channel.send.await_args.args[0]
-        assert posted.splitlines()[0].endswith("~습니다") and "<@502>" in posted
+        assert "\n⚔️처형했소 ~습니다\n" in posted and "<@502>" in posted
+        assert posted.startswith("-" * 54) and posted.endswith("\n\u200b")       # frame kept
         command = client.tree.get_command("도움말")
         shown = fake_interaction(home=fake_guild(1))
         asyncio.run(command.callback(shown))

@@ -48,7 +48,7 @@ from yoyackbot.execution import SQLiteExecutionStore
 from yoyackbot.execution_config import install_execution_settings
 from yoyackbot.execution_log import log_message, timeout_event
 from yoyackbot.health import COLLECTION_OK, write_heartbeat
-from yoyackbot.help_command import install_help_command
+from yoyackbot.help_command import install_execution_help, install_help_command
 from yoyackbot.idiom_command import install_idiom_command
 from yoyackbot.input_files import cleanup_abandoned_workspaces, single_gateway
 from yoyackbot.manager_roles import (
@@ -232,6 +232,7 @@ class YoYackClient(discord.Client):
             self.executions = SQLiteExecutionStore(settings.database_path)
             install_execution_settings(self.tree, self.executions, self.manager_roles)
             install_execute_command(self.tree, self.executions, self.remember_execution)
+            install_execution_help(self.tree)
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
@@ -793,7 +794,9 @@ class YoYackClient(discord.Client):
             return
         try:
             await channel.send(
-                localize(guild.id, log_message(event, executor)),
+                localize(guild.id, log_message(
+                    event, executor, self.settings.timezone if self.settings else None,
+                )),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         except (discord.DiscordException, OSError):

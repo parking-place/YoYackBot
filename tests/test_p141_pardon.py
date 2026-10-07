@@ -163,8 +163,8 @@ def test_the_release_log_names_the_pardoner(tmp_path, monkeypatch, caplog) -> No
 
     asyncio.run(scenario())
     first, second = (call.args[0] for call in log_channel.send.await_args_list)
-    assert first.startswith(f"🕊️ **사면** — <@{CALLER}>이(가) <@{TARGET}>의 처형을 풀었소.")
-    assert f"<@{BOT}>이(가)" in second
+    assert f"\n☠️<@{TARGET}> 을(를) 🗡️<@{CALLER}> 이(가) 사면하였소\n" in first
+    assert f"🗡️<@{BOT}> 이(가)" in second
     assert "execution_logged kind=release by_command=True" in caplog.text
     assert "비밀 사유" not in caplog.text
 
@@ -188,7 +188,7 @@ def test_only_the_missing_notices_are_written_and_added(tmp_path, monkeypatch, c
     tone = "점잖은 보고서체로 쓰시오."
     version = tones.save(1, tone, expected_version=0)
     older = {key: text for key, text in table_for().items() if not key.startswith("pardon.")}
-    older["summary.busy"] = "⏳ 1.4.0 때 쓴 문구"
+    older["summary.busy"] = "⏳ 예전에 쓴 문구"
     client.notices.replace(1, version, older)
     monkeypatch.setattr(type(client), "guilds", property(lambda self: [SimpleNamespace(id=1)]))
 
@@ -204,7 +204,7 @@ def test_only_the_missing_notices_are_written_and_added(tmp_path, monkeypatch, c
     pardon_keys = {key for key in CATALOG if key.startswith("pardon.")}
     assert asked == pardon_keys                                   # nothing else is rewritten
     stored = client.notices.current()[1]
-    assert stored["summary.busy"] == "⏳ 1.4.0 때 쓴 문구" and set(stored) == set(CATALOG)
+    assert stored["summary.busy"] == "⏳ 예전에 쓴 문구" and set(stored) == set(CATALOG)
     assert BOOK.table(1) == stored
     assert f"written={len(pardon_keys)} kept=0" in caplog.text and "added=True" in caplog.text
     assert client.notices.pending() == []
