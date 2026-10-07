@@ -21,6 +21,7 @@ from yoyackbot.channel_config import (
     write_authorizer,
 )
 from yoyackbot.manager_roles import ManagerRoleStore
+from yoyackbot.notices import localize
 
 LOGGER = logging.getLogger(__name__)
 INVALID_ROLE = "⚠️ 고를 수 없는 역할이 있소. @everyone과 봇·연동이 관리하는 역할은 고를 수 없소. 🙅"
@@ -161,8 +162,11 @@ class SaveRoles(discord.ui.Button["RoleSettingsView"]):
         for item in view.children:
             item.disabled = True  # type: ignore[attr-defined]
         await interaction.edit_original_response(
-            content=f"💾✅ 봇 관리 역할 {len(draft)}개를 저장했소. 🎉\n{role_summary(guild, draft)}"
-            + (f"\n{CLEANED}" if cleaned else ""),
+            content=localize(
+                interaction.guild_id,
+                f"💾✅ 봇 관리 역할 {len(draft)}개를 저장했소. 🎉\n{role_summary(guild, draft)}"
+                + (f"\n{CLEANED}" if cleaned else ""),
+            ),
             view=view,
         )
 
@@ -177,9 +181,15 @@ class CancelRoles(discord.ui.Button["RoleSettingsView"]):
         for item in view.children:
             item.disabled = True  # type: ignore[attr-defined]
         if interaction.response.is_done():
-            await interaction.edit_original_response(content="↩️ 설정 변경을 취소했소. 🙆", view=view)
+            await interaction.edit_original_response(
+                content=localize(interaction.guild_id, "↩️ 설정 변경을 취소했소. 🙆"),
+                view=view,
+            )
         else:
-            await interaction.response.edit_message(content="↩️ 설정 변경을 취소했소. 🙆", view=view)
+            await interaction.response.edit_message(
+                content=localize(interaction.guild_id, "↩️ 설정 변경을 취소했소. 🙆"),
+                view=view,
+            )
 
 
 class RoleSettingsView(discord.ui.View):
@@ -205,7 +215,10 @@ class RoleSettingsView(discord.ui.View):
             item.disabled = True  # type: ignore[attr-defined]
         if self.message is not None:
             try:
-                await self.message.edit(content="⌛ 설정 시간이 지났소. 명령을 다시 여시오. 🔁", view=self)
+                await self.message.edit(
+                    content=localize(self.guild_id, "⌛ 설정 시간이 지났소. 명령을 다시 여시오. 🔁"),
+                    view=self,
+                )
             except discord.HTTPException:
                 LOGGER.warning("manager_roles_view_expired_edit_failed")
 
@@ -241,8 +254,11 @@ def install_role_commands(tree: app_commands.CommandTree, roles: ManagerRoleStor
             await reject(interaction, "⚠️ 설정을 읽지 못했소. 잠시 후 다시 시도하시오. 🔧")
             return
         await interaction.edit_original_response(
-            content=f"{role_summary(guild, view.draft)}\n🛠️ 추가·제거 후 저장하거나 전체 해제를 고르시오. 👇\n"
-            "👑 관리자는 언제나 쓸 수 있소." + (f"\n{CLEANED}" if cleaned else ""),
+            content=localize(
+                interaction.guild_id,
+                f"{role_summary(guild, view.draft)}\n🛠️ 추가·제거 후 저장하거나 전체 해제를 고르시오. 👇\n"
+                "👑 관리자는 언제나 쓸 수 있소." + (f"\n{CLEANED}" if cleaned else ""),
+            ),
             view=view,
         )
         view.message = await interaction.original_response()

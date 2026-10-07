@@ -6,6 +6,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from yoyackbot.domain import MessageRecord, RangeRequest, RequestKind, SummaryResult
+from yoyackbot.notices import localize
 
 _MENTION = re.compile(r"<@(?P<role>&)?!?(?P<user>\d+)>|<#(?P<channel>\d+)>")
 
@@ -114,12 +115,14 @@ def split_body(text: str, budget: int) -> tuple[str, ...]:
 def format_summary(
     request: RangeRequest, messages: Sequence[MessageRecord], result: SummaryResult,
     timezone: ZoneInfo, *, limit: int = 1900, posted_at: datetime | None = None,
+    guild_id: int | None = None,
 ) -> tuple[str, ...]:
-    """Place the range header once and balance split fenced Markdown blocks."""
+    """Place the range header (in the server's notice wording, 1.4.0) once and balance split
+    fenced Markdown blocks."""
     body = sanitize_mentions(result.text.strip())
     if not body:
         raise ValueError("Summary body must not be empty")
-    header = range_header(request, messages, timezone, posted_at=posted_at)
+    header = localize(guild_id, range_header(request, messages, timezone, posted_at=posted_at))
     budget = limit - utf16_length(header) - 2 - 20
     if budget < 1:
         raise ValueError("Message limit leaves no room for summary")

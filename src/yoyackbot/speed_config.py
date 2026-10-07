@@ -11,6 +11,7 @@ from discord import app_commands
 
 from yoyackbot.channel_config import allowed, command_group, gated, reject
 from yoyackbot.manager_roles import ManagerRoleStore
+from yoyackbot.notices import localize
 from yoyackbot.speed import SQLiteSpeedStore
 
 LOGGER = logging.getLogger(__name__)
@@ -56,7 +57,10 @@ class Close(discord.ui.Button["SpeedView"]):
             await reject(interaction, DENIED)
             return
         view.finish()
-        await interaction.response.edit_message(content=CLOSED, view=view)
+        await interaction.response.edit_message(
+            content=localize(interaction.guild_id, CLOSED),
+            view=view,
+        )
 
 
 class SpeedView(discord.ui.View):
@@ -109,13 +113,16 @@ class SpeedView(discord.ui.View):
         LOGGER.info("speed_saved fast=%s", "true" if fast else "false")
         self.finish()
         notice = TURNED_ON if fast else TURNED_OFF
-        await interaction.edit_original_response(content=f"{notice}\n{speed_message(fast)}", view=self)
+        await interaction.edit_original_response(
+            content=localize(interaction.guild_id, f"{notice}\n{speed_message(fast)}"),
+            view=self,
+        )
 
     async def on_timeout(self) -> None:
         self.finish()
         if self.message is not None:
             try:
-                await self.message.edit(content=EXPIRED, view=self)
+                await self.message.edit(content=localize(self.guild_id, EXPIRED), view=self)
             except discord.HTTPException:
                 LOGGER.warning("speed_view_expired_edit_failed")
 
@@ -137,7 +144,10 @@ def install_speed_command(
             await reject(interaction, READ_FAILED)
             return
         view = SpeedView(speeds, roles, guild.id, interaction.user.id)
-        await interaction.edit_original_response(content=speed_message(fast), view=view)
+        await interaction.edit_original_response(
+            content=localize(interaction.guild_id, speed_message(fast)),
+            view=view,
+        )
         view.message = await interaction.original_response()
 
     tree.add_command(group)

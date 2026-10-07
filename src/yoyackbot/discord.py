@@ -1,6 +1,7 @@
 """Discord Gateway entry point and conservative message boundary."""
 
 import asyncio
+import contextvars
 import logging
 import signal
 import time
@@ -42,6 +43,10 @@ from yoyackbot.collection_status import (
 )
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
+from yoyackbot.execute_command import install_execute_command
+from yoyackbot.execution import SQLiteExecutionStore
+from yoyackbot.execution_config import install_execution_settings
+from yoyackbot.execution_log import log_message, timeout_event
 from yoyackbot.health import COLLECTION_OK, write_heartbeat
 from yoyackbot.help_command import install_help_command
 from yoyackbot.idiom_command import install_idiom_command
@@ -52,6 +57,8 @@ from yoyackbot.manager_roles import (
     SQLiteManagerRoleStore,
 )
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
+from yoyackbot.notice_writer import SQLiteNoticeStore, rewrite_notices
+from yoyackbot.notices import BOOK, localize
 from yoyackbot.parser import (
     HELP_MOVED_NOTICE,
     CommandLimitError,
@@ -70,7 +77,7 @@ from yoyackbot.speed import SQLiteSpeedStore
 from yoyackbot.speed_config import install_speed_command
 from yoyackbot.status_report import StatusReport, collect_status, status_message
 from yoyackbot.tone import SQLiteToneStore
-from yoyackbot.tone_config import install_tone_command
+from yoyackbot.tone_config import install_tone_command, notices_report
 from yoyackbot.usage import (
     USAGE_UNAVAILABLE_NOTICE,
     UsageSnapshot,
@@ -83,6 +90,7 @@ from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
 from yoyackbot.workflow import SummaryWorkflow, build_workflow
 
 LOGGER = logging.getLogger(__name__)
+EXECUTION_MATCH_SECONDS = 120  # /처형 call → its audit log entry
 # A loop that survived this long starts its restart backoff from the beginning again.
 WORKER_STABLE_SECONDS = 300
 # One pass handles at most 20 channels, each page or notice bounded by 60 seconds.
@@ -120,11 +128,12 @@ def classify_message(message: MessageCandidate) -> MessageClass:
 
 
 def required_intents() -> discord.Intents:
-    """Request only guild, guild-message, and message-content events."""
+    """Request only guild, guild-message, message-content and (1.4.0) audit-log events."""
     intents = discord.Intents.none()
     intents.guilds = True
     intents.guild_messages = True
     intents.message_content = True
+    intents.moderation = True  # audit log entries for the 처형 log (not a privileged intent)
     return intents
 
 
@@ -200,21 +209,40 @@ class YoYackClient(discord.Client):
         self._connection_generation = 0
         self._synced_guild_ids: set[int] = set()
         self.tree = app_commands.CommandTree(self)
+        self.executions: SQLiteExecutionStore | None = None
+        # (guild, target) -> (caller, expiry): a /처형 the bot ran, credited to its caller (1.4.0)
+        self._execution_callers: dict[tuple[int, int], tuple[int, float]] = {}
+        # 1.4.0: each server's notices in its tone; one rewrite at a time per server
+        self.notices: SQLiteNoticeStore | None = None
+        self._notice_tasks: dict[int, asyncio.Task[None]] = {}
+        self._notices_caught_up = False
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
         install_role_commands(self.tree, self.manager_roles)
         install_help_command(self.tree, settings)
         install_idiom_command(self.tree, self._on_idiom_slash)
         if settings is not None and isinstance(self.watch_store, SQLiteWatchStore):
+            self.notices = SQLiteNoticeStore(settings.database_path)
             install_tone_command(
                 self.tree, SQLiteToneStore(settings.database_path), self.manager_roles,
+                on_change=self.tone_changed,
             )
             install_speed_command(
                 self.tree, SQLiteSpeedStore(settings.database_path), self.manager_roles,
             )
+            self.executions = SQLiteExecutionStore(settings.database_path)
+            install_execution_settings(self.tree, self.executions, self.manager_roles)
+            install_execute_command(self.tree, self.executions, self.remember_execution)
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
             self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        if self.notices is not None:
+            try:
+                tables = await asyncio.to_thread(self.notices.current)
+                BOOK.load(tables)
+                LOGGER.info("guild_notices_loaded servers=%d", len(tables))
+            except Exception:  # noqa: BLE001 - defaults are always available
+                LOGGER.warning("guild_notices_unreadable")
         if self.message_store is not None and self.settings is not None:
             await self._prune_once()
             if self.backfill_store is None:
@@ -250,6 +278,27 @@ class YoYackClient(discord.Client):
             self.ready_event.set()
         self._write_heartbeat()
         LOGGER.info("gateway_ready guild_count=%d", len(self.guilds))
+        if self.executions is not None and self.guilds:
+            try:  # settings of servers left while an older release ran (1.4.0)
+                removed = await asyncio.to_thread(
+                    self.executions.keep_only, [guild.id for guild in self.guilds],
+                )
+                if removed:
+                    LOGGER.info("execution_settings_pruned count=%d", removed)
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("execution_settings_prune_failed")
+        if self.notices is not None and self.guilds:
+            try:
+                removed = await asyncio.to_thread(
+                    self.notices.keep_only, [guild.id for guild in self.guilds],
+                )
+                if removed:
+                    LOGGER.info("guild_notices_pruned count=%d", removed)
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("guild_notices_prune_failed")
+            if not self._notices_caught_up:
+                self._notices_caught_up = True
+                self._start_notice_task(None, self._catch_up_notices())
         if self.dev_guild_id is not None:
             for guild in self.guilds:
                 try:
@@ -288,6 +337,11 @@ class YoYackClient(discord.Client):
 
     async def close(self) -> None:
         self.ready_event.clear()
+        notice_tasks = [task for task in self._notice_tasks.values() if not task.done()]
+        for task in notice_tasks:
+            task.cancel()
+        await asyncio.gather(*notice_tasks, return_exceptions=True)
+        self._notice_tasks.clear()
         if self._backfill_task is not None:
             self._backfill_task.cancel()
             await asyncio.gather(self._backfill_task, return_exceptions=True)
@@ -581,6 +635,162 @@ class YoYackClient(discord.Client):
                 LOGGER.info("watched_channel_deleted")
         except Exception:  # noqa: BLE001
             LOGGER.warning("watched_channel_delete_cleanup_failed")
+        if self.executions is not None:
+            try:
+                if await asyncio.to_thread(self.executions.remove_channel, channel.guild.id, channel.id):
+                    LOGGER.info("execution_channel_deleted")
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("execution_channel_cleanup_failed")
+
+    def remember_execution(self, guild_id: int, target_id: int, caller_id: int) -> None:
+        """`/처형` is about to time out `target_id`; its audit entry names the bot, not the caller."""
+        now = time.monotonic()
+        self._execution_callers = {
+            key: value for key, value in self._execution_callers.items() if value[1] > now
+        }
+        self._execution_callers[guild_id, target_id] = caller_id, now + EXECUTION_MATCH_SECONDS
+
+    def _execution_caller(self, guild_id: int, target_id: int) -> int | None:
+        found = self._execution_callers.pop((guild_id, target_id), None)
+        return found[0] if found is not None and found[1] > time.monotonic() else None
+
+    def tone_changed(
+        self, interaction: discord.Interaction | None, guild_id: int, version: int,
+        tone: str | None,
+    ) -> None:
+        """1.4.0 `/말투`: the old notices stop at once; a new tone has them rewritten in the
+        background (defaults meanwhile), a reset only drops them."""
+        BOOK.clear(guild_id)
+        if tone is None:
+            self._start_notice_task(guild_id, self._drop_notices(guild_id))
+        else:
+            self._start_notice_task(
+                guild_id, self._write_notices(guild_id, version, tone, interaction),
+            )
+
+    def _start_notice_task(self, guild_id: int | None, work: Awaitable[None]) -> None:
+        """A newer change of the same server replaces the running one. A fresh context keeps
+        a command's timing record out of the background calls."""
+        key = 0 if guild_id is None else guild_id
+        old = self._notice_tasks.pop(key, None)
+        if old is not None:
+            old.cancel()
+        task = asyncio.get_running_loop().create_task(work, context=contextvars.Context())
+        self._notice_tasks[key] = task
+        task.add_done_callback(
+            lambda done: self._notice_tasks.pop(key, None)
+            if self._notice_tasks.get(key) is done else None
+        )
+
+    async def _drop_notices(self, guild_id: int) -> None:
+        if self.notices is None:
+            return
+        try:
+            await asyncio.to_thread(self.notices.clear, guild_id)
+            LOGGER.info("guild_notices_cleared")
+        except Exception:  # noqa: BLE001 - stale rows are never loaded for a default tone
+            LOGGER.warning("guild_notices_clear_failed")
+
+    def _notice_engine(self) -> object | None:
+        if (
+            self.summary_workflow is None and self.settings is not None
+            and isinstance(self.watch_store, SQLiteWatchStore) and self.message_store is not None
+        ):
+            try:
+                self.summary_workflow = build_workflow(
+                    self.settings, self, self.watch_store, self.message_store,
+                )
+            except CodexContractError:
+                LOGGER.warning("summary_workflow_unavailable type=CodexContractError")
+        return getattr(self.summary_workflow, "engine", None)
+
+    async def _write_notices(
+        self, guild_id: int, version: int, tone: str,
+        interaction: discord.Interaction | None = None,
+    ) -> None:
+        """Rewrite, check and store this server's notices; only counts are logged."""
+        engine = self._notice_engine()
+        written = kept = failed_calls = 0
+        reasons: dict[str, int] = {}
+        stored: bool | None = None
+        if engine is not None and self.notices is not None:
+            result = await rewrite_notices(tone, engine.rewrite_notices)
+            kept, failed_calls, reasons = result.kept, result.failed_calls, result.reasons
+            if result.table:
+                try:
+                    stored = await asyncio.to_thread(
+                        self.notices.replace, guild_id, version, result.table,
+                    )
+                except Exception:  # noqa: BLE001
+                    LOGGER.warning("guild_notices_save_failed")
+                    stored = False
+                if stored:
+                    BOOK.set(guild_id, result.table)
+                    written = len(result.table)
+                elif stored is False:
+                    kept += len(result.table)
+        LOGGER.info(
+            "guild_notices_written written=%d kept=%d failed_calls=%d not_stored=%s reasons=%s",
+            written, kept, failed_calls, stored is False,
+            ",".join(f"{name}:{count}" for name, count in sorted(reasons.items())) or "none",
+        )
+        if interaction is None:
+            return
+        try:
+            await interaction.followup.send(
+                localize(guild_id, notices_report(written, kept)), ephemeral=True,
+            )
+        except (discord.HTTPException, AttributeError):
+            LOGGER.warning("guild_notices_report_failed")
+
+    async def _catch_up_notices(self) -> None:
+        """Custom tones saved before 1.4.0 (or interrupted) get their notices once after start."""
+        if self.notices is None:
+            return
+        try:
+            missing = await asyncio.to_thread(self.notices.missing)
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("guild_notices_unreadable")
+            return
+        present = {guild.id for guild in self.guilds}
+        for guild_id, version, tone in missing:
+            if guild_id not in present or guild_id in self._notice_tasks:
+                continue
+            self._start_notice_task(guild_id, self._write_notices(guild_id, version, tone))
+            await asyncio.wait({self._notice_tasks[guild_id]})
+
+    async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry) -> None:
+        """1.4.0: post timeouts applied, extended or lifted to the server's 처형 log channel."""
+        event = timeout_event(entry)
+        guild = getattr(entry, "guild", None)
+        if event is None or guild is None or self.executions is None:
+            return
+        executor = event.executor_id
+        by_command = False
+        if self.user is not None and executor == self.user.id:
+            caller = self._execution_caller(guild.id, event.target_id)
+            if caller is not None:
+                executor, by_command = caller, True
+        try:
+            channel_id = await asyncio.to_thread(self.executions.log_channel, guild.id)
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("execution_log_settings_unreadable")
+            return
+        if channel_id is None:
+            return
+        channel = guild.get_channel(channel_id)
+        if channel is None or not valid_channel(guild, channel_id):
+            LOGGER.warning("execution_log_channel_unavailable")
+            return
+        try:
+            await channel.send(
+                localize(guild.id, log_message(event, executor)),
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        except (discord.DiscordException, OSError):
+            LOGGER.warning("execution_log_post_failed")
+            return
+        LOGGER.info("execution_logged kind=%s by_command=%s", event.kind, by_command)
 
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         try:
@@ -592,6 +802,10 @@ class YoYackClient(discord.Client):
             await asyncio.to_thread(self.manager_roles.remove_guild, guild.id)
         except Exception:  # noqa: BLE001
             LOGGER.warning("manager_roles_cleanup_failed")
+        BOOK.clear(guild.id)  # the rows went with the server's settings above
+        task = self._notice_tasks.pop(guild.id, None)
+        if task is not None:
+            task.cancel()
 
     async def on_guild_role_delete(self, role: discord.Role) -> None:
         try:
@@ -599,6 +813,12 @@ class YoYackClient(discord.Client):
                 LOGGER.info("manager_role_deleted")
         except Exception:  # noqa: BLE001
             LOGGER.warning("manager_role_cleanup_failed")
+        if self.executions is not None:
+            try:
+                if await asyncio.to_thread(self.executions.remove_role, role.guild.id, role.id):
+                    LOGGER.info("execution_role_deleted")
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("execution_role_cleanup_failed")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if classify_message(after) is not MessageClass.HUMAN_TEXT or after.guild is None:
@@ -688,14 +908,16 @@ class YoYackClient(discord.Client):
         if route.kind is RouteKind.HELP:
             LOGGER.info("help_request surface=text")
             await message.channel.send(
-                HELP_MOVED_NOTICE, allowed_mentions=discord.AllowedMentions.none()
+                localize(message.guild.id, HELP_MOVED_NOTICE),
+                allowed_mentions=discord.AllowedMentions.none(),
             )
             return
         assert message.guild is not None
         if route.kind in (RouteKind.USAGE, RouteKind.STATUS, RouteKind.CHANNELS):
             async def send_usage(notice: str) -> None:
                 await message.channel.send(
-                    notice, allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True,
+                    localize(message.guild.id, notice),
+                    allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True,
                 )
 
             async def handle_usage(_lease: ChannelLease) -> None:
@@ -727,7 +949,10 @@ class YoYackClient(discord.Client):
             accepted_at = self.clock()
 
             async def send_notice(notice: str) -> None:
-                await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
+                await message.channel.send(
+                    localize(message.guild.id, notice),
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
 
             async def handle_request(lease: ChannelLease) -> None:
                 if self.settings is None:
@@ -1022,18 +1247,22 @@ class YoYackClient(discord.Client):
             except CodexContractError as exc:
                 LOGGER.warning("summary_workflow_unavailable type=%s", type(exc).__name__)
                 await message.channel.send(
-                    UNAVAILABLE_NOTICE, allowed_mentions=discord.AllowedMentions.none()
+                    localize(message.guild.id, UNAVAILABLE_NOTICE),
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
                 return
         if self.summary_workflow is None:
             await message.channel.send(
-                PREVIEW_NOTICE, allowed_mentions=discord.AllowedMentions.none()
+                localize(message.guild.id, PREVIEW_NOTICE),
+                allowed_mentions=discord.AllowedMentions.none(),
             )
             return
         assert message.guild is not None
 
         async def send_notice(notice: str) -> None:
-            await message.channel.send(notice, allowed_mentions=discord.AllowedMentions.none())
+            await message.channel.send(
+                localize(message.guild.id, notice), allowed_mentions=discord.AllowedMentions.none(),
+            )
 
         await self.summary_workflow.run(
             SummaryRequest(

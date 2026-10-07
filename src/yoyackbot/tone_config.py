@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from time import monotonic
 
@@ -12,6 +13,7 @@ from discord import app_commands
 
 from yoyackbot.channel_config import ConcurrentUpdate, allowed, bot_command, reject
 from yoyackbot.manager_roles import ManagerRoleStore
+from yoyackbot.notices import localize
 from yoyackbot.summary_prompt import TONE_DEFAULT, TONE_LIMIT
 from yoyackbot.tone import SQLiteToneStore, ToneTooLong, clean_tone
 
@@ -25,7 +27,14 @@ READ_FAILED = "⚠️ 말투를 읽지 못했소. 잠시 후 다시 시도하시
 SAVED = "💾✅ 말투를 저장했소. 🎭"
 RESET = "↩️ 기본 말투로 돌아갔소. 🙆"
 CLOSED = "👋 말투 화면을 닫았소."
+NOTICES_WRITING = "📝 이 서버의 안내 문구를 새 말투로 고쳐 쓰는 중이오. 끝나면 알려주겠소. ⏳"
+NOTICES_FAILED = (
+    "⚠️ 안내 문구를 새 말투로 바꾸지 못해 기본 문구를 쓰오. 말투를 다시 저장하면 다시 해보겠소. 🔧"
+)
 _SHOWN = 1700
+# 1.4.0: told about every saved change (interaction, server, tone version, tone or None), so the
+# server's notices are rewritten for the new tone or dropped on reset.
+ToneChanged = Callable[[discord.Interaction, int, int, str | None], None]
 
 
 def tone_message(text: str | None) -> str:
@@ -36,6 +45,15 @@ def tone_message(text: str | None) -> str:
         body = body[:_SHOWN] + "…"
     quoted = "\n".join("> " + line if line else ">" for line in body.splitlines())
     return f"{label}\n{quoted}\n✏️ 수정하거나 기본값으로 되돌릴 수 있소. 👇"
+
+
+def notices_report(written: int, kept: int) -> str:
+    """What the opener of `/말투` is told once the notices are rewritten (1.4.0)."""
+    if written == 0:
+        return NOTICES_FAILED
+    if kept:
+        return f"🎭 안내 문구 {written}개를 바꾸었고, 바꾸지 못한 {kept}개는 기본 문구를 쓰오. 🔧"
+    return f"🎭✅ 안내 문구 {written}개를 이 서버 말투로 바꾸었소. 🎉"
 
 
 def _now() -> str:
@@ -104,15 +122,16 @@ class CloseTone(discord.ui.Button["ToneView"]):
             await reject(interaction, DENIED)
             return
         view.finish()
-        await interaction.response.edit_message(content=CLOSED, view=view)
+        await interaction.response.edit_message(content=localize(interaction.guild_id, CLOSED), view=view)
 
 
 class ToneView(discord.ui.View):
     def __init__(
         self, tones: SQLiteToneStore, roles: ManagerRoleStore, guild_id: int, owner_id: int,
-        *, snapshot: tuple[int, str | None],
+        *, snapshot: tuple[int, str | None], on_change: ToneChanged | None = None,
     ) -> None:
         super().__init__(timeout=120)
+        self.on_change = on_change
         self.tones = tones
         self.roles = roles
         self.guild_id = guild_id
@@ -170,19 +189,26 @@ class ToneView(discord.ui.View):
             LOGGER.info("tone_saved at=%s chars=%d", _now(), len(content))
         self.finish()
         notice = SAVED if content is not None else RESET
-        await interaction.edit_original_response(content=f"{notice}\n{tone_message(content)}", view=self)
+        if self.on_change is not None:  # first, so this reply already drops the old notices
+            self.on_change(interaction, self.guild_id, self.version, content)
+            if content is not None:
+                notice += "\n" + NOTICES_WRITING
+        await interaction.edit_original_response(
+            content=localize(interaction.guild_id, f"{notice}\n{tone_message(content)}"), view=self,
+        )
 
     async def on_timeout(self) -> None:
         self.finish()
         if self.message is not None:
             try:
-                await self.message.edit(content=EXPIRED, view=self)
+                await self.message.edit(content=localize(self.guild_id, EXPIRED), view=self)
             except discord.HTTPException:
                 LOGGER.warning("tone_view_expired_edit_failed")
 
 
 def install_tone_command(
     tree: app_commands.CommandTree, tones: SQLiteToneStore, roles: ManagerRoleStore,
+    on_change: ToneChanged | None = None,
 ) -> None:
     @bot_command(roles)
     async def tone(interaction: discord.Interaction) -> None:
@@ -194,8 +220,12 @@ def install_tone_command(
             LOGGER.warning("tone_read_failed")
             await reject(interaction, READ_FAILED)
             return
-        view = ToneView(tones, roles, guild.id, interaction.user.id, snapshot=snapshot)
-        await interaction.edit_original_response(content=tone_message(snapshot[1]), view=view)
+        view = ToneView(
+            tones, roles, guild.id, interaction.user.id, snapshot=snapshot, on_change=on_change,
+        )
+        await interaction.edit_original_response(
+            content=localize(interaction.guild_id, tone_message(snapshot[1])), view=view,
+        )
         view.message = await interaction.original_response()
 
     tree.add_command(app_commands.Command(

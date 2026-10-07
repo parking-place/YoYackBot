@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 import discord
 from discord import app_commands
 
+from yoyackbot.notices import localize
+
 if TYPE_CHECKING:
     from yoyackbot.manager_roles import ManagerRoleStore
     from yoyackbot.role_config import RoleSettingsView
@@ -243,6 +245,8 @@ def selection_summary(guild: discord.Guild, channel_ids: Iterable[int]) -> str:
 
 
 async def reject(interaction: discord.Interaction, message: str) -> None:
+    """An ephemeral notice, in the server's own wording when its tone has notices (1.4.0)."""
+    message = localize(interaction.guild_id, message)
     if interaction.response.is_done():
         await interaction.followup.send(message, ephemeral=True)
     else:
@@ -351,7 +355,10 @@ class SaveChannels(discord.ui.Button["ChannelSettingsView"]):
         for item in view.children:
             item.disabled = True
         await interaction.edit_original_response(
-            content=f"💾✅ 주시 채널 {len(draft)}개를 저장했소. 🎉\n{selection_summary(guild, draft)}",
+            content=localize(
+                interaction.guild_id,
+                f"💾✅ 주시 채널 {len(draft)}개를 저장했소. 🎉\n{selection_summary(guild, draft)}",
+            ),
             view=view,
         )
 
@@ -366,9 +373,15 @@ class CancelChannels(discord.ui.Button["ChannelSettingsView"]):
         for item in self.view.children:
             item.disabled = True
         if interaction.response.is_done():
-            await interaction.edit_original_response(content="↩️ 설정 변경을 취소했소. 🙆", view=self.view)
+            await interaction.edit_original_response(
+                content=localize(interaction.guild_id, "↩️ 설정 변경을 취소했소. 🙆"),
+                view=self.view,
+            )
         else:
-            await interaction.response.edit_message(content="↩️ 설정 변경을 취소했소. 🙆", view=self.view)
+            await interaction.response.edit_message(
+                content=localize(interaction.guild_id, "↩️ 설정 변경을 취소했소. 🙆"),
+                view=self.view,
+            )
 
 
 class ChannelSettingsView(discord.ui.View):
@@ -398,7 +411,10 @@ class ChannelSettingsView(discord.ui.View):
             item.disabled = True
         if self.message is not None:
             try:
-                await self.message.edit(content="⌛ 설정 시간이 지났소. 명령을 다시 여시오. 🔁", view=self)
+                await self.message.edit(
+                    content=localize(self.guild_id, "⌛ 설정 시간이 지났소. 명령을 다시 여시오. 🔁"),
+                    view=self,
+                )
             except discord.HTTPException:
                 LOGGER.warning("watched_channel_view_expired_edit_failed")
 
@@ -438,7 +454,10 @@ def install_channel_commands(
             await reject(interaction, "⚠️ 설정을 읽지 못했소. 잠시 후 다시 시도하시오. 🔧")
             return
         await interaction.edit_original_response(
-            content=f"{selection_summary(guild, view.draft)}\n🛠️ 추가·제거 후 저장하거나 전체 해제를 고르시오. 👇",
+            content=localize(
+                interaction.guild_id,
+                f"{selection_summary(guild, view.draft)}\n🛠️ 추가·제거 후 저장하거나 전체 해제를 고르시오. 👇",
+            ),
             view=view,
         )
         view.message = await interaction.original_response()
