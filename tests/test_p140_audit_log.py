@@ -58,12 +58,17 @@ def test_other_entries_are_ignored(item) -> None:
 
 def test_message_formats() -> None:
     applied = log_message(timeout_event(entry(None, NOW + timedelta(seconds=30))), MOD)
-    assert applied == (f"⚔️ **처형** — 처형자 <@{MOD}> → 처형인 <@{TARGET}>\n"
-                       f"⏱️ 30초 (<t:{int((NOW + timedelta(seconds=30)).timestamp())}:f>까지)\n📝 사유: 도배")
+    rule = "-" * 54
+    # 1.4.1b layout; NOW is 12:00 UTC, so the end is shown as 21:00 KST
+    assert applied == (f"{rule}\n⚔️처형했소\n\n☠️<@{TARGET}> 을(를) 🗡️<@{MOD}> 이(가) 처형하였소.\n\n"
+                       '📜사유는 "도배" 이며, ⏳30초 동안 시체요.\n\n'
+                       f"🕑2026-10-07 21:00 이후에 오시오🚨\n{rule}\n\u200b")
     extended = log_message(timeout_event(entry(NOW + timedelta(minutes=1), NOW + timedelta(hours=1, minutes=30))), MOD)
-    assert extended.startswith("⚔️ **처형 연장**") and "1시간 30분" in extended
+    assert "\n⚔️처형을 연장했소\n" in extended and "⏳1시간 30분 동안" in extended
+    assert "이(가) 처형을 연장하였소." in extended
     released = log_message(timeout_event(entry(NOW + timedelta(minutes=1), None, reason=None)), MOD)
-    assert released == f"🕊️ **사면** — <@{MOD}>이(가) <@{TARGET}>의 처형을 풀었소.\n📝 사유: {NO_REASON}"
+    assert released == (f"{rule}\n🕊️ 사면되었소\n\n☠️<@{TARGET}> 을(를) 🗡️<@{MOD}> 이(가) 사면하였소\n\n"
+                        f'📜사유는 "{NO_REASON}" 이였소.\n\n🗽자유를 만끽하시오!⛓️‍💥\n{rule}\n\u200b')
     assert log_message(timeout_event(entry(None, NOW + timedelta(days=28))), None).count("알 수 없는 사람") == 1
     assert duration_text(timedelta(days=2, hours=3, minutes=4)) == "2일 3시간"
     assert reason_text("  줄\n바꿈  ") == "줄 바꿈" and reason_text("가" * 500).endswith("…")
@@ -100,7 +105,7 @@ def test_a_timeout_is_posted_without_pings(tmp_path, monkeypatch, caplog) -> Non
     item = entry(None, NOW + timedelta(seconds=30), guild=home, reason="비밀 사유")
     run(client, lambda: client.on_audit_log_entry_create(item))
     text = log_channel.send.await_args.args[0]
-    assert text.startswith(f"⚔️ **처형** — 처형자 <@{MOD}>")
+    assert f"🗡️<@{MOD}> 이(가) 처형하였소." in text and text.endswith("\n\u200b")
     mentions = log_channel.send.await_args.kwargs["allowed_mentions"]
     assert not mentions.users and not mentions.roles and not mentions.everyone
     assert "execution_logged kind=apply by_command=False" in caplog.text and "비밀 사유" not in caplog.text
@@ -120,7 +125,7 @@ def test_the_bots_own_timeout_names_the_command_caller_once(tmp_path, monkeypatc
     client.remember_execution(1, TARGET, CALLER)
     run(client, lambda: client.on_audit_log_entry_create(by_bot), lambda: client.on_audit_log_entry_create(by_bot))
     first, second = (call.args[0] for call in log_channel.send.await_args_list)
-    assert f"처형자 <@{CALLER}>" in first and f"처형자 <@{BOT}>" in second   # matched once only
+    assert f"🗡️<@{CALLER}> 이(가)" in first and f"🗡️<@{BOT}> 이(가)" in second   # matched once only
 
 
 def test_a_stale_caller_is_not_used(tmp_path, monkeypatch) -> None:
@@ -129,7 +134,7 @@ def test_a_stale_caller_is_not_used(tmp_path, monkeypatch) -> None:
     client._execution_callers[1, TARGET] = (CALLER, 0.0)  # expired
     run(client, lambda: client.on_audit_log_entry_create(
         entry(None, NOW + timedelta(seconds=30), guild=home, user_id=BOT)))
-    assert f"처형자 <@{BOT}>" in log_channel.send.await_args.args[0]
+    assert f"🗡️<@{BOT}> 이(가)" in log_channel.send.await_args.args[0]
 
 
 @pytest.mark.parametrize("problem", ["invalid", "send_fails", "unreadable"])
