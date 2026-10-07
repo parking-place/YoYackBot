@@ -58,7 +58,7 @@ from yoyackbot.manager_roles import (
 )
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
 from yoyackbot.notice_writer import SQLiteNoticeStore, rewrite_notices
-from yoyackbot.notices import BOOK, localize
+from yoyackbot.notices import BOOK, CATALOG, localize
 from yoyackbot.parser import (
     HELP_MOVED_NOTICE,
     CommandLimitError,
@@ -706,32 +706,37 @@ class YoYackClient(discord.Client):
 
     async def _write_notices(
         self, guild_id: int, version: int, tone: str,
-        interaction: discord.Interaction | None = None,
+        interaction: discord.Interaction | None = None, *, keys: frozenset[str] | None = None,
     ) -> None:
-        """Rewrite, check and store this server's notices; only counts are logged."""
+        """Rewrite, check and store this server's notices (or only `keys`, added to those already
+        written, 1.4.1); only counts are logged."""
         engine = self._notice_engine()
         written = kept = failed_calls = 0
         reasons: dict[str, int] = {}
         stored: bool | None = None
         if engine is not None and self.notices is not None:
-            result = await rewrite_notices(tone, engine.rewrite_notices)
+            result = await rewrite_notices(tone, engine.rewrite_notices, keys=keys)
             kept, failed_calls, reasons = result.kept, result.failed_calls, result.reasons
             if result.table:
                 try:
                     stored = await asyncio.to_thread(
-                        self.notices.replace, guild_id, version, result.table,
+                        self.notices.add if keys is not None else self.notices.replace,
+                        guild_id, version, result.table,
                     )
                 except Exception:  # noqa: BLE001
                     LOGGER.warning("guild_notices_save_failed")
                     stored = False
                 if stored:
-                    BOOK.set(guild_id, result.table)
+                    BOOK.set(guild_id, (
+                        {**BOOK.table(guild_id), **result.table} if keys is not None else result.table
+                    ))
                     written = len(result.table)
                 elif stored is False:
                     kept += len(result.table)
         LOGGER.info(
-            "guild_notices_written written=%d kept=%d failed_calls=%d not_stored=%s reasons=%s",
-            written, kept, failed_calls, stored is False,
+            "guild_notices_written written=%d kept=%d failed_calls=%d not_stored=%s added=%s "
+            "reasons=%s",
+            written, kept, failed_calls, stored is False, keys is not None,
             ",".join(f"{name}:{count}" for name, count in sorted(reasons.items())) or "none",
         )
         if interaction is None:
@@ -744,19 +749,23 @@ class YoYackClient(discord.Client):
             LOGGER.warning("guild_notices_report_failed")
 
     async def _catch_up_notices(self) -> None:
-        """Custom tones saved before 1.4.0 (or interrupted) get their notices once after start."""
+        """Once after start: custom tones saved before 1.4.0 (or interrupted) get all their
+        notices, and servers missing notices a release added (1.4.1) get only those."""
         if self.notices is None:
             return
         try:
-            missing = await asyncio.to_thread(self.notices.missing)
+            pending = await asyncio.to_thread(self.notices.pending)
         except Exception:  # noqa: BLE001
             LOGGER.warning("guild_notices_unreadable")
             return
         present = {guild.id for guild in self.guilds}
-        for guild_id, version, tone in missing:
+        for guild_id, version, tone, written in pending:
             if guild_id not in present or guild_id in self._notice_tasks:
                 continue
-            self._start_notice_task(guild_id, self._write_notices(guild_id, version, tone))
+            keys = frozenset(CATALOG) - written if written else None
+            self._start_notice_task(
+                guild_id, self._write_notices(guild_id, version, tone, keys=keys),
+            )
             await asyncio.wait({self._notice_tasks[guild_id]})
 
     async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry) -> None:

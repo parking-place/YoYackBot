@@ -149,14 +149,27 @@ class SQLiteNoticeStore:
                 tables.setdefault(guild_id, {})[key] = content
         return tables
 
-    def missing(self) -> list[tuple[int, int, str]]:
-        """(server, tone version, tone) for custom tones that have no notices written yet."""
+    def pending(self) -> list[tuple[int, int, str, frozenset[str]]]:
+        """(server, tone version, tone, keys already written) for every custom tone that lacks
+        some catalog notice, e.g. saved before 1.4.0 or before a release added notices (1.4.1)."""
         with self._connection() as connection:
-            return [tuple(row) for row in connection.execute(
-                "SELECT t.guild_id, t.version, t.content FROM guild_tones t "
-                "WHERE t.content IS NOT NULL AND NOT EXISTS (SELECT 1 FROM guild_notices n "
-                "WHERE n.guild_id=t.guild_id AND n.tone_version=t.version) ORDER BY t.guild_id"
-            )]
+            tones = connection.execute(
+                "SELECT guild_id, version, content FROM guild_tones WHERE content IS NOT NULL "
+                "ORDER BY guild_id"
+            ).fetchall()
+            rows = connection.execute(
+                "SELECT n.guild_id, n.notice_key FROM guild_notices n JOIN guild_tones t "
+                "ON t.guild_id=n.guild_id AND t.version=n.tone_version"
+            ).fetchall()
+        written: dict[int, set[str]] = {}
+        for guild_id, key in rows:
+            if key in CATALOG:
+                written.setdefault(guild_id, set()).add(key)
+        return [
+            (guild_id, version, content, frozenset(written.get(guild_id, ())))
+            for guild_id, version, content in tones
+            if len(written.get(guild_id, ())) < len(CATALOG)
+        ]
 
     def replace(self, guild_id: int, tone_version: int, table: Mapping[str, str]) -> bool:
         """Store `table` only if the server's tone is still that version; False otherwise."""
@@ -172,6 +185,29 @@ class SQLiteNoticeStore:
             connection.executemany(
                 "INSERT INTO guild_notices(guild_id, notice_key, content, tone_version, updated_us) "
                 "VALUES (?, ?, ?, ?, ?)",
+                [(guild_id, key, text, tone_version, now) for key, text in sorted(table.items())],
+            )
+            return True
+
+    def add(self, guild_id: int, tone_version: int, table: Mapping[str, str]) -> bool:
+        """Add notices next to those already written for this tone version; False if stale."""
+        with self._connection() as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT version, content FROM guild_tones WHERE guild_id=?", (guild_id,)
+            ).fetchone()
+            if row is None or row[0] != tone_version or row[1] is None:
+                return False
+            connection.execute(
+                "DELETE FROM guild_notices WHERE guild_id=? AND tone_version<>?",
+                (guild_id, tone_version),
+            )
+            now = _now_us()
+            connection.executemany(
+                "INSERT INTO guild_notices(guild_id, notice_key, content, tone_version, updated_us) "
+                "VALUES (?, ?, ?, ?, ?) ON CONFLICT(guild_id, notice_key) DO UPDATE SET "
+                "content=excluded.content, tone_version=excluded.tone_version, "
+                "updated_us=excluded.updated_us",
                 [(guild_id, key, text, tone_version, now) for key, text in sorted(table.items())],
             )
             return True

@@ -1,4 +1,5 @@
-"""`/처형 대상 시간 사유` (1.4.0): members with a 처형 role time someone out through the bot."""
+"""`/처형 대상 시간 사유` (1.4.0) and `/사면 대상 사유` (1.4.1): members with a 처형 role time
+someone out, or lift it, through the bot."""
 
 from __future__ import annotations
 
@@ -6,7 +7,7 @@ import asyncio
 import logging
 import re
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import discord
 from discord import app_commands
@@ -32,6 +33,21 @@ HIGHER = "⬆️ 자기와 같거나 높은 역할의 사람은 처형할 수 �
 BOT_CANNOT = "🔧 봇에 타임아웃 권한이 없거나 봇의 역할이 그 사람보다 낮아 처형할 수 없소."
 FAILED = "⚠️ 처형하지 못했소. 잠시 후 다시 시도하시오. 🔧"
 READ_FAILED = "⚠️ 처형 설정을 읽지 못했소. 잠시 후 다시 시도하시오. 🔧"
+# 1.4.1 `/사면`: the same people, hierarchy and default reason as `/처형` (user decisions).
+PARDON_NOT_ALLOWED = "🚫 사면은 처형 역할이 있는 사람이나 관리자만 할 수 있소. 🙅"
+PARDON_SELF = "🙃 자기 자신은 사면할 수 없소."
+PARDON_BOT = "🤖 봇은 사면할 대상이 아니오."
+PARDON_PROTECTED = "🛡️ 서버 주인이나 관리자는 처형되지 않으니 사면할 것도 없소."
+PARDON_HIGHER = "⬆️ 자기와 같거나 높은 역할의 사람은 사면할 수 없소."
+PARDON_BOT_CANNOT = "🔧 봇에 타임아웃 권한이 없거나 봇의 역할이 그 사람보다 낮아 사면할 수 없소."
+NOT_TIMED_OUT = "🕊️ 그 사람은 지금 처형 중이 아니오."
+PARDON_FAILED = "⚠️ 사면하지 못했소. 잠시 후 다시 시도하시오. 🔧"
+_REFUSALS = {
+    "execute": {"self": SELF, "bot": BOT_TARGET, "protected": PROTECTED, "higher": HIGHER,
+                "bot_cannot": BOT_CANNOT},
+    "pardon": {"self": PARDON_SELF, "bot": PARDON_BOT, "protected": PARDON_PROTECTED,
+               "higher": PARDON_HIGHER, "bot_cannot": PARDON_BOT_CANNOT},
+}
 
 
 class DurationError(ValueError):
@@ -68,23 +84,31 @@ def _position(member: object) -> int:
     return getattr(getattr(member, "top_role", None), "position", 0)
 
 
-def refusal(guild: discord.Guild, caller: object, target: object) -> str | None:
-    """Why this caller may not time out this target through the bot, or None."""
+def refusal(
+    guild: discord.Guild, caller: object, target: object, *, command: str = "execute",
+) -> str | None:
+    """Why this caller may not time out (or pardon) this target through the bot, or None."""
     owner_id = getattr(guild, "owner_id", None)
+    texts = _REFUSALS[command]
     if target.id == caller.id:
-        return SELF
+        return texts["self"]
     if getattr(target, "bot", False):
-        return BOT_TARGET
+        return texts["bot"]
     target_permissions = getattr(target, "guild_permissions", None)
     if target.id == owner_id or getattr(target_permissions, "administrator", False):
-        return PROTECTED
+        return texts["protected"]
     if caller.id != owner_id and _position(target) >= _position(caller):
-        return HIGHER
+        return texts["higher"]
     me = getattr(guild, "me", None)
     my_permissions = getattr(me, "guild_permissions", None)
     if me is None or not getattr(my_permissions, "moderate_members", False) or _position(target) >= _position(me):
-        return BOT_CANNOT
+        return texts["bot_cannot"]
     return None
+
+
+def timed_out(member: object, now: datetime | None = None) -> bool:
+    until = getattr(member, "timed_out_until", None)
+    return until is not None and until > (now or datetime.now(UTC))
 
 
 async def _answer(interaction: discord.Interaction, text: str) -> None:
@@ -94,6 +118,35 @@ async def _answer(interaction: discord.Interaction, text: str) -> None:
     )
 
 
+async def _permitted_caller(
+    interaction: discord.Interaction, store: SQLiteExecutionStore, denied: str,
+) -> tuple[object | None, str]:
+    """The caller, freshly read, if they hold a 처형 role, administer or own the server."""
+    guild = interaction.guild
+    if guild is None:
+        await _answer(interaction, denied)
+        return None, "not_allowed"
+    try:
+        caller = await guild.fetch_member(interaction.user.id)
+    except discord.HTTPException:
+        await _answer(interaction, denied)
+        return None, "not_allowed"
+    try:
+        roles = await asyncio.to_thread(store.roles, guild.id)
+    except Exception:  # noqa: BLE001
+        LOGGER.warning("execution_roles_unreadable")
+        await _answer(interaction, READ_FAILED)
+        return None, "unavailable"
+    permissions = getattr(caller, "guild_permissions", None)
+    if not (
+        caller.id == getattr(guild, "owner_id", None) or getattr(permissions, "administrator", False)
+        or any(getattr(role, "id", None) in roles for role in getattr(caller, "roles", ()))
+    ):
+        await _answer(interaction, denied)
+        return None, "not_allowed"
+    return caller, "allowed"
+
+
 async def run_execution(
     interaction: discord.Interaction, target: discord.Member, time_text: str | None,
     reason_text: str | None, *, store: SQLiteExecutionStore,
@@ -101,28 +154,10 @@ async def run_execution(
 ) -> str:
     """Returns an outcome category (logged without names or reason)."""
     await interaction.response.defer(ephemeral=True)
+    caller, outcome = await _permitted_caller(interaction, store, NOT_ALLOWED)
+    if caller is None:
+        return outcome
     guild = interaction.guild
-    if guild is None:
-        await _answer(interaction, NOT_ALLOWED)
-        return "not_allowed"
-    try:
-        caller = await guild.fetch_member(interaction.user.id)
-    except discord.HTTPException:
-        await _answer(interaction, NOT_ALLOWED)
-        return "not_allowed"
-    try:
-        roles = await asyncio.to_thread(store.roles, guild.id)
-    except Exception:  # noqa: BLE001
-        LOGGER.warning("execution_roles_unreadable")
-        await _answer(interaction, READ_FAILED)
-        return "unavailable"
-    permissions = getattr(caller, "guild_permissions", None)
-    if not (
-        caller.id == getattr(guild, "owner_id", None) or getattr(permissions, "administrator", False)
-        or any(getattr(role, "id", None) in roles for role in getattr(caller, "roles", ()))
-    ):
-        await _answer(interaction, NOT_ALLOWED)
-        return "not_allowed"
     try:
         seconds = parse_duration(time_text)
     except DurationError:
@@ -149,6 +184,40 @@ async def run_execution(
     return "success"
 
 
+async def run_pardon(
+    interaction: discord.Interaction, target: discord.Member, reason_text: str | None,
+    *, store: SQLiteExecutionStore, remember: Callable[[int, int, int], None],
+) -> str:
+    """1.4.1 `/사면`: lift a timeout. Returns an outcome category (no names or reason)."""
+    await interaction.response.defer(ephemeral=True)
+    caller, outcome = await _permitted_caller(interaction, store, PARDON_NOT_ALLOWED)
+    if caller is None:
+        return outcome
+    guild = interaction.guild
+    reason = clean_reason(reason_text)
+    if len(reason) > MAX_REASON:
+        await _answer(interaction, LONG_REASON)
+        return "long_reason"
+    blocked = refusal(guild, caller, target, command="pardon")
+    if blocked is not None:
+        await _answer(interaction, blocked)
+        return "refused"
+    if not timed_out(target):
+        await _answer(interaction, NOT_TIMED_OUT)
+        return "not_timed_out"
+    remember(guild.id, target.id, caller.id)  # the audit entry will name the bot
+    try:
+        await target.timeout(None, reason=reason)
+    except discord.Forbidden:
+        await _answer(interaction, PARDON_BOT_CANNOT)
+        return "forbidden"
+    except discord.HTTPException:
+        await _answer(interaction, PARDON_FAILED)
+        return "failed"
+    await _answer(interaction, f"🕊️ <@{target.id}>의 처형을 풀었소. 📝 사유: {reason}")
+    return "success"
+
+
 def install_execute_command(
     tree: app_commands.CommandTree, store: SQLiteExecutionStore,
     remember: Callable[[int, int, int], None],
@@ -166,4 +235,18 @@ def install_execute_command(
     execute.__yoyack_gated__ = True  # type: ignore[attr-defined] - roles checked at run time
     tree.add_command(app_commands.Command(
         name="처형", description="처형 역할로 이 사람을 타임아웃하오", callback=execute,
+    ))
+
+    @app_commands.guild_only()
+    @app_commands.default_permissions(use_application_commands=True)
+    @app_commands.describe(대상="사면할 사람", 사유="기본: 내맴")
+    async def pardon(
+        interaction: discord.Interaction, 대상: discord.Member, 사유: str | None = None,
+    ) -> None:
+        outcome = await run_pardon(interaction, 대상, 사유, store=store, remember=remember)
+        LOGGER.info("pardon_command outcome=%s", outcome)
+
+    pardon.__yoyack_gated__ = True  # type: ignore[attr-defined] - roles checked at run time
+    tree.add_command(app_commands.Command(
+        name="사면", description="처형 역할로 이 사람의 타임아웃을 푸오", callback=pardon,
     ))
