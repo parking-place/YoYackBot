@@ -42,6 +42,9 @@ PARDON_HIGHER = "⬆️ 자기와 같거나 높은 역할의 사람은 사면할
 PARDON_BOT_CANNOT = "🔧 봇에 타임아웃 권한이 없거나 봇의 역할이 그 사람보다 낮아 사면할 수 없소."
 NOT_TIMED_OUT = "🕊️ 그 사람은 지금 처형 중이 아니오."
 PARDON_FAILED = "⚠️ 사면하지 못했소. 잠시 후 다시 시도하시오. 🔧"
+# 1.4.1c: a plain message in the channel where the command was used, after it succeeded.
+EXECUTE_MARK = "☠️"
+PARDON_MARK = "🕊️"
 _REFUSALS = {
     "execute": {"self": SELF, "bot": BOT_TARGET, "protected": PROTECTED, "higher": HIGHER,
                 "bot_cannot": BOT_CANNOT},
@@ -118,6 +121,18 @@ async def _answer(interaction: discord.Interaction, text: str) -> None:
     )
 
 
+async def _mark(interaction: discord.Interaction, mark: str) -> None:
+    """Not a reply to the command, so no "used /처형" header; a failure only loses the mark."""
+    channel = getattr(interaction, "channel", None)
+    if channel is None or not hasattr(channel, "send"):
+        LOGGER.warning("execution_mark_unavailable")
+        return
+    try:
+        await channel.send(mark, allowed_mentions=discord.AllowedMentions.none())
+    except (discord.DiscordException, OSError):
+        LOGGER.warning("execution_mark_failed")
+
+
 async def _permitted_caller(
     interaction: discord.Interaction, store: SQLiteExecutionStore, denied: str,
 ) -> tuple[object | None, str]:
@@ -181,6 +196,7 @@ async def run_execution(
         await _answer(interaction, FAILED)
         return "failed"
     await _answer(interaction, f"⚔️ <@{target.id}>을(를) {span_text(seconds)} 동안 처형했소. 📝 사유: {reason}")
+    await _mark(interaction, EXECUTE_MARK)
     return "success"
 
 
@@ -215,6 +231,7 @@ async def run_pardon(
         await _answer(interaction, PARDON_FAILED)
         return "failed"
     await _answer(interaction, f"🕊️ <@{target.id}>의 처형을 풀었소. 📝 사유: {reason}")
+    await _mark(interaction, PARDON_MARK)
     return "success"
 
 
