@@ -6,5 +6,5 @@
 |---|---|---|---|---|
 | `T141c-P1-A` | [P1](01-channel-mark.md) | LXC 합성 | 처형 성공 “☠️”·사면 성공 “🕊️” 한 번, 멘션 없음, 거부·실패 때 0번 | PASS |
 | `T141c-P1-B` | [P1](01-channel-mark.md) | LXC 합성 | 채널 없음·보내기 실패에도 결과 성공·범주 로그, 본인 답·처형 로그 그대로, 회귀 | PASS |
-| `T141c-P2-A` | [P2](02-release.md) | LXC/CI | 전체 회귀·버전·문서·2/4 집계, 복귀 호환 | NOT_RUN |
-| `T141c-P2-B` | [P2](02-release.md) | LXC/시험 Discord | 배포·명령 동기화, 사용자 확인, main CI, 태그·Release | NOT_RUN |
+| `T141c-P2-A` | [P2](02-release.md) | LXC/CI | 전체 회귀·버전·문서·2/4 집계, 복귀 호환 | PASS |
+| `T141c-P2-B` | [P2](02-release.md) | LXC/시험 Discord | 배포·명령 동기화, 사용자 확인, main CI, 태그·Release | PASS |
