@@ -1,6 +1,6 @@
 # 1.4.1c-P1 — 채널 표시
 
-- 상태: **PLANNED** · 검사: `T141c-P1-A/B` · 환경: 개발 LXC, 합성 대역
+- 상태: **PUSH_PENDING** · 검사: `T141c-P1-A/B` **PASS** ([증거](../evidence/1.4.1c-P1.md)) · 환경: 개발 LXC, 합성 대역
 
 ## 작업
 
