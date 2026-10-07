@@ -5,6 +5,7 @@ import pytest
 from yoyackbot.domain import SummaryMode
 from yoyackbot.summary_prompt import (
     PROMPT_VERSION,
+    RATING_CANDIDATES_PROMPT,
     REQUEST_PRIORITY_NOTE,
     SUMMARY_PROMPT,
     TONE_DEFAULT,
@@ -35,7 +36,7 @@ def flat(text: str) -> str:
 # T140-P4-A ------------------------------------------------------------------------------
 
 def test_fixed_rules_live_outside_the_tone_paragraph() -> None:
-    assert PROMPT_VERSION == "1.4.0-p4-v1"
+    assert PROMPT_VERSION == "1.4.0-p6-v1"
     fixed = flat(SUMMARY_PROMPT)
     for phrase in FIXED:
         assert phrase in fixed, phrase
@@ -71,6 +72,12 @@ def test_a_server_tone_replaces_only_the_voice() -> None:
     assert "하오체" not in prompt and custom in prompt
     candidates = flat(rating_candidates_prompt(tone=custom))
     assert "서버 말투·성격의 문체와 어미로 끝내시오" in candidates and custom in candidates
+    # 1.4.0-P6: the default voice of the candidates gives way to the server tone too
+    for phrase in ("하오체", "깎아내리는 신랄한", "되었구려", "꼴이오", "남았겠소"):
+        assert phrase not in candidates.split("말투·성격(서버 관리자가")[0], phrase
+    assert "말맛과 신랄한 정도는 아래 서버 말투·성격을 따르시오" in candidates
+    assert rating_candidates_prompt() == RATING_CANDIDATES_PROMPT       # the default is unchanged
+    assert "되었구려" in RATING_CANDIDATES_PROMPT and "깎아내리는 신랄한" in RATING_CANDIDATES_PROMPT
 
 
 # T140-P4-B ------------------------------------------------------------------------------

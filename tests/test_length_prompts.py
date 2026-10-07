@@ -36,7 +36,7 @@ def test_prompt_order_and_length_notes(mode: SummaryMode, retry: dict) -> None:
         assert prompt.index(length_note) > positions[-1]
     assert (SPEAKER_RETRY_NOTE in prompt) is bool(retry.get("speaker_retry"))
     assert (HATE_RETRY_NOTE in prompt) is bool(retry.get("hate_retry"))
-    assert PROMPT_VERSION == "1.4.0-p4-v1"
+    assert PROMPT_VERSION == "1.4.0-p6-v1"
 
 
 def test_each_length_has_its_own_instruction() -> None:

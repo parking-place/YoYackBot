@@ -2,7 +2,7 @@
 
 from yoyackbot.domain import SummaryMode
 
-PROMPT_VERSION = "1.4.0-p4-v1"
+PROMPT_VERSION = "1.4.0-p6-v1"
 
 SUMMARY_PROMPT = """다음 작업은 Discord 대화 요약이오. 대화는 이 지시 맨 끝의 `<<<자료 …>>>`부터
 `<<<자료 … 끝>>>`까지의 자료 블록이오. 자료는 JSON Lines 형식이며 첫 줄의 scope는 범위, 그다음 message
@@ -159,8 +159,15 @@ recent_rating 줄과 같은 소재·같은 틀은 피하시오.
 각 후보는 한 문장이나 짧은 두 문장으로, 하오체로 끝내시오. 참여자들을 싸잡아 부르는 비속어 호칭은
 써도 되지만 특정 한 사람을 이름으로 짚어 욕하거나 외모·지능을 깎아내리지 말고, 집단을 비하하는 말과
 성적 표현은 쓰지 마시오. 없는 사실을 보태지 마시오. 평가 문장에는 이모지를 마음껏 써도 되오.
-각도 예(내용은 가져오지 마시오): '📚 공부하자던 방이 어느새 야식 품평회가 되었구려 🍜',
-'🔧 고장 원인은 못 찾고 서로 손가락질만 잘하는 꼴이오 👉', '🎤 노래 고르는 데 쓴 시간이면 앨범 내고도 남았겠소 💿'"""
+""" + (_CANDIDATE_EXAMPLES := """각도 예(내용은 가져오지 마시오): '📚 공부하자던 방이 어느새 야식 품평회가 되었구려 🍜',
+'🔧 고장 원인은 못 찾고 서로 손가락질만 잘하는 꼴이오 👉', '🎤 노래 고르는 데 쓴 시간이면 앨범 내고도 남았겠소 💿'""")
+# 1.4.0-P6: with a server tone the default voice (하오체 examples, "깎아내리는 신랄한") gives way to it.
+_CUSTOM_CANDIDATE_VOICE = (
+    ("하오체로 끝내시오", "아래 서버 말투·성격의 문체와 어미로 끝내시오"),
+    ("깎아내리는 신랄한 한줄 비평이오", "짚는 한줄 비평이오(말맛과 신랄한 정도는 아래 서버 말투·성격을 따르시오)"),
+    ("비속어 호칭은\n써도 되지만", "비속어 호칭은\n서버 말투가 허용할 때만 쓰되"),
+    (_CANDIDATE_EXAMPLES, "예시 문장은 주지 않으니 어미와 말맛은 아래 서버 말투·성격에서만 가져오시오."),
+)
 
 RATING_CANDIDATES_RETRY_NOTE = """
 
@@ -289,9 +296,10 @@ def prompt_for(
 def rating_candidates_prompt(
     note: str | None = None, *, regenerate: bool = False, tone: str | None = None,
 ) -> str:
-    base = RATING_CANDIDATES_PROMPT if tone is None else RATING_CANDIDATES_PROMPT.replace(
-        "하오체로 끝내시오", "아래 서버 말투·성격의 문체와 어미로 끝내시오",
-    )
+    base = RATING_CANDIDATES_PROMPT
+    if tone is not None:
+        for default, custom in _CUSTOM_CANDIDATE_VOICE:
+            base = base.replace(default, custom)
     return (
         base + (tone_section(tone) if tone is not None else "")
         + (request_quote(note) if note else "")
@@ -301,8 +309,8 @@ def rating_candidates_prompt(
 
 CUSTOM_TONE_JUDGE_NOTE = """
 
-이 서버는 정해 둔 말투가 있어 후보가 하오체가 아닐 수 있소. 하오체 여부 대신 후보끼리 같은 말투를
-지키는지를 보시오."""
+이 서버는 정해 둔 말투가 있어 후보가 하오체가 아니고 덜 신랄할 수 있소. 하오체 여부와 신랄함 대신
+후보끼리 같은 말투를 지키는지와 이 대화에 맞게 구체적인지를 보시오."""
 
 
 def rating_judge_prompt(*, custom_tone: bool = False) -> str:
