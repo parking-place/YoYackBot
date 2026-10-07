@@ -42,6 +42,7 @@ from yoyackbot.collection_status import (
 )
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
+from yoyackbot.execute_command import install_execute_command
 from yoyackbot.execution import SQLiteExecutionStore
 from yoyackbot.execution_config import install_execution_settings
 from yoyackbot.execution_log import log_message, timeout_event
@@ -221,6 +222,7 @@ class YoYackClient(discord.Client):
             )
             self.executions = SQLiteExecutionStore(settings.database_path)
             install_execution_settings(self.tree, self.executions, self.manager_roles)
+            install_execute_command(self.tree, self.executions, self.remember_execution)
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
