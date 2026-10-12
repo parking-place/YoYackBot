@@ -47,6 +47,7 @@ from yoyackbot.execute_command import install_execute_command
 from yoyackbot.execution import SQLiteExecutionStore
 from yoyackbot.execution_config import install_execution_settings
 from yoyackbot.execution_log import log_message, timeout_event
+from yoyackbot.execution_ranking import install_ranking_command
 from yoyackbot.health import COLLECTION_OK, write_heartbeat
 from yoyackbot.help_command import install_execution_help, install_help_command
 from yoyackbot.idiom_command import install_idiom_command
@@ -233,6 +234,7 @@ class YoYackClient(discord.Client):
             install_execution_settings(self.tree, self.executions, self.manager_roles)
             install_execute_command(self.tree, self.executions, self.remember_execution)
             install_execution_help(self.tree)
+            install_ranking_command(self.tree, self.executions, settings.timezone, self.clock)
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
@@ -781,6 +783,13 @@ class YoYackClient(discord.Client):
             caller = self._execution_caller(guild.id, event.target_id)
             if caller is not None:
                 executor, by_command = caller, True
+        try:  # 1.4.2 /처형순위: every timeout counts, with or without a log channel
+            await asyncio.to_thread(
+                self.executions.record, guild.id, event.kind, event.target_id, executor,
+                event.seconds(), event.at,
+            )
+        except Exception:  # noqa: BLE001 - the log post does not depend on the ranking
+            LOGGER.warning("execution_event_record_failed")
         try:
             channel_id = await asyncio.to_thread(self.executions.log_channel, guild.id)
         except Exception:  # noqa: BLE001

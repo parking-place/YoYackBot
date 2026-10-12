@@ -28,6 +28,16 @@ class TimeoutEvent:
     until: datetime | None    # end of the timeout (apply/extend)
     reason: str | None
     at: datetime
+    previous: datetime | None = None  # the end of the timeout before this change (1.4.2)
+
+    def seconds(self) -> int:
+        """Change of dead time: added for apply/extend, the cut-short remainder for release."""
+        if self.kind == "release":
+            left = (self.previous - self.at).total_seconds() if self.previous else 0
+            return -max(0, math.ceil(left))
+        assert self.until is not None
+        start = max(self.previous, self.at) if self.kind == "extend" and self.previous else self.at
+        return max(0, math.ceil((self.until - start).total_seconds()))
 
 
 def timeout_event(entry: object) -> TimeoutEvent | None:
@@ -50,7 +60,7 @@ def timeout_event(entry: object) -> TimeoutEvent | None:
     else:
         kind = "extend" if before_until is not None and before_until > at else "apply"
     return TimeoutEvent(kind, getattr(entry, "user_id", None), int(target_id), after_until,
-                        getattr(entry, "reason", None), at)
+                        getattr(entry, "reason", None), at, before_until)
 
 
 def duration_text(span: timedelta) -> str:

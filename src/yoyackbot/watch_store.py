@@ -289,6 +289,20 @@ class SQLiteWatchStore:
                         "role_id INTEGER NOT NULL CHECK(role_id > 0), "
                         "updated_us INTEGER NOT NULL, PRIMARY KEY(guild_id, role_id))"
                     )
+                    # 1.4.2 /처형순위: every timeout change (people, kind, seconds, time; no reason),
+                    # kept 40 days.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS execution_events ("
+                        "guild_id INTEGER NOT NULL CHECK(guild_id > 0), "
+                        "kind TEXT NOT NULL CHECK(kind IN ('apply', 'extend', 'release')), "
+                        "target_id INTEGER NOT NULL CHECK(target_id > 0), "
+                        "executor_id INTEGER CHECK(executor_id IS NULL OR executor_id > 0), "
+                        "seconds INTEGER NOT NULL, at_us INTEGER NOT NULL)"
+                    )
+                    connection.execute(
+                        "CREATE INDEX IF NOT EXISTS execution_events_by_time "
+                        "ON execution_events(guild_id, at_us)"
+                    )
                     # 1.4.0: each server's notices rewritten for the tone version they were
                     # written for; rows of an older version are never used.
                     connection.execute(
@@ -509,6 +523,7 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM guild_fast_mode WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM execution_settings WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM execution_roles WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM execution_events WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_notices WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:
