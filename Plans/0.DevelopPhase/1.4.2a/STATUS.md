@@ -1,10 +1,10 @@
 # 1.4.2a 진행 상태
 
-기준일: 2026-10-12. **3단계 모두 PLANNED.** 기준은 `v1.4.2`(`109ce8b`, `main` 병합 `d127e75`)이며 브랜치는 `develop/1.4.2a`이다.
+기준일: 2026-10-12. **진행 중.** 기준은 `v1.4.2`(`109ce8b`, `main` 병합 `d127e75`)이며 브랜치는 `develop/1.4.2a`이다.
 
 | 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
 |---|---|---|---|---|
-| [1.4.2a-P1](01-more-presets.md) | 프리셋 6종 | PLANNED | — | 기준 `v1.4.2` |
+| [1.4.2a-P1](01-more-presets.md) | 프리셋 6종 | PUSH_PENDING | C `8963cac` / E 증거 push 뒤 기록 | 기준 `v1.4.2`, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/38213117743) |
 | [1.4.2a-P2](02-evaluation.md) | 실제 모델 평가 | PLANNED | — | P1 D, 사용자 예시 확인 |
 | [1.4.2a-P3](03-release.md) | 통합·배포·출시 | PLANNED | — | P2 D, 사용자 Discord 확인 |
 
