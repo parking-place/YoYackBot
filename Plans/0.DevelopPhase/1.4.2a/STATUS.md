@@ -1,0 +1,11 @@
+# 1.4.2a 진행 상태
+
+기준일: 2026-10-12. **3단계 모두 PLANNED.** 기준은 `v1.4.2`(`109ce8b`, `main` 병합 `d127e75`)이며 브랜치는 `develop/1.4.2a`이다.
+
+| 단계 | 목표 | 상태 | 구현 C / 증거 E / 종료 D | 선행·제약 |
+|---|---|---|---|---|
+| [1.4.2a-P1](01-more-presets.md) | 프리셋 6종 | PLANNED | — | 기준 `v1.4.2` |
+| [1.4.2a-P2](02-evaluation.md) | 실제 모델 평가 | PLANNED | — | P1 D, 사용자 예시 확인 |
+| [1.4.2a-P3](03-release.md) | 통합·배포·출시 | PLANNED | — | P2 D, 사용자 Discord 확인 |
+
+[버전 개요](README.md) · [공통 Git 규칙](../GIT_WORKFLOW.md)
