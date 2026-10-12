@@ -79,6 +79,7 @@ from yoyackbot.speed_config import install_speed_command
 from yoyackbot.status_report import StatusReport, collect_status, status_message
 from yoyackbot.tone import SQLiteToneStore
 from yoyackbot.tone_config import install_tone_command, notices_report
+from yoyackbot.tone_presets import find_preset, preset_notices
 from yoyackbot.usage import (
     USAGE_UNAVAILABLE_NOTICE,
     UsageSnapshot,
@@ -666,6 +667,8 @@ class YoYackClient(discord.Client):
         BOOK.clear(guild_id)
         if tone is None:
             self._start_notice_task(guild_id, self._drop_notices(guild_id))
+        elif (preset := find_preset(tone)) is not None:  # 1.4.2: written ahead, no model call
+            self._start_notice_task(guild_id, self._apply_preset(guild_id, version, preset.key))
         else:
             self._start_notice_task(
                 guild_id, self._write_notices(guild_id, version, tone, interaction),
@@ -693,6 +696,19 @@ class YoYackClient(discord.Client):
             LOGGER.info("guild_notices_cleared")
         except Exception:  # noqa: BLE001 - stale rows are never loaded for a default tone
             LOGGER.warning("guild_notices_clear_failed")
+
+    async def _apply_preset(self, guild_id: int, version: int, key: str) -> None:
+        table = preset_notices(key)
+        if self.notices is None or not table:
+            return
+        try:
+            stored = await asyncio.to_thread(self.notices.replace, guild_id, version, table)
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("guild_notices_save_failed")
+            return
+        if stored:
+            BOOK.set(guild_id, table)
+        LOGGER.info("guild_notices_preset preset=%s written=%d stored=%s", key, len(table), stored)
 
     def _notice_engine(self) -> object | None:
         if (
@@ -766,9 +782,12 @@ class YoYackClient(discord.Client):
             if guild_id not in present or guild_id in self._notice_tasks:
                 continue
             keys = frozenset(CATALOG) - written if written else None
-            self._start_notice_task(
-                guild_id, self._write_notices(guild_id, version, tone, keys=keys),
+            preset = find_preset(tone)
+            work = (
+                self._apply_preset(guild_id, version, preset.key) if preset is not None
+                else self._write_notices(guild_id, version, tone, keys=keys)
             )
+            self._start_notice_task(guild_id, work)
             await asyncio.wait({self._notice_tasks[guild_id]})
 
     async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry) -> None:

@@ -1,4 +1,5 @@
-"""`/말투`: see, edit or reset this server's tone and personality (1.3.0)."""
+"""`/말투`: see and change this server's tone and personality (1.3.0); 1.4.2 picks a preset or,
+for 사용자정의 only, edits it."""
 
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from yoyackbot.manager_roles import ManagerRoleStore
 from yoyackbot.notices import localize
 from yoyackbot.summary_prompt import TONE_DEFAULT, TONE_LIMIT
 from yoyackbot.tone import SQLiteToneStore, ToneTooLong, clean_tone
+from yoyackbot.tone_presets import PRESETS, find_preset
 
 LOGGER = logging.getLogger(__name__)
 DENIED = "🚫 이 말투 화면은 연 사람만 쓸 수 있소. `/말투`를 직접 여시오. 🙅"
@@ -37,14 +39,30 @@ _SHOWN = 1700
 ToneChanged = Callable[[discord.Interaction, int, int, str | None], None]
 
 
+DEFAULT_CHOICE = "default"
+CUSTOM_CHOICE = "custom"
+
+
+def current_choice(text: str | None) -> str:
+    if text is None:
+        return DEFAULT_CHOICE
+    preset = find_preset(text)
+    return preset.key if preset is not None else CUSTOM_CHOICE
+
+
 def tone_message(text: str | None) -> str:
     """Current tone shown as a quote; long text is cut for Discord, never stored cut."""
-    label = "🎭 지금 적용 중인 말투: " + ("기본 말투" if text is None else "이 서버 말투")
+    preset = find_preset(text)
+    label = (
+        "🎭 지금 적용 중인 말투: 기본 말투" if text is None
+        else f"🎭 지금 적용 중인 말투: {preset.name} 프리셋" if preset is not None
+        else "🎭 지금 적용 중인 말투: 이 서버 말투"
+    )
     body = TONE_DEFAULT if text is None else text
     if len(body) > _SHOWN:
         body = body[:_SHOWN] + "…"
     quoted = "\n".join("> " + line if line else ">" for line in body.splitlines())
-    return f"{label}\n{quoted}\n✏️ 수정하거나 기본값으로 되돌릴 수 있소. 👇"
+    return f"{label}\n{quoted}\n✏️ 아래에서 프리셋을 고르시오. 직접 고치려면 사용자정의를 고르시오. 👇"
 
 
 def notices_report(written: int, kept: int) -> str:
@@ -83,32 +101,37 @@ class ToneModal(discord.ui.Modal, title="말투·성격 수정"):
         await view.write(interaction, content)
 
 
-class EditTone(discord.ui.Button["ToneView"]):
-    def __init__(self) -> None:
-        super().__init__(label="수정", style=discord.ButtonStyle.primary)
+class PresetSelect(discord.ui.Select["ToneView"]):
+    """기본, the presets and 사용자정의; only 사용자정의 opens the editor (1.4.2 user decision)."""
+
+    def __init__(self, current: str) -> None:
+        choices = [(DEFAULT_CHOICE, "기본", "📜 지금까지의 하오체 말투")]
+        choices += [(preset.key, preset.name, "🎭 안내 문구까지 정해 둔 프리셋") for preset in PRESETS]
+        choices += [(CUSTOM_CHOICE, "사용자정의", "✏️ 말투를 직접 고치오")]
+        super().__init__(
+            placeholder="🎭 말투 프리셋을 고르시오",
+            options=[discord.SelectOption(label=label, value=value, description=about,
+                                          default=value == current)
+                     for value, label, about in choices],
+        )
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
         assert view is not None
-        # A modal must be the first response, so only cheap checks here; submit rechecks all.
-        if not view.owned(interaction):
-            await reject(interaction, DENIED)
+        choice = self.values[0]
+        if choice == CUSTOM_CHOICE:
+            # A modal must be the first response, so only cheap checks here; submit rechecks all.
+            if not view.owned(interaction):
+                await reject(interaction, DENIED)
+                return
+            if view.expired():
+                await reject(interaction, EXPIRED)
+                return
+            await interaction.response.send_modal(ToneModal(view, view.text or TONE_DEFAULT))
             return
-        if view.expired():
-            await reject(interaction, EXPIRED)
-            return
-        await interaction.response.send_modal(ToneModal(view, view.text or TONE_DEFAULT))
-
-
-class ResetTone(discord.ui.Button["ToneView"]):
-    def __init__(self) -> None:
-        super().__init__(label="기본값으로", style=discord.ButtonStyle.secondary)
-
-    async def callback(self, interaction: discord.Interaction) -> None:
-        view = self.view
-        assert view is not None
         if await view.check(interaction):
-            await view.write(interaction, None)
+            preset = next((item for item in PRESETS if item.key == choice), None)
+            await view.write(interaction, None if preset is None else preset.tone)
 
 
 class CloseTone(discord.ui.Button["ToneView"]):
@@ -140,7 +163,7 @@ class ToneView(discord.ui.View):
         self.expires_at = monotonic() + 120
         self.lock = asyncio.Lock()
         self.message: discord.Message | None = None
-        for item in (EditTone(), ResetTone(), CloseTone()):
+        for item in (PresetSelect(current_choice(self.text)), CloseTone()):
             self.add_item(item)
 
     def owned(self, interaction: discord.Interaction) -> bool:
@@ -185,13 +208,20 @@ class ToneView(discord.ui.View):
         self.text = content
         if content is None:
             LOGGER.info("tone_reset at=%s", _now())
+        elif (chosen := find_preset(content)) is not None:
+            LOGGER.info("tone_preset at=%s preset=%s", _now(), chosen.key)
         else:
             LOGGER.info("tone_saved at=%s chars=%d", _now(), len(content))
         self.finish()
-        notice = SAVED if content is not None else RESET
+        preset = find_preset(content)
+        notice = (
+            RESET if content is None
+            else f"💾✅ 말투를 {preset.name} 프리셋으로 바꾸었소. 🎭" if preset is not None
+            else SAVED
+        )
         if self.on_change is not None:  # first, so this reply already drops the old notices
             self.on_change(interaction, self.guild_id, self.version, content)
-            if content is not None:
+            if content is not None and preset is None:  # a preset brings its notices with it
                 notice += "\n" + NOTICES_WRITING
         await interaction.edit_original_response(
             content=localize(interaction.guild_id, f"{notice}\n{tone_message(content)}"), view=self,

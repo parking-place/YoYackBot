@@ -38,8 +38,7 @@ from yoyackbot.tone_config import (
     EXPIRED,
     RESET,
     SAVED,
-    EditTone,
-    ResetTone,
+    PresetSelect,
     ToneModal,
     ToneView,
     install_tone_command,
@@ -80,6 +79,13 @@ def item(view, kind):
     return next(child for child in view.children if isinstance(child, kind))
 
 
+async def choose(view, value, who):
+    """1.4.2: the preset select replaced the 수정/기본값으로 buttons (사용자정의 edits)."""
+    select = item(view, PresetSelect)
+    select._values = [value]
+    await select.callback(who)
+
+
 # T130-P4-A ------------------------------------------------------------------------------
 
 def test_open_edit_save_and_reset(tmp_path, caplog) -> None:
@@ -96,9 +102,13 @@ def test_open_edit_save_and_reset(tmp_path, caplog) -> None:
         content = opened.edit_original_response.await_args.kwargs["content"]
         view = opened.edit_original_response.await_args.kwargs["view"]
         assert content.startswith("🎭 지금 적용 중인 말투: 기본 말투") and TONE_DEFAULT[:40] in content
-        assert [child.label for child in view.children] == ["수정", "기본값으로", "닫기"]
+        select = item(view, PresetSelect)
+        assert [o.label for o in select.options] == ["기본", "사극 양반체", "해적 선장", "뉴스 앵커",
+                                                     "MZ 반말", "사용자정의"]
+        assert [o.value for o in select.options if o.default] == ["default"]
+        assert [child.label for child in view.children[1:]] == ["닫기"]
         click = interaction()
-        await item(view, EditTone).callback(click)
+        await choose(view, "custom", click)
         modal = click.response.send_modal.await_args.args[0]
         assert isinstance(modal, ToneModal) and modal.text.default == TONE_DEFAULT
         assert modal.text.max_length == 1500
@@ -113,7 +123,8 @@ def test_open_edit_save_and_reset(tmp_path, caplog) -> None:
         reopened = again.edit_original_response.await_args.kwargs["view"]
         assert "이 서버 말투" in again.edit_original_response.await_args.kwargs["content"]
         reset = interaction()
-        await item(reopened, ResetTone).callback(reset)
+        assert [o.value for o in item(reopened, PresetSelect).options if o.default] == ["custom"]
+        await choose(reopened, "default", reset)
         assert tones.get(1) is None
         assert reset.edit_original_response.await_args.kwargs["content"].startswith(RESET)
 
@@ -199,20 +210,20 @@ def test_concurrent_edit_owner_and_time_limit(tmp_path) -> None:
         view = ToneView(tones, roles, 1, 7, snapshot=tones.snapshot(1))
         tones.save(1, "다른 관리자의 말투", expected_version=0)
         reset = interaction()
-        await item(view, ResetTone).callback(reset)
+        await choose(view, "default", reset)
         assert rejected(reset) == CHANGED and tones.get(1) == "다른 관리자의 말투"
         stranger = interaction(user_id=8)
-        await item(view, EditTone).callback(stranger)
+        await choose(view, "custom", stranger)
         assert rejected(stranger) == DENIED
         other_server = interaction(guild_id=2)
-        await item(view, ResetTone).callback(other_server)
+        await choose(view, "default", other_server)
         assert rejected(other_server) == DENIED
         view.expires_at = 0
         late = interaction()
-        await item(view, EditTone).callback(late)
+        await choose(view, "custom", late)
         assert rejected(late) == EXPIRED
         late_reset = interaction()
-        await item(view, ResetTone).callback(late_reset)
+        await choose(view, "pirate", late_reset)
         assert rejected(late_reset) == EXPIRED
         assert view.timeout == 120
 
