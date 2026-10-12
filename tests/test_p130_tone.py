@@ -103,8 +103,9 @@ def test_open_edit_save_and_reset(tmp_path, caplog) -> None:
         view = opened.edit_original_response.await_args.kwargs["view"]
         assert content.startswith("🎭 지금 적용 중인 말투: 기본 말투") and TONE_DEFAULT[:40] in content
         select = item(view, PresetSelect)
-        assert [o.label for o in select.options] == ["기본", "사극 양반체", "해적 선장", "뉴스 앵커",
-                                                     "MZ 반말", "사용자정의"]
+        assert [o.label for o in select.options] == [
+            "기본", "사극 양반체", "해적 선장", "뉴스 앵커", "MZ 반말", "츤데레", "군대 행정병",
+            "중2병 흑염룡", "스포츠 중계", "AI 비서", "까칠한 아가씨", "사용자정의"]
         assert [o.value for o in select.options if o.default] == ["default"]
         assert [child.label for child in view.children[1:]] == ["닫기"]
         click = interaction()

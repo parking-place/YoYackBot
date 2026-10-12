@@ -55,7 +55,9 @@ def test_every_preset_covers_the_catalog_and_passes(preset) -> None:
 
 
 def test_choices_and_screen_labels() -> None:
-    assert [p.name for p in PRESETS] == ["사극 양반체", "해적 선장", "뉴스 앵커", "MZ 반말"]
+    assert [p.name for p in PRESETS] == ["사극 양반체", "해적 선장", "뉴스 앵커", "MZ 반말", "츤데레",
+                                         "군대 행정병", "중2병 흑염룡", "스포츠 중계", "AI 비서",
+                                         "까칠한 아가씨"]                          # 1.4.2a: six more
     assert current_choice(None) == "default" and current_choice("직접 쓴 말투") == "custom"
     assert find_preset(None) is None and find_preset(PRESETS[0].tone + " ") is None
     shown = tone_message(BY_KEY["pirate"].tone)
