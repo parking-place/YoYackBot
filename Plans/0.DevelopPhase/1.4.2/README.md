@@ -19,7 +19,7 @@
 | 1 | [P1 — `/처형순위`](01-execution-ranking.md) | `T142-P1-A/B` | DONE |
 | 2 | [P2 — 말투 프리셋](02-tone-presets.md) | `T142-P2-A/B` | DONE |
 | 3 | [P3 — `/셀프디스`](03-self-roast.md) | `T142-P3-A/B` | DONE |
-| 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T142-P4-A/B` | IN_PROGRESS |
+| 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T142-P4-A/B` | PUSH_PENDING |
 | 5 | [P5 — 통합·배포·출시](05-release.md) | `T142-P5-A/B` | PLANNED |
 
 [검증 목록](TEST_MATRIX.md) · [상태](STATUS.md) · [Git 규칙](../GIT_WORKFLOW.md). 버전 표기는 계획·태그 `1.4.2` / `v1.4.2`, Python 패키지 `1.4.2`이다.
