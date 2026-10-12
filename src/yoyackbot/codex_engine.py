@@ -296,6 +296,22 @@ class CodexSummaryEngine:
             picked.kind, len(included),
         )
 
+    async def self_roast(
+        self, messages: Sequence[MessageRecord], prompt: str, *, channel_name: str = "현재 채널",
+        retry: bool = False, fast: bool = False,
+    ) -> str:
+        """1.4.2 `/셀프디스`: one call over the caller's own messages only."""
+        data = serialize_conversation(
+            messages, channel_name=channel_name, range_label="최근 내 발언",
+            trigger_message_id=None, max_bytes=self.settings.max_input_bytes,
+        )
+        root = self.settings.input_directory.absolute()
+        async with self._slots, fast_tier(fast):
+            return await self._execute(
+                "self_roast_retry" if retry else "self_roast",
+                InputWorkspace.create(root, data, inline=True), with_data(prompt, data),
+            )
+
     async def rewrite_notices(self, prompt: str, data: bytes) -> str:
         """1.4.0: one batch of a server's notices in its tone; no conversation is involved."""
         root = self.settings.input_directory.absolute()

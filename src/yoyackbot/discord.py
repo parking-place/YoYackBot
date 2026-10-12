@@ -13,7 +13,7 @@ from typing import Protocol
 import discord
 from discord import app_commands
 
-from yoyackbot import __version__, idiom, timing
+from yoyackbot import __version__, idiom, self_roast, timing
 from yoyackbot.backfill import (
     NOT_READY_NOTICE,
     BackfillError,
@@ -47,6 +47,7 @@ from yoyackbot.execute_command import install_execute_command
 from yoyackbot.execution import SQLiteExecutionStore
 from yoyackbot.execution_config import install_execution_settings
 from yoyackbot.execution_log import log_message, timeout_event
+from yoyackbot.execution_ranking import install_ranking_command
 from yoyackbot.health import COLLECTION_OK, write_heartbeat
 from yoyackbot.help_command import install_execution_help, install_help_command
 from yoyackbot.idiom_command import install_idiom_command
@@ -73,11 +74,13 @@ from yoyackbot.reply_range import ReplyRangeRefused, reply_reference, resolve_re
 from yoyackbot.reply_refs import reply_target
 from yoyackbot.role_config import install_role_commands
 from yoyackbot.scope import RangeScope, describe_range
+from yoyackbot.self_roast import install_self_roast_command
 from yoyackbot.speed import SQLiteSpeedStore
 from yoyackbot.speed_config import install_speed_command
 from yoyackbot.status_report import StatusReport, collect_status, status_message
 from yoyackbot.tone import SQLiteToneStore
 from yoyackbot.tone_config import install_tone_command, notices_report
+from yoyackbot.tone_presets import find_preset, preset_notices
 from yoyackbot.usage import (
     USAGE_UNAVAILABLE_NOTICE,
     UsageSnapshot,
@@ -220,6 +223,7 @@ class YoYackClient(discord.Client):
         install_role_commands(self.tree, self.manager_roles)
         install_help_command(self.tree, settings)
         install_idiom_command(self.tree, self._on_idiom_slash)
+        install_self_roast_command(self.tree, self._on_self_roast)
         if settings is not None and isinstance(self.watch_store, SQLiteWatchStore):
             self.notices = SQLiteNoticeStore(settings.database_path)
             install_tone_command(
@@ -233,6 +237,7 @@ class YoYackClient(discord.Client):
             install_execution_settings(self.tree, self.executions, self.manager_roles)
             install_execute_command(self.tree, self.executions, self.remember_execution)
             install_execution_help(self.tree)
+            install_ranking_command(self.tree, self.executions, settings.timezone, self.clock)
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
@@ -664,6 +669,8 @@ class YoYackClient(discord.Client):
         BOOK.clear(guild_id)
         if tone is None:
             self._start_notice_task(guild_id, self._drop_notices(guild_id))
+        elif (preset := find_preset(tone)) is not None:  # 1.4.2: written ahead, no model call
+            self._start_notice_task(guild_id, self._apply_preset(guild_id, version, preset.key))
         else:
             self._start_notice_task(
                 guild_id, self._write_notices(guild_id, version, tone, interaction),
@@ -691,6 +698,19 @@ class YoYackClient(discord.Client):
             LOGGER.info("guild_notices_cleared")
         except Exception:  # noqa: BLE001 - stale rows are never loaded for a default tone
             LOGGER.warning("guild_notices_clear_failed")
+
+    async def _apply_preset(self, guild_id: int, version: int, key: str) -> None:
+        table = preset_notices(key)
+        if self.notices is None or not table:
+            return
+        try:
+            stored = await asyncio.to_thread(self.notices.replace, guild_id, version, table)
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("guild_notices_save_failed")
+            return
+        if stored:
+            BOOK.set(guild_id, table)
+        LOGGER.info("guild_notices_preset preset=%s written=%d stored=%s", key, len(table), stored)
 
     def _notice_engine(self) -> object | None:
         if (
@@ -764,9 +784,12 @@ class YoYackClient(discord.Client):
             if guild_id not in present or guild_id in self._notice_tasks:
                 continue
             keys = frozenset(CATALOG) - written if written else None
-            self._start_notice_task(
-                guild_id, self._write_notices(guild_id, version, tone, keys=keys),
+            preset = find_preset(tone)
+            work = (
+                self._apply_preset(guild_id, version, preset.key) if preset is not None
+                else self._write_notices(guild_id, version, tone, keys=keys)
             )
+            self._start_notice_task(guild_id, work)
             await asyncio.wait({self._notice_tasks[guild_id]})
 
     async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry) -> None:
@@ -781,6 +804,13 @@ class YoYackClient(discord.Client):
             caller = self._execution_caller(guild.id, event.target_id)
             if caller is not None:
                 executor, by_command = caller, True
+        try:  # 1.4.2 /처형순위: every timeout counts, with or without a log channel
+            await asyncio.to_thread(
+                self.executions.record, guild.id, event.kind, event.target_id, executor,
+                event.seconds(), event.at,
+            )
+        except Exception:  # noqa: BLE001 - the log post does not depend on the ranking
+            LOGGER.warning("execution_event_record_failed")
         try:
             channel_id = await asyncio.to_thread(self.executions.log_channel, guild.id)
         except Exception:  # noqa: BLE001
@@ -1073,6 +1103,76 @@ class YoYackClient(discord.Client):
                 LOGGER.warning("idiom_slash_cleanup_failed")
         elif not noticed:
             await send(idiom.FAILED_NOTICE)
+
+    async def _on_self_roast(self, interaction: discord.Interaction) -> None:
+        """`/셀프디스` (1.4.2): like `/말하자면`, only the caller sees the command and any notice;
+        the jab is a plain channel message."""
+        accepted_at = self.clock()
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        noticed: list[str] = []
+        guild, channel = interaction.guild, interaction.channel
+
+        async def send(notice: str) -> None:
+            noticed.append(notice)
+            try:
+                await interaction.edit_original_response(
+                    content=localize(getattr(guild, "id", None), notice),
+                )
+            except discord.HTTPException:
+                LOGGER.warning("self_roast_notice_failed")
+
+        if guild is None or channel is None:
+            await send(self_roast.UNWATCHED)
+            return
+        outcome: str | None = None
+
+        async def handle(lease: ChannelLease) -> None:
+            nonlocal outcome
+            if (
+                self.settings is None or self.message_store is None
+                or not isinstance(self.watch_store, SQLiteWatchStore)
+            ):
+                await send(self_roast.UNAVAILABLE)
+                return
+            if self.summary_workflow is None:
+                try:
+                    self.summary_workflow = build_workflow(
+                        self.settings, self, self.watch_store, self.message_store,
+                    )
+                except CodexContractError:
+                    LOGGER.warning("summary_workflow_unavailable type=CodexContractError")
+                    await send(self_roast.FAILED)
+                    return
+            if self.backfill_store is not None:
+                try:
+                    backfill, _generation, pending = await asyncio.to_thread(
+                        self.backfill_store.readiness_snapshot, guild.id, channel.id,
+                        cutoff=self.clock() - timedelta(days=self.settings.cache_retention_days),
+                    )
+                except BackfillError:
+                    await send(self_roast.UNAVAILABLE)
+                    return
+                if not self.cache_available() or pending or not summary_ready(backfill):
+                    await send(self_roast.NOT_READY)
+                    return
+            outcome = await self.summary_workflow.run_self_roast(
+                guild.id, channel, interaction.user.id, lease, send, accepted_at=accepted_at,
+            )
+
+        await self.watch_gate.request(
+            guild.id, channel.id, is_help=False,
+            help_reply=lambda: send(self_roast.FAILED),
+            unwatched_reply=lambda _notice: send(self_roast.UNWATCHED),
+            unavailable_reply=lambda _notice: send(self_roast.UNAVAILABLE),
+            summarize=handle,
+        )
+        if outcome == "success":
+            try:
+                await interaction.delete_original_response()
+            except discord.HTTPException:
+                LOGGER.warning("self_roast_cleanup_failed")
+        elif not noticed:
+            await send(self_roast.FAILED)
 
     async def _idiom_request(
         self, guild: discord.Guild, channel: discord.abc.Messageable,

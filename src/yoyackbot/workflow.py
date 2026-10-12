@@ -6,11 +6,11 @@ import sqlite3
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import discord
 
-from yoyackbot import idiom, timing
+from yoyackbot import idiom, self_roast, timing
 from yoyackbot.backfill import NOT_READY_NOTICE, SQLiteBackfillStore
 from yoyackbot.cache_collector import BackfillNotReady, CacheCollectionOutcome, CacheOnlyCollector
 from yoyackbot.channel_config import valid_channel
@@ -31,12 +31,12 @@ from yoyackbot.domain import (
 )
 from yoyackbot.errors import BUSY_NOTICE, FailureKind, message_for
 from yoyackbot.history import HistoryError
-from yoyackbot.idiom import IdiomFailed, IdiomResult
+from yoyackbot.idiom import IdiomFailed
 from yoyackbot.input_files import ConversationTooLarge, InputFileError
 from yoyackbot.job_queue import QueueClosed, QueueFull, QueueWaitExpired, SummaryJobQueue
 from yoyackbot.long_range import LongRangeError
 from yoyackbot.message_store import MessageStoreError, SQLiteMessageStore
-from yoyackbot.ops import IdiomMetrics, RequestMetrics
+from yoyackbot.ops import IdiomMetrics, RequestMetrics, SelfRoastMetrics
 from yoyackbot.publisher import DiscordSummaryPublisher, PartialPublicationError
 from yoyackbot.range_collection import CollectionError
 from yoyackbot.rating_pool import SQLiteRecentRatings
@@ -44,6 +44,7 @@ from yoyackbot.scope import busy_notice, start_notice
 from yoyackbot.speed import SQLiteSpeedStore
 from yoyackbot.state import AdmissionKind, ChannelStates, CooldownKind
 from yoyackbot.tone import SQLiteToneStore
+from yoyackbot.tone_presets import find_preset
 from yoyackbot.usage import USAGE_EXHAUSTED_NOTICE
 from yoyackbot.watch_gate import ChannelLease
 from yoyackbot.watch_store import SQLiteWatchStore, WatchStoreError
@@ -74,6 +75,9 @@ class SummaryWorkflow:
     speeds: SQLiteSpeedStore | None = None
     closing: bool = False
     _jobs: set[asyncio.Task] = field(default_factory=set, init=False, repr=False)
+    # 1.4.2 /셀프디스: (server, person) -> monotonic time the next roast is allowed
+    _roasted: dict[tuple[int, int], float] = field(default_factory=dict, init=False, repr=False)
+    roast_cooldown_seconds: int = 60
 
     @staticmethod
     async def _channel_ready(channel: discord.TextChannel, lease: ChannelLease) -> bool:
@@ -302,12 +306,154 @@ class SummaryWorkflow:
             if not completed:
                 await self.states.finish(guild_id, channel_id)
 
-    async def _guarded_model(
-        self, call: Callable[[], Awaitable[IdiomResult]], *, guild_id: int, size: int,
-        metrics: IdiomMetrics, can_continue: Callable[[], Awaitable[bool]],
-    ) -> IdiomResult:
+    async def run_self_roast(
+        self, guild_id: int, channel: discord.TextChannel, user_id: int, lease: ChannelLease,
+        send_notice: Callable[[str], Awaitable[None]], *, accepted_at: datetime,
+    ) -> str:
+        """1.4.2 `/셀프디스`: the caller's own recent words here → one jab, posted plainly.
+        Shares the model queue (not the channel slot); returns the metrics outcome."""
+        metrics = SelfRoastMetrics()
+        task = asyncio.current_task()
+        if task is not None:
+            self._jobs.add(task)
+        try:
+            if self.closing:
+                metrics.outcome = "queue_closed"
+                await send_notice(self_roast.QUEUE)
+            else:
+                await self._run_self_roast(
+                    guild_id, channel, user_id, lease, send_notice, metrics, accepted_at=accepted_at,
+                )
+        except asyncio.CancelledError:
+            metrics.outcome = "cancelled"
+            raise
+        finally:
+            metrics.emit()
+            if task is not None:
+                self._jobs.discard(task)
+        return metrics.outcome
+
+    async def _run_self_roast(
+        self, guild_id: int, channel: discord.TextChannel, user_id: int, lease: ChannelLease,
+        send_notice: Callable[[str], Awaitable[None]], metrics: SelfRoastMetrics, *,
+        accepted_at: datetime,
+    ) -> None:
+        channel_id = channel.id
+        if (
+            getattr(channel, "type", None) is not discord.ChannelType.text
+            or getattr(getattr(channel, "guild", None), "id", None) != guild_id
+            or not await self._channel_ready(channel, lease)
+        ):
+            metrics.outcome = "channel_unavailable"
+            await send_notice(idiom.INVALIDATED_NOTICE)
+            return
+        now = time.monotonic()
+        key = (guild_id, user_id)
+        if self._roasted.get(key, 0) > now:
+            metrics.outcome = "cooldown"
+            await send_notice(self_roast.COOLDOWN.format(seconds=max(1, round(self._roasted[key] - now))))
+            return
+        self._roasted = {k: until for k, until in self._roasted.items() if until > now}
+        self._roasted[key] = now + self.roast_cooldown_seconds  # held while it runs, too
+
+        async def can_continue() -> bool:
+            if not await self._channel_ready(channel, lease):
+                return False
+            if self.readiness is not None and not await self.readiness(guild_id, channel_id):
+                raise BackfillNotReady("Cache or Gateway is no longer ready")
+            return True
+
+        posted = False
+        try:
+            if self.readiness is not None and not await self.readiness(guild_id, channel_id):
+                metrics.outcome = "not_ready"
+                await send_notice(self_roast.NOT_READY)
+                return
+            messages = await asyncio.to_thread(
+                self.collector.messages.by_author, guild_id, channel_id, user_id,
+                accepted_at - timedelta(days=self_roast.RECENT_DAYS), accepted_at,
+                self_roast.RECENT_LIMIT,
+            )
+            metrics.messages = len(messages)
+            if len(messages) < self_roast.MIN_MESSAGES:
+                metrics.outcome = "too_few"
+                await send_notice(self_roast.TOO_FEW)
+                return
+            fast = await self._fast(guild_id, metrics)
+            tone = await self._roast_tone(guild_id, metrics)
+            text = None
+            for retry in (False, True):
+                metrics.calls += 1
+                answer = await self._guarded_model(
+                    lambda retry=retry: self.engine.self_roast(
+                        messages, self_roast.self_roast_prompt(tone, retry=retry),
+                        channel_name=channel.name, retry=retry, fast=fast,
+                    ),
+                    guild_id=guild_id, size=len(messages), metrics=metrics,
+                    can_continue=can_continue,
+                )
+                candidate = self_roast.clean_answer(answer)
+                reason = self_roast.problem(candidate)
+                if reason is None:
+                    text = candidate
+                    break
+                metrics.rejected = reason
+            if text is None:
+                metrics.outcome = "rejected"
+                await send_notice(self_roast.FAILED)
+                return
+            if not await can_continue():
+                raise JobInvalidated
+            try:
+                await channel.send(
+                    self_roast.post_text(user_id, text),
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
+            except (discord.DiscordException, OSError):
+                metrics.outcome = "post_error"
+                return
+            posted = True
+            metrics.outcome = "success"
+        except JobInvalidated:
+            metrics.outcome = "invalidated"
+            await send_notice(idiom.INVALIDATED_NOTICE)
+        except BackfillNotReady:
+            metrics.outcome = "not_ready"
+            await send_notice(self_roast.NOT_READY)
+        except (MessageStoreError, ConversationTooLarge):
+            metrics.outcome = "history_error"
+            await send_notice(self_roast.FAILED)
+        except (CodexRunError, InputFileError):
+            metrics.outcome = "model_error"
+            await send_notice(self_roast.FAILED)
+        except (QueueFull, QueueWaitExpired, QueueClosed) as exc:
+            metrics.outcome = {QueueFull: "queue_full", QueueWaitExpired: "queue_timeout",
+                               QueueClosed: "queue_closed"}[type(exc)]
+            await send_notice(self_roast.QUEUE)
+        except Exception:  # noqa: BLE001
+            metrics.outcome = "unexpected"
+            LOGGER.warning("self_roast_job_failed")
+            await send_notice(self_roast.FAILED)
+        finally:
+            if not posted:
+                self._roasted.pop(key, None)  # only a posted jab starts the cooldown
+
+    async def _roast_tone(self, guild_id: int, metrics: SelfRoastMetrics) -> str | None:
+        tone = None
+        if self.tones is not None:
+            try:
+                tone = await asyncio.to_thread(self.tones.get, guild_id)
+            except sqlite3.Error:
+                LOGGER.warning("tone_read_failed")
+        metrics.tone = "default" if tone is None else "preset" if find_preset(tone) else "custom"
+        return tone
+
+    async def _guarded_model[T](
+        self, call: Callable[[], Awaitable[T]], *, guild_id: int, size: int,
+        metrics: IdiomMetrics | SelfRoastMetrics, can_continue: Callable[[], Awaitable[bool]],
+    ) -> T:
         """The shared queue slot, then the model call cancelled if the channel stops being valid."""
-        async def guarded() -> IdiomResult:
+        async def guarded() -> T:
             started = time.monotonic()
             task = asyncio.create_task(call())
             try:
@@ -332,7 +478,9 @@ class SummaryWorkflow:
                 raise JobInvalidated
             return await guarded()
 
-    async def _fast(self, guild_id: int, metrics: RequestMetrics | IdiomMetrics) -> bool:
+    async def _fast(
+        self, guild_id: int, metrics: RequestMetrics | IdiomMetrics | SelfRoastMetrics,
+    ) -> bool:
         """`/속도 설정` for this server; an unreadable store means the standard tier."""
         fast = False
         if self.speeds is not None:
