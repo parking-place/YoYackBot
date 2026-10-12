@@ -18,7 +18,7 @@
 |---|---|---|---|
 | 1 | [P1 — `/처형순위`](01-execution-ranking.md) | `T142-P1-A/B` | DONE |
 | 2 | [P2 — 말투 프리셋](02-tone-presets.md) | `T142-P2-A/B` | DONE |
-| 3 | [P3 — `/셀프디스`](03-self-roast.md) | `T142-P3-A/B` | PLANNED |
+| 3 | [P3 — `/셀프디스`](03-self-roast.md) | `T142-P3-A/B` | DONE |
 | 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T142-P4-A/B` | PLANNED |
 | 5 | [P5 — 통합·배포·출시](05-release.md) | `T142-P5-A/B` | PLANNED |
 
