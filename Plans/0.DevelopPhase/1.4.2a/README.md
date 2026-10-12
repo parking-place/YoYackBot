@@ -13,7 +13,7 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [P1 — 프리셋 6종](01-more-presets.md) | `T142a-P1-A/B` | DONE |
-| 2 | [P2 — 실제 모델 평가](02-evaluation.md) | `T142a-P2-A/B` | PUSH_PENDING |
+| 2 | [P2 — 실제 모델 평가](02-evaluation.md) | `T142a-P2-A/B` | DONE |
 | 3 | [P3 — 통합·배포·출시](03-release.md) | `T142a-P3-A/B` | PLANNED |
 
 [검증 목록](TEST_MATRIX.md) · [상태](STATUS.md) · [Git 규칙](../GIT_WORKFLOW.md). 버전 표기는 계획·태그 `1.4.2a` / `v1.4.2a`, Python 패키지 `1.4.2.1`이다([버전 대응표](../PATCH_VERSIONING.md)).
