@@ -13,7 +13,7 @@ from typing import Protocol
 import discord
 from discord import app_commands
 
-from yoyackbot import __version__, idiom, timing
+from yoyackbot import __version__, idiom, self_roast, timing
 from yoyackbot.backfill import (
     NOT_READY_NOTICE,
     BackfillError,
@@ -74,6 +74,7 @@ from yoyackbot.reply_range import ReplyRangeRefused, reply_reference, resolve_re
 from yoyackbot.reply_refs import reply_target
 from yoyackbot.role_config import install_role_commands
 from yoyackbot.scope import RangeScope, describe_range
+from yoyackbot.self_roast import install_self_roast_command
 from yoyackbot.speed import SQLiteSpeedStore
 from yoyackbot.speed_config import install_speed_command
 from yoyackbot.status_report import StatusReport, collect_status, status_message
@@ -222,6 +223,7 @@ class YoYackClient(discord.Client):
         install_role_commands(self.tree, self.manager_roles)
         install_help_command(self.tree, settings)
         install_idiom_command(self.tree, self._on_idiom_slash)
+        install_self_roast_command(self.tree, self._on_self_roast)
         if settings is not None and isinstance(self.watch_store, SQLiteWatchStore):
             self.notices = SQLiteNoticeStore(settings.database_path)
             install_tone_command(
@@ -1101,6 +1103,76 @@ class YoYackClient(discord.Client):
                 LOGGER.warning("idiom_slash_cleanup_failed")
         elif not noticed:
             await send(idiom.FAILED_NOTICE)
+
+    async def _on_self_roast(self, interaction: discord.Interaction) -> None:
+        """`/셀프디스` (1.4.2): like `/말하자면`, only the caller sees the command and any notice;
+        the jab is a plain channel message."""
+        accepted_at = self.clock()
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        noticed: list[str] = []
+        guild, channel = interaction.guild, interaction.channel
+
+        async def send(notice: str) -> None:
+            noticed.append(notice)
+            try:
+                await interaction.edit_original_response(
+                    content=localize(getattr(guild, "id", None), notice),
+                )
+            except discord.HTTPException:
+                LOGGER.warning("self_roast_notice_failed")
+
+        if guild is None or channel is None:
+            await send(self_roast.UNWATCHED)
+            return
+        outcome: str | None = None
+
+        async def handle(lease: ChannelLease) -> None:
+            nonlocal outcome
+            if (
+                self.settings is None or self.message_store is None
+                or not isinstance(self.watch_store, SQLiteWatchStore)
+            ):
+                await send(self_roast.UNAVAILABLE)
+                return
+            if self.summary_workflow is None:
+                try:
+                    self.summary_workflow = build_workflow(
+                        self.settings, self, self.watch_store, self.message_store,
+                    )
+                except CodexContractError:
+                    LOGGER.warning("summary_workflow_unavailable type=CodexContractError")
+                    await send(self_roast.FAILED)
+                    return
+            if self.backfill_store is not None:
+                try:
+                    backfill, _generation, pending = await asyncio.to_thread(
+                        self.backfill_store.readiness_snapshot, guild.id, channel.id,
+                        cutoff=self.clock() - timedelta(days=self.settings.cache_retention_days),
+                    )
+                except BackfillError:
+                    await send(self_roast.UNAVAILABLE)
+                    return
+                if not self.cache_available() or pending or not summary_ready(backfill):
+                    await send(self_roast.NOT_READY)
+                    return
+            outcome = await self.summary_workflow.run_self_roast(
+                guild.id, channel, interaction.user.id, lease, send, accepted_at=accepted_at,
+            )
+
+        await self.watch_gate.request(
+            guild.id, channel.id, is_help=False,
+            help_reply=lambda: send(self_roast.FAILED),
+            unwatched_reply=lambda _notice: send(self_roast.UNWATCHED),
+            unavailable_reply=lambda _notice: send(self_roast.UNAVAILABLE),
+            summarize=handle,
+        )
+        if outcome == "success":
+            try:
+                await interaction.delete_original_response()
+            except discord.HTTPException:
+                LOGGER.warning("self_roast_cleanup_failed")
+        elif not noticed:
+            await send(self_roast.FAILED)
 
     async def _idiom_request(
         self, guild: discord.Guild, channel: discord.abc.Messageable,

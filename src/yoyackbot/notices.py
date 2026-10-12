@@ -270,6 +270,10 @@ _ENTRIES = (
     Notice("ranking.no_executioner", "🤷 누가 처형했는지 확인된 기록이 없소."),
     Notice("ranking.total", "⚔️ 이 기간 처형은 모두 {total}건이오."),
     Notice("ranking.read_failed", "⚠️ 처형 기록을 읽지 못했소. 잠시 후 다시 시도하시오. 🔧"),
+    # 1.4.2 /셀프디스 (the jab itself is model output in the server tone, not a notice)
+    Notice("self_roast.too_few", "🪞 셀프디스할 만큼 이 채널에서 한 말이 없소. 좀 더 떠들고 오시오. 💬"),
+    Notice("self_roast.cooldown", "🧊 셀프디스는 숨 좀 돌리고 하시오. {seconds}초 뒤에 다시 부르시오. ⏰"),
+    Notice("self_roast.failed", "🤔 지금은 놀릴 말이 떠오르지 않소. 잠시 뒤 다시 부르시오. 🔁"),
     # 1.4.1 /사면
     Notice("pardon.done", "🕊️ {target}의 처형을 풀었소. 📝 사유: {reason}"),
     Notice("pardon.not_allowed", "🚫 사면은 처형 역할이 있는 사람이나 관리자만 할 수 있소. 🙅"),

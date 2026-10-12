@@ -487,6 +487,29 @@ class SQLiteMessageStore:
             failure="Message read failed", max_bytes=max_bytes, on_rows=on_rows,
         )
 
+    def by_author(
+        self, guild_id: int, channel_id: int, author_id: int, start: datetime, end: datetime,
+        limit: int,
+    ) -> Sequence[MessageRecord]:
+        """1.4.2 `/셀프디스`: one person's latest messages here, oldest first; bot commands and
+        empty bodies are left out."""
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        start_us = max(_microseconds(start), self._cutoff_us())
+        end_us = _microseconds(end)
+        if start_us >= end_us:
+            return []
+        rows = self._read(
+            _SELECT_WITH_REPLY
+            + "WHERE m.guild_id=? AND m.channel_id=? AND m.author_id=? AND m.created_at_us>=? "
+            "AND m.created_at_us<? AND trim(m.content)!='' "
+            "AND substr(ltrim(m.content, ' ' || char(9) || char(10) || char(13)), 1, 2)!='!!' "
+            "ORDER BY m.created_at_us DESC, m.message_id DESC LIMIT ?",
+            (guild_id, channel_id, author_id, start_us, end_us, limit),
+            failure="Author message read failed", max_bytes=None, on_rows=None,
+        )
+        return rows[::-1]
+
     def created_at(self, guild_id: int, channel_id: int, message_id: int) -> datetime | None:
         """A cached message's creation time in this channel (1.3.0 reply range)."""
         try:

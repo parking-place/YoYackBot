@@ -139,3 +139,39 @@ class IdiomMetrics:
             "duration_ms": max(0, round((time.monotonic() - self.started) * 1000)),
         }
         LOGGER.info("%s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
+
+
+@dataclass
+class SelfRoastMetrics:
+    """`/셀프디스` (1.4.2): counts and fixed categories only, never the words."""
+
+    request_id: str = field(default_factory=lambda: secrets.token_hex(8))
+    started: float = field(default_factory=time.monotonic, repr=False)
+    outcome: str = "unknown"
+    messages: int = 0
+    calls: int = 0
+    rejected: str = "none"
+    speed: str = "standard"
+    tone: str = "default"
+    model_ms: int = 0
+
+    def emit(self) -> None:
+        outcomes = {
+            "success", "too_few", "cooldown", "not_ready", "invalidated", "history_error",
+            "model_error", "rejected", "post_error", "queue_full", "queue_timeout",
+            "queue_closed", "cancelled", "unexpected", "channel_unavailable",
+        }
+        payload = {
+            "event": "self_roast_request",
+            "request_id": self.request_id,
+            "outcome": self.outcome if self.outcome in outcomes else "unexpected",
+            "messages": min(30, max(0, self.messages)),
+            "calls": min(2, max(0, self.calls)),
+            "rejected": self.rejected if self.rejected in {
+                "none", "empty", "length", "hate", "mention", "internal"} else "none",
+            "speed": self.speed if self.speed in {"standard", "fast"} else "standard",
+            "tone": self.tone if self.tone in {"default", "preset", "custom"} else "default",
+            "model_ms": max(0, self.model_ms),
+            "duration_ms": max(0, round((time.monotonic() - self.started) * 1000)),
+        }
+        LOGGER.info("%s", json.dumps(payload, separators=(",", ":"), sort_keys=True))
