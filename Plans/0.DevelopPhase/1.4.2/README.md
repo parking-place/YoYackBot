@@ -1,6 +1,6 @@
 # 1.4.2 — `/처형순위`·말투 프리셋·`/셀프디스`
 
-- 상태: **PLANNED** · 5단계·10검사
+- 상태: **IN_PROGRESS** · 5단계·10검사
 - 선행 버전: [1.4.1c](../1.4.1c/README.md) — 태그 `v1.4.1c`, 코드 `fbd2f49c73ddb198eabcfff226246ec437c1bad0`, `main` 병합 `9ed0351`(2026-10-08). 개발 브랜치 `develop/1.4.2`는 `main` `9ed0351`에서 시작한다.
 - 계획 근거: 2026-10-12 사용자 1.4.2 요청과 질문 답
 
@@ -16,7 +16,7 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — `/처형순위`](01-execution-ranking.md) | `T142-P1-A/B` | PLANNED |
+| 1 | [P1 — `/처형순위`](01-execution-ranking.md) | `T142-P1-A/B` | DONE |
 | 2 | [P2 — 말투 프리셋](02-tone-presets.md) | `T142-P2-A/B` | PLANNED |
 | 3 | [P3 — `/셀프디스`](03-self-roast.md) | `T142-P3-A/B` | PLANNED |
 | 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T142-P4-A/B` | PLANNED |
