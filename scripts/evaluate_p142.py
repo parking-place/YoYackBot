@@ -1,4 +1,4 @@
-"""T142-P4: `/셀프디스` on synthetic people and summaries in the four preset tones (LXC only).
+"""T142-P4 / T142a-P2: `/셀프디스` on synthetic people and summaries in preset tones (LXC only).
 
 Prints one JSON line per run for human review. Nothing is posted; every message is synthetic.
 """
@@ -54,9 +54,12 @@ def people_records(person: dict) -> list[MessageRecord]:
             for index, body in enumerate(person["messages"], start=1)]
 
 
-async def roast_runs(engine: CodexSummaryEngine) -> None:
-    tones = {"default": None, "saguk": BY_KEY["saguk"].tone, "mz": BY_KEY["mz"].tone,
-             "danger": CUSTOM["danger"]}
+async def roast_runs(engine: CodexSummaryEngine, presets: list[str]) -> None:
+    tones = (
+        {key: BY_KEY[key].tone for key in presets} if presets
+        else {"default": None, "saguk": BY_KEY["saguk"].tone, "mz": BY_KEY["mz"].tone,
+              "danger": CUSTOM["danger"]}
+    )
     for name, person in PEOPLE.items():
         for tone_name, tone in tones.items():
             out = {"kind": "self_roast", "person": name, "tone": tone_name, "attempts": []}
@@ -94,10 +97,10 @@ def fixture_records(fixture: dict) -> list[MessageRecord]:
             for index, (key, name, body, *_flags) in enumerate(fixture["messages"], start=1)]
 
 
-async def summary_runs(engine: CodexSummaryEngine) -> None:
+async def summary_runs(engine: CodexSummaryEngine, presets: list[str]) -> None:
     fixtures = [f for f in json.loads((ROOT / "summary_modes.json").read_text())
                 if f["id"] in ("release_debate", "bug_triage")]
-    for preset in PRESETS:
+    for preset in (p for p in PRESETS if not presets or p.key in presets):
         for fixture in fixtures:
             rows = fixture_records(fixture)
             out = {"kind": "summary", "preset": preset.key, "id": fixture["id"]}
@@ -116,18 +119,22 @@ async def summary_runs(engine: CodexSummaryEngine) -> None:
             print(json.dumps(out, ensure_ascii=False), flush=True)
 
 
-async def main_async(which: str) -> None:
+async def main_async(which: str, presets: list[str]) -> None:
     engine = CodexSummaryEngine.from_settings(pin_executable(Settings.from_environment()))
     if which in ("all", "roast"):
-        await roast_runs(engine)
+        await roast_runs(engine, presets)
     if which in ("all", "summaries"):
-        await summary_runs(engine)
+        await summary_runs(engine, presets)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("which", choices=("all", "roast", "summaries"))
-    asyncio.run(main_async(parser.parse_args().which))
+    parser.add_argument("--presets", nargs="*", default=[], help="preset keys (default: 1.4.2 set)")
+    args = parser.parse_args()
+    if unknown := sorted(set(args.presets) - set(BY_KEY)):
+        parser.error(f"unknown preset: {', '.join(unknown)}")
+    asyncio.run(main_async(args.which, args.presets))
 
 
 if __name__ == "__main__":
