@@ -4,8 +4,8 @@
 
 | 검사 ID | 단계 | 환경 | 통과 기준 | 결과 |
 |---|---|---|---|---|
-| `T143-P1-A` | [P1](01-diet-settings.md) | LXC 합성 | 명령·권한·고르기·해제·저장·연 사람·시간 제한·권한 경고 | NOT_RUN |
-| `T143-P1-B` | [P1](01-diet-settings.md) | LXC 합성 | `members` intent, 테이블·백업·정리, 문구 목록, 회귀 | NOT_RUN |
+| `T143-P1-A` | [P1](01-diet-settings.md) | LXC 합성 | 명령·권한·고르기·해제·저장·연 사람·시간 제한·권한 경고 | PASS |
+| `T143-P1-B` | [P1](01-diet-settings.md) | LXC 합성 | `members` intent, 테이블·백업·정리, 문구 목록, 회귀 | PASS |
 | `T143-P2-A` | [P2](02-diet-schedule.md) | LXC 합성 | 시각(KST), 올림 판정, 개별 호출·생략, 멘션 허용 범위 | NOT_RUN |
 | `T143-P2-B` | [P2](02-diet-schedule.md) | LXC 합성 | 한 번만·유예·건너뜀, 설정·권한·채널 문제, 로그, 회귀 | NOT_RUN |
 | `T143-P3-A` | [P3](03-diet-judge.md) | LXC 합성 | 입력 제한, `--image`·읽기 전용 연결·삭제, 서버 말투 | NOT_RUN |
