@@ -20,7 +20,7 @@
 | 1 | [P1 — 식단 설정](01-diet-settings.md) | `T143-P1-A/B` | DONE |
 | 2 | [P2 — 재촉 일정](02-diet-schedule.md) | `T143-P2-A/B` | DONE |
 | 3 | [P3 — 사진 포함 식단 평가](03-diet-judge.md) | `T143-P3-A/B` | DONE |
-| 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T143-P4-A/B` | PUSH_PENDING |
+| 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T143-P4-A/B` | DONE |
 | 5 | [P5 — 통합·배포·출시](05-release.md) | `T143-P5-A/B` | PLANNED |
 
 [검증 목록](TEST_MATRIX.md) · [상태](STATUS.md) · [Git 규칙](../GIT_WORKFLOW.md). 버전 표기는 계획·태그 `1.4.3` / `v1.4.3`, Python 패키지 `1.4.3`이다.
