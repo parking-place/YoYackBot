@@ -193,8 +193,15 @@ class SandboxedCodex:
             source = workspace.log_file.lstat()
             directory = workspace.directory.lstat()
             output_directory = workspace.output_directory.lstat()
+            photos = [image.lstat() for image in workspace.images]
         except OSError as exc:
             raise CodexRunError(CodexFailure.PROCESS) from exc
+        if any(
+            image.parent != workspace.directory / "images" or not stat.S_ISREG(info.st_mode)
+            or info.st_uid != os.geteuid() or info.st_mode & 0o077
+            for image, info in zip(workspace.images, photos, strict=True)
+        ):
+            raise CodexRunError(CodexFailure.PROCESS)
         if (
             not stat.S_ISREG(auth.st_mode)
             or auth.st_uid != os.geteuid()
@@ -220,7 +227,7 @@ class SandboxedCodex:
             reasoning_effort=_EFFORT.get() or self.contract.reasoning_effort,
         ).arguments(
             working_directory=Path("/work"), output_file=Path("/output/final.txt"),
-            restricted=True,
+            restricted=True, images=tuple(Path("/images") / image.name for image in workspace.images),
         )
         sandbox = [
             str(self.bwrap_executable), "--die-with-parent", "--unshare-all", "--share-net",
@@ -247,6 +254,10 @@ class SandboxedCodex:
             "--setenv", "TMPDIR", "/tmp", "--setenv", "LANG", "C.UTF-8",
             "--chdir", "/work", *cli,
         ]
+        if workspace.images:  # 1.4.3: read-only photos for the CLI to attach, nothing else
+            at = sandbox.index(str(workspace.output_directory)) - 1
+            sandbox[at:at] = ["--dir", "/images",
+                              "--ro-bind", str(workspace.directory / "images"), "/images"]
         if not workspace.inline:  # before 1.3.3 (D11) the model read the conversation file
             at = sandbox.index(str(workspace.output_directory)) - 1
             sandbox[at:at] = ["--ro-bind", str(workspace.log_file), "/work/conversation.jsonl"]

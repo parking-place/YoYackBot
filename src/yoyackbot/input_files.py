@@ -168,6 +168,7 @@ class InputWorkspace:
     log_file: Path
     output_directory: Path
     inline: bool = False  # 1.3.3: the data travels in the prompt; the file is not mounted
+    images: tuple[Path, ...] = ()  # 1.4.3: photos attached to the prompt, mounted read-only
 
     @classmethod
     def create(cls, root: Path, data: bytes, *, inline: bool = False) -> "InputWorkspace":
@@ -184,6 +185,22 @@ class InputWorkspace:
             if "directory" in locals():
                 shutil.rmtree(directory)
             raise InputFileError("Unable to write private conversation input") from exc
+
+    def add_images(self, photos: list[tuple[bytes, str]]) -> None:
+        """1.4.3: write each (bytes, suffix) as a private file under `images/`, in order."""
+        folder = self.directory / "images"
+        try:
+            folder.mkdir(mode=0o700)
+            written = []
+            for index, (content, suffix) in enumerate(photos, start=1):
+                path = folder / f"image-{index}{suffix}"
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "wb") as output:
+                    output.write(content)
+                written.append(path)
+        except OSError as exc:
+            raise InputFileError("Unable to write private image input") from exc
+        self.images = tuple(written)
 
     def close(self) -> None:
         try:

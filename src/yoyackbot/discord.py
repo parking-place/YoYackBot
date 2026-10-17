@@ -44,6 +44,8 @@ from yoyackbot.collection_status import (
 from yoyackbot.config import Settings
 from yoyackbot.diet import SQLiteDietStore
 from yoyackbot.diet_config import install_diet_settings
+from yoyackbot.diet_judge import FAILED as DIET_FAILED
+from yoyackbot.diet_judge import judge_day
 from yoyackbot.diet_schedule import DietScheduler
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
 from yoyackbot.execute_command import install_execute_command
@@ -250,7 +252,7 @@ class YoYackClient(discord.Client):
             self.diets = SQLiteDietStore(settings.database_path)
             install_diet_settings(self.tree, self.diets, self.manager_roles)
             self.diet_scheduler = DietScheduler(
-                self.diets, self.get_guild, zone=settings.timezone,
+                self.diets, self.get_guild, zone=settings.timezone, judge=self._diet_judge,
             )
 
     async def setup_hook(self) -> None:
@@ -704,6 +706,30 @@ class YoYackClient(discord.Client):
                 except Exception:  # noqa: BLE001 - the next tick tries again
                     LOGGER.warning("diet_tick_failed")
             await asyncio.sleep(interval)
+
+    async def _diet_judge(self, guild, channel, role_id, missing, posts) -> str:
+        """1.4.3 22:30: review the day's diet posts in the server tone (photos attached)."""
+        engine = self._notice_engine() if posts else None
+        if posts and engine is None:
+            try:
+                await channel.send(localize(guild.id, DIET_FAILED),
+                                   allowed_mentions=discord.AllowedMentions.none())
+            except (discord.DiscordException, OSError):
+                return "send_failed"
+            return "unavailable"
+        tone = None
+        if self.settings is not None:
+            try:
+                tone = await asyncio.to_thread(SQLiteToneStore(self.settings.database_path).get, guild.id)
+            except Exception:  # noqa: BLE001 - the default tone then
+                LOGGER.warning("tone_read_failed")
+        try:
+            return await judge_day(
+                guild.id, channel, missing, posts, tone=tone,
+                ask=lambda prompt, diet: engine.diet_review(prompt, diet.data, diet.photos),
+            )
+        except (discord.DiscordException, OSError):
+            return "send_failed"
 
     def tone_changed(
         self, interaction: discord.Interaction | None, guild_id: int, version: int,
