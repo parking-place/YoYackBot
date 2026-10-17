@@ -42,6 +42,8 @@ from yoyackbot.collection_status import (
     not_ready_detail,
 )
 from yoyackbot.config import Settings
+from yoyackbot.diet import SQLiteDietStore
+from yoyackbot.diet_config import install_diet_settings
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
 from yoyackbot.execute_command import install_execute_command
 from yoyackbot.execution import SQLiteExecutionStore
@@ -131,12 +133,15 @@ def classify_message(message: MessageCandidate) -> MessageClass:
 
 
 def required_intents() -> discord.Intents:
-    """Request only guild, guild-message, message-content and (1.4.0) audit-log events."""
+    """Request only guild, guild-message, message-content, (1.4.0) audit-log and (1.4.3) member
+    events."""
     intents = discord.Intents.none()
     intents.guilds = True
     intents.guild_messages = True
     intents.message_content = True
     intents.moderation = True  # audit log entries for the 처형 log (not a privileged intent)
+    # 1.4.3: the diet role's members (privileged: Server Members Intent in the developer portal)
+    intents.members = True
     return intents
 
 
@@ -217,6 +222,7 @@ class YoYackClient(discord.Client):
         self._execution_callers: dict[tuple[int, int], tuple[int, float]] = {}
         # 1.4.0: each server's notices in its tone; one rewrite at a time per server
         self.notices: SQLiteNoticeStore | None = None
+        self.diets: SQLiteDietStore | None = None  # 1.4.3 식단
         self._notice_tasks: dict[int, asyncio.Task[None]] = {}
         self._notices_caught_up = False
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
@@ -238,6 +244,8 @@ class YoYackClient(discord.Client):
             install_execute_command(self.tree, self.executions, self.remember_execution)
             install_execution_help(self.tree)
             install_ranking_command(self.tree, self.executions, settings.timezone, self.clock)
+            self.diets = SQLiteDietStore(settings.database_path)
+            install_diet_settings(self.tree, self.diets, self.manager_roles)
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
@@ -293,6 +301,15 @@ class YoYackClient(discord.Client):
                     LOGGER.info("execution_settings_pruned count=%d", removed)
             except Exception:  # noqa: BLE001
                 LOGGER.warning("execution_settings_prune_failed")
+        if self.diets is not None and self.guilds:
+            try:
+                removed = await asyncio.to_thread(
+                    self.diets.keep_only, [guild.id for guild in self.guilds],
+                )
+                if removed:
+                    LOGGER.info("diet_settings_pruned count=%d", removed)
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("diet_settings_prune_failed")
         if self.notices is not None and self.guilds:
             try:
                 removed = await asyncio.to_thread(
@@ -647,6 +664,12 @@ class YoYackClient(discord.Client):
                     LOGGER.info("execution_channel_deleted")
             except Exception:  # noqa: BLE001
                 LOGGER.warning("execution_channel_cleanup_failed")
+        if self.diets is not None:
+            try:
+                if await asyncio.to_thread(self.diets.remove_channel, channel.guild.id, channel.id):
+                    LOGGER.info("diet_channel_deleted")
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("diet_channel_cleanup_failed")
 
     def remember_execution(self, guild_id: int, target_id: int, caller_id: int) -> None:
         """`/처형` is about to time out `target_id`; its audit entry names the bot, not the caller."""
@@ -861,6 +884,12 @@ class YoYackClient(discord.Client):
                     LOGGER.info("execution_role_deleted")
             except Exception:  # noqa: BLE001
                 LOGGER.warning("execution_role_cleanup_failed")
+        if self.diets is not None:
+            try:
+                if await asyncio.to_thread(self.diets.remove_role, role.guild.id, role.id):
+                    LOGGER.info("diet_role_deleted")
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("diet_role_cleanup_failed")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if classify_message(after) is not MessageClass.HUMAN_TEXT or after.guild is None:

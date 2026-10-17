@@ -51,6 +51,7 @@ def backup_settings(database: Path, backup_root: Path) -> Path:
                 "fast_mode": _fast_rows(connection),
                 **_execution_rows(connection),
                 "notices": _notice_rows(connection),
+                "diet": _diet_rows(connection),
             }
         backup_root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if backup_root.is_symlink() or backup_root.stat().st_mode & 0o077:
@@ -130,6 +131,34 @@ def _execution_rows(connection: sqlite3.Connection) -> dict[str, list[tuple[int,
             "SELECT guild_id, role_id, updated_us FROM execution_roles ORDER BY guild_id, role_id"
         ).fetchall(),
     }
+
+
+def _diet_rows(connection: sqlite3.Connection) -> list[list[object]]:
+    """식단 channel and role per server (1.4.3); older databases have no table."""
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='diet_settings'"
+    ).fetchone() is None:
+        return []
+    return [list(row) for row in connection.execute(
+        "SELECT guild_id, channel_id, role_id, updated_us FROM diet_settings ORDER BY guild_id"
+    )]
+
+
+def _validated_diet(data: dict) -> list[tuple[int, int | None, int | None, int]]:
+    rows = data.get("diet", [])
+    if not isinstance(rows, list):
+        raise BackupError("Settings backup is invalid")
+    valid = []
+    for row in rows:
+        if (
+            not isinstance(row, list) or len(row) != 4
+            or type(row[0]) is not int or row[0] < 1 or type(row[3]) is not int or row[3] < 0
+            or any(not (value is None or (type(value) is int and value > 0)) for value in row[1:3])
+            or (row[1] is None and row[2] is None)
+        ):
+            raise BackupError("Settings backup is invalid")
+        valid.append((row[0], row[1], row[2], row[3]))
+    return valid
 
 
 def _notice_rows(connection: sqlite3.Connection) -> list[list[object]]:
@@ -229,6 +258,7 @@ def restore_settings(
         )
         exec_roles = _validated_rows(data, "execution_roles", 3) if "execution_roles" in data else []
         notices = _validated_notices(data)  # before 1.4.0 there are none
+        diet = _validated_diet(data)  # before 1.4.3 there is none
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         os.close(descriptor)
@@ -273,6 +303,10 @@ def restore_settings(
                 connection.executemany(
                     "INSERT INTO guild_notices(guild_id, notice_key, content, tone_version, "
                     "updated_us) VALUES (?, ?, ?, ?, ?)", notices,
+                )
+                connection.executemany(
+                    "INSERT INTO diet_settings(guild_id, channel_id, role_id, updated_us) "
+                    "VALUES (?, ?, ?, ?)", diet,
                 )
                 connection.commit()
             SQLiteMessageStore(target).prune_before(
