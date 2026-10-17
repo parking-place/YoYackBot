@@ -281,6 +281,9 @@ _ENTRIES = (
     Notice("diet_settings.channel_cleared", "🧹 식단 채널을 비웠소. 저장을 눌러 확정하시오. 👇"),
     Notice("diet_settings.role_cleared", "🧹 식단 역할을 비웠소. 저장을 눌러 확정하시오. 👇"),
     Notice("diet_settings.role_hint", "🛠️ 역할을 고르고 저장하거나 해제하시오. 👇"),
+    # 1.4.3 식단 재촉
+    Notice("diet.call", "🐷 {role} 오늘 식단을 올리시오! 🍽️"),
+    Notice("diet.nag", "🐷 {members} 아직 식단이 안 올라왔소! 30분 남았소. ⏰"),
     # 1.4.2 /셀프디스 (the jab itself is model output in the server tone, not a notice)
     Notice("self_roast.too_few", "🪞 셀프디스할 만큼 이 채널에서 한 말이 없소. 좀 더 떠들고 오시오. 💬"),
     Notice("self_roast.cooldown", "🧊 셀프디스는 숨 좀 돌리고 하시오. {seconds}초 뒤에 다시 부르시오. ⏰"),
