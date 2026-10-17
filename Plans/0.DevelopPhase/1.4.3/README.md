@@ -1,6 +1,6 @@
 # 1.4.3 — 식단 재촉·식단 평가
 
-- 상태: **PLANNED** · 5단계·10검사
+- 상태: **IN_PROGRESS** · 5단계·10검사
 - 선행 버전: [1.4.2a](../1.4.2a/README.md) — 태그 `v1.4.2a`, 코드 `54b3fbc16f6487a61858497f4c94d245b4c0550c`, `main` 병합 `eaba423`(2026-10-14). 개발 브랜치 `develop/1.4.3`은 `main` `eaba423`에서 시작한다.
 - 계획 근거: 2026-10-18 사용자 1.4.3 요청과 질문 답
 
@@ -17,7 +17,7 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 식단 설정](01-diet-settings.md) | `T143-P1-A/B` | PLANNED |
+| 1 | [P1 — 식단 설정](01-diet-settings.md) | `T143-P1-A/B` | DONE |
 | 2 | [P2 — 재촉 일정](02-diet-schedule.md) | `T143-P2-A/B` | PLANNED |
 | 3 | [P3 — 사진 포함 식단 평가](03-diet-judge.md) | `T143-P3-A/B` | PLANNED |
 | 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T143-P4-A/B` | PLANNED |
