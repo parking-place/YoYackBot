@@ -18,7 +18,7 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [P1 — 식단 설정](01-diet-settings.md) | `T143-P1-A/B` | DONE |
-| 2 | [P2 — 재촉 일정](02-diet-schedule.md) | `T143-P2-A/B` | PLANNED |
+| 2 | [P2 — 재촉 일정](02-diet-schedule.md) | `T143-P2-A/B` | DONE |
 | 3 | [P3 — 사진 포함 식단 평가](03-diet-judge.md) | `T143-P3-A/B` | PLANNED |
 | 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T143-P4-A/B` | PLANNED |
 | 5 | [P5 — 통합·배포·출시](05-release.md) | `T143-P5-A/B` | PLANNED |

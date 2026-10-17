@@ -1,6 +1,6 @@
 # 1.4.3-P2 — 재촉 일정
 
-- 상태: **PUSH_PENDING** · 검사: `T143-P2-A/B` **PASS** ([증거](../evidence/1.4.3-P2.md)) · 환경: 개발 LXC, 합성 대역(가짜 시계·가짜 Discord)
+- 상태: **DONE** · 검사: `T143-P2-A/B` **PASS** ([증거](../evidence/1.4.3-P2.md)) · 환경: 개발 LXC, 합성 대역(가짜 시계·가짜 Discord)
 
 ## 작업
 
