@@ -127,7 +127,8 @@ class CodexContract:
         return result.returncode == 0
 
     def arguments(
-        self, *, working_directory: Path, output_file: Path, restricted: bool = False
+        self, *, working_directory: Path, output_file: Path, restricted: bool = False,
+        images: tuple[Path, ...] = (),
     ) -> list[str]:
         if not working_directory.is_absolute() or not output_file.is_absolute():
             raise ValueError("Codex paths must be absolute")
@@ -155,8 +156,11 @@ class CodexContract:
         args.extend([
             "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check",
             "--color", "never", "--cd", str(working_directory),
-            "--output-last-message", str(output_file), "-",
+            "--output-last-message", str(output_file),
         ])
+        for image in images:  # 1.4.3: photos for the diet review
+            args.extend(("--image", str(image)))
+        args.append("-")
         return args
 
 

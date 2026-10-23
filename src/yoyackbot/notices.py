@@ -26,7 +26,7 @@ _DIGITS = re.compile(r"[0-9]+(?:[,.][0-9]+)*")
 _MENTION_LIKE = re.compile(r"<[@#&!:a-z]|@everyone|@here|https?://|discord\.gg", re.IGNORECASE)
 _EMOJI_LEAD = re.compile(r"^[^\w\s`*(<{\[\"'‘“«#>-]+")
 # Filled with a finished short sentence ("3곳이오.") or someone's own words, so nothing may follow.
-SENTENCE_FIELDS = ("value", "stage", "reason")
+SENTENCE_FIELDS = ("value", "stage", "reason", "verdict")
 
 
 @dataclass(frozen=True)
@@ -270,6 +270,25 @@ _ENTRIES = (
     Notice("ranking.no_executioner", "🤷 누가 처형했는지 확인된 기록이 없소."),
     Notice("ranking.total", "⚔️ 이 기간 처형은 모두 {total}건이오."),
     Notice("ranking.read_failed", "⚠️ 처형 기록을 읽지 못했소. 잠시 후 다시 시도하시오. 🔧"),
+    # 1.4.3 식단 설정
+    Notice("diet_settings.no_channel", "🐷 식단 채널: 없음(재촉하지 않음)"),
+    Notice("diet_settings.channel", "🐷 식단 채널: {channel}"),
+    Notice("diet_settings.no_role", "🐷 식단 역할: 없음(재촉하지 않음)"),
+    Notice("diet_settings.role", "🐷 식단 역할: {role}"),
+    Notice("diet_settings.schedule_on", "⏰ 매일 21:00에 역할을 부르고, 22:00에 안 올린 사람을 부르고, 22:30에 식단을 평가하오."),
+    Notice("diet_settings.schedule_off", "💤 식단 채널과 역할을 모두 정해야 재촉을 시작하오."),
+    Notice("diet_settings.mention_warning", "⚠️ 봇이 이 역할을 멘션할 수 없소. 역할을 멘션 가능으로 바꾸거나 봇에 모든 역할 멘션 권한을 주시오. 🔧"),
+    Notice("diet_settings.channel_cleared", "🧹 식단 채널을 비웠소. 저장을 눌러 확정하시오. 👇"),
+    Notice("diet_settings.role_cleared", "🧹 식단 역할을 비웠소. 저장을 눌러 확정하시오. 👇"),
+    Notice("diet_settings.role_hint", "🛠️ 역할을 고르고 저장하거나 해제하시오. 👇"),
+    # 1.4.3 식단 재촉
+    Notice("diet.call", "🐷 {role} 오늘 식단을 올리시오! 🍽️"),
+    Notice("diet.nag", "🐷 {members} 아직 식단이 안 올라왔소! 30분 남았소. ⏰"),
+    Notice("diet.review_header", "🐷 **오늘의 식단 평가**"),
+    Notice("diet.verdict", "📝 총평: {verdict}"),
+    Notice("diet.missing", "🙈 끝내 안 올린 사람: {members}"),
+    Notice("diet.nobody", "🐷 오늘은 아무도 식단을 올리지 않았소. 다들 굶었소? 🙈"),
+    Notice("diet.review_failed", "🤔 오늘은 식단 평가를 못 하겠소. 내일 다시 보겠소. 🔧"),
     # 1.4.2 /셀프디스 (the jab itself is model output in the server tone, not a notice)
     Notice("self_roast.too_few", "🪞 셀프디스할 만큼 이 채널에서 한 말이 없소. 좀 더 떠들고 오시오. 💬"),
     Notice("self_roast.cooldown", "🧊 셀프디스는 숨 좀 돌리고 하시오. {seconds}초 뒤에 다시 부르시오. ⏰"),

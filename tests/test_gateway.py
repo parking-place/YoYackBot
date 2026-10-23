@@ -48,7 +48,8 @@ def test_ingress_classification(changes: dict[str, object], expected: MessageCla
 def test_only_required_intents_are_enabled() -> None:
     intents = required_intents()
     assert intents.guilds and intents.guild_messages and intents.message_content
-    assert not intents.members and not intents.presences and not intents.dm_messages
+    assert not intents.presences and not intents.dm_messages
+    assert intents.members  # 1.4.3: the diet role's members (user decision, privileged)
 
 
 def test_on_message_never_stores_or_logs_bot_events(caplog: pytest.LogCaptureFixture) -> None:

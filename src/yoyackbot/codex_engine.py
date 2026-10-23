@@ -1,6 +1,7 @@
 """Summarize request-scoped message records through the pinned Codex CLI."""
 
 import asyncio
+import dataclasses
 import json
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -312,6 +313,27 @@ class CodexSummaryEngine:
                 InputWorkspace.create(root, data, inline=True), with_data(prompt, data),
             )
 
+    async def diet_review(
+        self, prompt: str, data: bytes, photos: Sequence[tuple[bytes, str]], *,
+        timeout_seconds: float = 300,
+    ) -> str:
+        """1.4.3: the day's diet posts with their photos attached, one call. Photos take longer,
+        so this call may run up to `timeout_seconds`."""
+        root = self.settings.input_directory.absolute()
+        workspace = InputWorkspace.create(root, data, inline=True)
+        try:
+            workspace.add_images(list(photos))
+        except BaseException:
+            workspace.close()
+            raise
+        runner = self.runner
+        if dataclasses.is_dataclass(runner):
+            runner = dataclasses.replace(
+                runner, timeout_seconds=max(runner.timeout_seconds, timeout_seconds),
+            )
+        async with self._slots:
+            return await self._execute("diet", workspace, with_data(prompt, data), runner=runner)
+
     async def rewrite_notices(self, prompt: str, data: bytes) -> str:
         """1.4.0: one batch of a server's notices in its tone; no conversation is involved."""
         root = self.settings.input_directory.absolute()
@@ -325,7 +347,9 @@ class CodexSummaryEngine:
         text = body if rating is None else f"{body}\n\n{rating}"
         return strip_emoji(text) if note is not None and wants_no_emoji(note) else text
 
-    async def _execute(self, label: str, workspace: InputWorkspace, prompt: str) -> str:
+    async def _execute(
+        self, label: str, workspace: InputWorkspace, prompt: str, *, runner: object = None,
+    ) -> str:
         """One Codex run, timed under its call name (1.3.2) with its call's effort (1.3.3)."""
         configured = getattr(getattr(self.runner, "contract", None), "reasoning_effort", None)
         effort = (
@@ -333,7 +357,7 @@ class CodexSummaryEngine:
             else configured
         )
         async with codex_call(label, effort), call_effort(effort):
-            return await self.runner.execute(workspace, prompt)
+            return await (runner or self.runner).execute(workspace, prompt)
 
     async def _ask(
         self, root: Path, data: bytes, extra: Sequence[dict], prompt: str, label: str,

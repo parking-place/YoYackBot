@@ -35,7 +35,7 @@ def test_new_presets_set_every_ending_and_cover_the_catalog(key) -> None:
 
 
 def test_the_first_four_presets_keep_their_notices() -> None:
-    """1.4.2a only adds presets: the 1.4.2 data is byte for byte what v1.4.2 shipped."""
+    """Later releases only add presets and new notices: what v1.4.2 shipped stays as it was."""
     shipped = subprocess.run(["git", "show", "v1.4.2:src/yoyackbot/tone_presets.json"], cwd=ROOT,
                              capture_output=True, text=True, check=False)
     if shipped.returncode != 0:
@@ -43,7 +43,7 @@ def test_the_first_four_presets_keep_their_notices() -> None:
     old = json.loads(shipped.stdout)
     now = json.loads((ROOT / "src/yoyackbot/tone_presets.json").read_text())
     for key in ("saguk", "pirate", "anchor", "mz"):
-        assert now[key] == old[key], key
+        assert {name: now[key][name] for name in old[key]} == old[key], key
 
 
 # T142a-P1-B ------------------------------------------------------------------------------

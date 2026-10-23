@@ -289,6 +289,22 @@ class SQLiteWatchStore:
                         "role_id INTEGER NOT NULL CHECK(role_id > 0), "
                         "updated_us INTEGER NOT NULL, PRIMARY KEY(guild_id, role_id))"
                     )
+                    # 1.4.3 식단: one diet channel and one role per server, and each day's steps
+                    # (call, nag, judge) recorded once so a restart never repeats them.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS diet_settings ("
+                        "guild_id INTEGER PRIMARY KEY CHECK(guild_id > 0), "
+                        "channel_id INTEGER CHECK(channel_id IS NULL OR channel_id > 0), "
+                        "role_id INTEGER CHECK(role_id IS NULL OR role_id > 0), "
+                        "updated_us INTEGER NOT NULL)"
+                    )
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS diet_runs ("
+                        "guild_id INTEGER NOT NULL CHECK(guild_id > 0), day TEXT NOT NULL, "
+                        "stage TEXT NOT NULL CHECK(stage IN ('call', 'nag', 'judge')), "
+                        "outcome TEXT NOT NULL, done_us INTEGER NOT NULL, "
+                        "PRIMARY KEY(guild_id, day, stage))"
+                    )
                     # 1.4.2 /처형순위: every timeout change (people, kind, seconds, time; no reason),
                     # kept 40 days.
                     connection.execute(
@@ -524,6 +540,8 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM execution_settings WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM execution_roles WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM execution_events WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM diet_settings WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM diet_runs WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_notices WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:

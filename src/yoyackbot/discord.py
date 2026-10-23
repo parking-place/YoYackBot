@@ -42,6 +42,11 @@ from yoyackbot.collection_status import (
     not_ready_detail,
 )
 from yoyackbot.config import Settings
+from yoyackbot.diet import SQLiteDietStore
+from yoyackbot.diet_config import install_diet_settings
+from yoyackbot.diet_judge import FAILED as DIET_FAILED
+from yoyackbot.diet_judge import judge_day
+from yoyackbot.diet_schedule import DietScheduler
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
 from yoyackbot.execute_command import install_execute_command
 from yoyackbot.execution import SQLiteExecutionStore
@@ -131,12 +136,15 @@ def classify_message(message: MessageCandidate) -> MessageClass:
 
 
 def required_intents() -> discord.Intents:
-    """Request only guild, guild-message, message-content and (1.4.0) audit-log events."""
+    """Request only guild, guild-message, message-content, (1.4.0) audit-log and (1.4.3) member
+    events."""
     intents = discord.Intents.none()
     intents.guilds = True
     intents.guild_messages = True
     intents.message_content = True
     intents.moderation = True  # audit log entries for the 처형 log (not a privileged intent)
+    # 1.4.3: the diet role's members (privileged: Server Members Intent in the developer portal)
+    intents.members = True
     return intents
 
 
@@ -217,6 +225,9 @@ class YoYackClient(discord.Client):
         self._execution_callers: dict[tuple[int, int], tuple[int, float]] = {}
         # 1.4.0: each server's notices in its tone; one rewrite at a time per server
         self.notices: SQLiteNoticeStore | None = None
+        self.diets: SQLiteDietStore | None = None  # 1.4.3 식단
+        self.diet_scheduler: DietScheduler | None = None
+        self._diet_task: asyncio.Task[None] | None = None
         self._notice_tasks: dict[int, asyncio.Task[None]] = {}
         self._notices_caught_up = False
         install_channel_commands(self.tree, self.watch_store, self.manager_roles)
@@ -238,10 +249,17 @@ class YoYackClient(discord.Client):
             install_execute_command(self.tree, self.executions, self.remember_execution)
             install_execution_help(self.tree)
             install_ranking_command(self.tree, self.executions, settings.timezone, self.clock)
+            self.diets = SQLiteDietStore(settings.database_path)
+            install_diet_settings(self.tree, self.diets, self.manager_roles)
+            self.diet_scheduler = DietScheduler(
+                self.diets, self.get_guild, zone=settings.timezone, judge=self._diet_judge,
+            )
 
     async def setup_hook(self) -> None:
         if self.settings is not None:
             self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        if self.diet_scheduler is not None:
+            self._diet_task = asyncio.create_task(self._diet_loop())
         if self.notices is not None:
             try:
                 tables = await asyncio.to_thread(self.notices.current)
@@ -293,6 +311,15 @@ class YoYackClient(discord.Client):
                     LOGGER.info("execution_settings_pruned count=%d", removed)
             except Exception:  # noqa: BLE001
                 LOGGER.warning("execution_settings_prune_failed")
+        if self.diets is not None and self.guilds:
+            try:
+                removed = await asyncio.to_thread(
+                    self.diets.keep_only, [guild.id for guild in self.guilds],
+                )
+                if removed:
+                    LOGGER.info("diet_settings_pruned count=%d", removed)
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("diet_settings_prune_failed")
         if self.notices is not None and self.guilds:
             try:
                 removed = await asyncio.to_thread(
@@ -348,6 +375,10 @@ class YoYackClient(discord.Client):
             task.cancel()
         await asyncio.gather(*notice_tasks, return_exceptions=True)
         self._notice_tasks.clear()
+        if self._diet_task is not None:
+            self._diet_task.cancel()
+            await asyncio.gather(self._diet_task, return_exceptions=True)
+            self._diet_task = None
         if self._backfill_task is not None:
             self._backfill_task.cancel()
             await asyncio.gather(self._backfill_task, return_exceptions=True)
@@ -647,6 +678,12 @@ class YoYackClient(discord.Client):
                     LOGGER.info("execution_channel_deleted")
             except Exception:  # noqa: BLE001
                 LOGGER.warning("execution_channel_cleanup_failed")
+        if self.diets is not None:
+            try:
+                if await asyncio.to_thread(self.diets.remove_channel, channel.guild.id, channel.id):
+                    LOGGER.info("diet_channel_deleted")
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("diet_channel_cleanup_failed")
 
     def remember_execution(self, guild_id: int, target_id: int, caller_id: int) -> None:
         """`/처형` is about to time out `target_id`; its audit entry names the bot, not the caller."""
@@ -659,6 +696,40 @@ class YoYackClient(discord.Client):
     def _execution_caller(self, guild_id: int, target_id: int) -> int | None:
         found = self._execution_callers.pop((guild_id, target_id), None)
         return found[0] if found is not None and found[1] > time.monotonic() else None
+
+    async def _diet_loop(self, interval: float = 30) -> None:
+        """1.4.3: check the diet steps twice a minute while connected."""
+        while True:
+            if self.ready_event.is_set() and self.diet_scheduler is not None:
+                try:
+                    await self.diet_scheduler.tick(self.clock())
+                except Exception:  # noqa: BLE001 - the next tick tries again
+                    LOGGER.warning("diet_tick_failed")
+            await asyncio.sleep(interval)
+
+    async def _diet_judge(self, guild, channel, role_id, missing, posts) -> str:
+        """1.4.3 22:30: review the day's diet posts in the server tone (photos attached)."""
+        engine = self._notice_engine() if posts else None
+        if posts and engine is None:
+            try:
+                await channel.send(localize(guild.id, DIET_FAILED),
+                                   allowed_mentions=discord.AllowedMentions.none())
+            except (discord.DiscordException, OSError):
+                return "send_failed"
+            return "unavailable"
+        tone = None
+        if self.settings is not None:
+            try:
+                tone = await asyncio.to_thread(SQLiteToneStore(self.settings.database_path).get, guild.id)
+            except Exception:  # noqa: BLE001 - the default tone then
+                LOGGER.warning("tone_read_failed")
+        try:
+            return await judge_day(
+                guild.id, channel, missing, posts, tone=tone,
+                ask=lambda prompt, diet: engine.diet_review(prompt, diet.data, diet.photos),
+            )
+        except (discord.DiscordException, OSError):
+            return "send_failed"
 
     def tone_changed(
         self, interaction: discord.Interaction | None, guild_id: int, version: int,
@@ -861,6 +932,12 @@ class YoYackClient(discord.Client):
                     LOGGER.info("execution_role_deleted")
             except Exception:  # noqa: BLE001
                 LOGGER.warning("execution_role_cleanup_failed")
+        if self.diets is not None:
+            try:
+                if await asyncio.to_thread(self.diets.remove_role, role.guild.id, role.id):
+                    LOGGER.info("diet_role_deleted")
+            except Exception:  # noqa: BLE001
+                LOGGER.warning("diet_role_cleanup_failed")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if classify_message(after) is not MessageClass.HUMAN_TEXT or after.guild is None:
