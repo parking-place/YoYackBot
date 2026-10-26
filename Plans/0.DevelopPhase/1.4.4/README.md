@@ -18,7 +18,7 @@
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
 | 1 | [P1 — 운동 설정·기록 저장소](01-exercise-settings.md) | `T144-P1-A/B` | DONE |
-| 2 | [P2 — 일간 영양·운동 정산](02-daily-tally.md) | `T144-P2-A/B` | PLANNED |
+| 2 | [P2 — 일간 영양·운동 정산](02-daily-tally.md) | `T144-P2-A/B` | DONE |
 | 3 | [P3 — 주간 훈수](03-weekly-advice.md) | `T144-P3-A/B` | PLANNED |
 | 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T144-P4-A/B` | PLANNED |
 | 5 | [P5 — 통합·배포·출시](05-release.md) | `T144-P5-A/B` | PLANNED |
