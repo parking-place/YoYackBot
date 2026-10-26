@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from evaluate_p143 import Canvas, burger, donuts, picture, ramen, salad
+
 from yoyackbot.codex import pin_executable
 from yoyackbot.codex_engine import CodexSummaryEngine
 from yoyackbot.codex_runner import CodexRunError
