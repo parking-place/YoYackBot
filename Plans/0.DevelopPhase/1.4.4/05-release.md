@@ -1,6 +1,6 @@
 # 1.4.4-P5 — 통합·배포·출시
 
-- 상태: **PUSH_PENDING** · 검사: `T144-P5-A/B` **PASS** ([증거](../evidence/1.4.4-P5.md)) · 환경: 개발 LXC, 시험 Discord, GitHub CI
+- 상태: **DONE** · 검사: `T144-P5-A/B` **PASS** ([증거](../evidence/1.4.4-P5.md)) · 환경: 개발 LXC, 시험 Discord, GitHub CI
 
 ## 작업
 
