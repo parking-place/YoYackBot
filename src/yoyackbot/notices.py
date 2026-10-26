@@ -281,6 +281,14 @@ _ENTRIES = (
     Notice("diet_settings.channel_cleared", "🧹 식단 채널을 비웠소. 저장을 눌러 확정하시오. 👇"),
     Notice("diet_settings.role_cleared", "🧹 식단 역할을 비웠소. 저장을 눌러 확정하시오. 👇"),
     Notice("diet_settings.role_hint", "🛠️ 역할을 고르고 저장하거나 해제하시오. 👇"),
+    # 1.4.4 운동 설정
+    Notice("exercise_settings.no_channel", "🏃 운동 채널: 없음(식단 채널을 씀)"),
+    Notice("exercise_settings.channel", "🏃 운동 채널: {channel}"),
+    Notice("exercise_settings.no_role", "🏃 운동 역할: 없음(돼지역할을 씀)"),
+    Notice("exercise_settings.role", "🏃 운동 역할: {role}"),
+    Notice("exercise_settings.schedule", "📊 운동은 매일 22:30 식단 평가에서 함께 정산하고, 일요일에는 주간 훈수를 하오."),
+    Notice("exercise_settings.channel_cleared", "🧹 운동 채널을 비웠소(식단 채널을 씀). 저장을 눌러 확정하시오. 👇"),
+    Notice("exercise_settings.role_cleared", "🧹 운동 역할을 비웠소(돼지역할을 씀). 저장을 눌러 확정하시오. 👇"),
     # 1.4.3 식단 재촉
     Notice("diet.call", "🐷 {role} 오늘 식단을 올리시오! 🍽️"),
     Notice("diet.nag", "🐷 {members} 아직 식단이 안 올라왔소! 30분 남았소. ⏰"),
@@ -289,6 +297,11 @@ _ENTRIES = (
     Notice("diet.missing", "🙈 끝내 안 올린 사람: {members}"),
     Notice("diet.nobody", "🐷 오늘은 아무도 식단을 올리지 않았소. 다들 굶었소? 🙈"),
     Notice("diet.review_failed", "🤔 오늘은 식단 평가를 못 하겠소. 내일 다시 보겠소. 🔧"),
+    Notice("diet.estimate_note", "ℹ️ 단백질·당류는 사진과 글로 어림한 추정치요."),
+    Notice("diet.week_header", "📅 **이번 주 식단·운동 훈수**"),
+    Notice("diet.week_note", "ℹ️ 사진과 글로 어림한 추정치로 쓴 참고용 훈수요. 건강 문제는 전문가와 상의하시오."),
+    Notice("diet.week_failed", "🤔 이번 주 훈수는 못 하겠소. 다음 주에 다시 보겠소. 🔧"),
+    Notice("diet.week_empty", "📅 이번 주는 식단·운동 기록이 하나도 없소. 다음 주엔 꼭 올리시오! 🙈"),
     # 1.4.2 /셀프디스 (the jab itself is model output in the server tone, not a notice)
     Notice("self_roast.too_few", "🪞 셀프디스할 만큼 이 채널에서 한 말이 없소. 좀 더 떠들고 오시오. 💬"),
     Notice("self_roast.cooldown", "🧊 셀프디스는 숨 좀 돌리고 하시오. {seconds}초 뒤에 다시 부르시오. ⏰"),

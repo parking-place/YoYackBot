@@ -52,6 +52,7 @@ def backup_settings(database: Path, backup_root: Path) -> Path:
                 **_execution_rows(connection),
                 "notices": _notice_rows(connection),
                 "diet": _diet_rows(connection),
+                "exercise": _diet_rows(connection, "exercise_settings"),
             }
         backup_root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if backup_root.is_symlink() or backup_root.stat().st_mode & 0o077:
@@ -133,19 +134,20 @@ def _execution_rows(connection: sqlite3.Connection) -> dict[str, list[tuple[int,
     }
 
 
-def _diet_rows(connection: sqlite3.Connection) -> list[list[object]]:
-    """식단 channel and role per server (1.4.3); older databases have no table."""
+def _diet_rows(connection: sqlite3.Connection, table: str = "diet_settings") -> list[list[object]]:
+    """식단 (1.4.3) or 운동 (1.4.4) channel and role per server; older databases have no table."""
+    assert table in ("diet_settings", "exercise_settings")
     if connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='diet_settings'"
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
     ).fetchone() is None:
         return []
     return [list(row) for row in connection.execute(
-        "SELECT guild_id, channel_id, role_id, updated_us FROM diet_settings ORDER BY guild_id"
+        f"SELECT guild_id, channel_id, role_id, updated_us FROM {table} ORDER BY guild_id"
     )]
 
 
-def _validated_diet(data: dict) -> list[tuple[int, int | None, int | None, int]]:
-    rows = data.get("diet", [])
+def _validated_diet(data: dict, key: str = "diet") -> list[tuple[int, int | None, int | None, int]]:
+    rows = data.get(key, [])
     if not isinstance(rows, list):
         raise BackupError("Settings backup is invalid")
     valid = []
@@ -259,6 +261,7 @@ def restore_settings(
         exec_roles = _validated_rows(data, "execution_roles", 3) if "execution_roles" in data else []
         notices = _validated_notices(data)  # before 1.4.0 there are none
         diet = _validated_diet(data)  # before 1.4.3 there is none
+        exercise = _validated_diet(data, "exercise")  # before 1.4.4 there is none
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         os.close(descriptor)
@@ -307,6 +310,10 @@ def restore_settings(
                 connection.executemany(
                     "INSERT INTO diet_settings(guild_id, channel_id, role_id, updated_us) "
                     "VALUES (?, ?, ?, ?)", diet,
+                )
+                connection.executemany(
+                    "INSERT INTO exercise_settings(guild_id, channel_id, role_id, updated_us) "
+                    "VALUES (?, ?, ?, ?)", exercise,
                 )
                 connection.commit()
             SQLiteMessageStore(target).prune_before(

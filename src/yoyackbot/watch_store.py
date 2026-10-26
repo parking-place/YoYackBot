@@ -305,6 +305,30 @@ class SQLiteWatchStore:
                         "outcome TEXT NOT NULL, done_us INTEGER NOT NULL, "
                         "PRIMARY KEY(guild_id, day, stage))"
                     )
+                    # 1.4.4: exercise channel/role (default: the diet ones), each person's daily
+                    # estimates for the weekly advice (40 days), and one weekly run per server.
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS exercise_settings ("
+                        "guild_id INTEGER PRIMARY KEY CHECK(guild_id > 0), "
+                        "channel_id INTEGER CHECK(channel_id IS NULL OR channel_id > 0), "
+                        "role_id INTEGER CHECK(role_id IS NULL OR role_id > 0), "
+                        "updated_us INTEGER NOT NULL)"
+                    )
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS diet_daily ("
+                        "guild_id INTEGER NOT NULL CHECK(guild_id > 0), day TEXT NOT NULL, "
+                        "user_id INTEGER NOT NULL CHECK(user_id > 0), "
+                        "protein_g INTEGER CHECK(protein_g IS NULL OR protein_g BETWEEN 0 AND 400), "
+                        "sugar_g INTEGER CHECK(sugar_g IS NULL OR sugar_g BETWEEN 0 AND 400), "
+                        "foods TEXT NOT NULL, exercise TEXT, updated_us INTEGER NOT NULL, "
+                        "PRIMARY KEY(guild_id, day, user_id))"
+                    )
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS diet_week_runs ("
+                        "guild_id INTEGER NOT NULL CHECK(guild_id > 0), week TEXT NOT NULL, "
+                        "outcome TEXT NOT NULL, done_us INTEGER NOT NULL, "
+                        "PRIMARY KEY(guild_id, week))"
+                    )
                     # 1.4.2 /처형순위: every timeout change (people, kind, seconds, time; no reason),
                     # kept 40 days.
                     connection.execute(
@@ -542,6 +566,9 @@ class SQLiteWatchStore:
                 connection.execute("DELETE FROM execution_events WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM diet_settings WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM diet_runs WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM exercise_settings WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM diet_daily WHERE guild_id=?", (guild_id,))
+                connection.execute("DELETE FROM diet_week_runs WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_notices WHERE guild_id=?", (guild_id,))
                 connection.execute("DELETE FROM guild_watch_meta WHERE guild_id=?", (guild_id,))
         except sqlite3.Error as exc:

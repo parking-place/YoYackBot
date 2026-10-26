@@ -47,6 +47,8 @@ from yoyackbot.diet_config import install_diet_settings
 from yoyackbot.diet_judge import FAILED as DIET_FAILED
 from yoyackbot.diet_judge import judge_day
 from yoyackbot.diet_schedule import DietScheduler
+from yoyackbot.diet_week import FAILED as WEEK_FAILED
+from yoyackbot.diet_week import advise_week
 from yoyackbot.domain import MessageRecord, RangeRequest, SummaryMode, SummaryRequest
 from yoyackbot.execute_command import install_execute_command
 from yoyackbot.execution import SQLiteExecutionStore
@@ -253,6 +255,7 @@ class YoYackClient(discord.Client):
             install_diet_settings(self.tree, self.diets, self.manager_roles)
             self.diet_scheduler = DietScheduler(
                 self.diets, self.get_guild, zone=settings.timezone, judge=self._diet_judge,
+                advise=self._diet_week,
             )
 
     async def setup_hook(self) -> None:
@@ -707,29 +710,60 @@ class YoYackClient(discord.Client):
                     LOGGER.warning("diet_tick_failed")
             await asyncio.sleep(interval)
 
-    async def _diet_judge(self, guild, channel, role_id, missing, posts) -> str:
-        """1.4.3 22:30: review the day's diet posts in the server tone (photos attached)."""
-        engine = self._notice_engine() if posts else None
-        if posts and engine is None:
+    async def _diet_judge(self, guild, channel, role_id, missing, posts, *, exercise_posts=(),
+                          day=None) -> str:
+        """1.4.3 22:30: review the day's diet posts in the server tone (photos attached); 1.4.4:
+        with each person's protein/sugar/exercise tally, saved for the weekly advice."""
+        anything = bool(posts or exercise_posts)
+        engine = self._notice_engine() if anything else None
+        if anything and engine is None:
             try:
                 await channel.send(localize(guild.id, DIET_FAILED),
                                    allowed_mentions=discord.AllowedMentions.none())
             except (discord.DiscordException, OSError):
                 return "send_failed"
             return "unavailable"
-        tone = None
-        if self.settings is not None:
-            try:
-                tone = await asyncio.to_thread(SQLiteToneStore(self.settings.database_path).get, guild.id)
-            except Exception:  # noqa: BLE001 - the default tone then
-                LOGGER.warning("tone_read_failed")
+        tone = await self._server_tone(guild.id)
+
+        async def save(records):
+            if self.diets is not None and day is not None:
+                await asyncio.to_thread(self.diets.save_daily, guild.id, day, records, self.clock())
+
         try:
             return await judge_day(
-                guild.id, channel, missing, posts, tone=tone,
+                guild.id, channel, missing, posts, tone=tone, exercise_posts=exercise_posts,
                 ask=lambda prompt, diet: engine.diet_review(prompt, diet.data, diet.photos),
+                save=save,
             )
         except (discord.DiscordException, OSError):
             return "send_failed"
+
+    async def _diet_week(self, guild, channel, records, members) -> str:
+        """1.4.4 Sundays: each person's practical advice from the week's saved tallies."""
+        engine = self._notice_engine() if records else None
+        if records and engine is None:
+            try:
+                await channel.send(localize(guild.id, WEEK_FAILED),
+                                   allowed_mentions=discord.AllowedMentions.none())
+            except (discord.DiscordException, OSError):
+                return "send_failed"
+            return "unavailable"
+        try:
+            return await advise_week(
+                guild.id, channel, records, members, tone=await self._server_tone(guild.id),
+                ask=lambda prompt, data: engine.diet_advice(prompt, data),
+            )
+        except (discord.DiscordException, OSError):
+            return "send_failed"
+
+    async def _server_tone(self, guild_id: int) -> str | None:
+        if self.settings is None:
+            return None
+        try:
+            return await asyncio.to_thread(SQLiteToneStore(self.settings.database_path).get, guild_id)
+        except Exception:  # noqa: BLE001 - the default tone then
+            LOGGER.warning("tone_read_failed")
+            return None
 
     def tone_changed(
         self, interaction: discord.Interaction | None, guild_id: int, version: int,

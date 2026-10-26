@@ -334,6 +334,14 @@ class CodexSummaryEngine:
         async with self._slots:
             return await self._execute("diet", workspace, with_data(prompt, data), runner=runner)
 
+    async def diet_advice(self, prompt: str, data: bytes) -> str:
+        """1.4.4: the week's advice from the bot's daily tallies; text only, no conversation."""
+        root = self.settings.input_directory.absolute()
+        async with self._slots:
+            return await self._execute(
+                "diet_week", InputWorkspace.create(root, data, inline=True), with_data(prompt, data),
+            )
+
     async def rewrite_notices(self, prompt: str, data: bytes) -> str:
         """1.4.0: one batch of a server's notices in its tone; no conversation is involved."""
         root = self.settings.input_directory.absolute()

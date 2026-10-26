@@ -3,6 +3,9 @@
 1.4.3a: the 21:00 call also mentions each of the role's people (a personal mention always
 notifies), and the judge sees everyone who posted that day, in the role or not.
 
+1.4.4: the judge also reads a separate exercise channel; on Sundays the week's advice follows the
+review once a week (`diet_week_runs`), any time until the day ends like the review.
+
 Each server's steps are recorded once per day (`diet_runs`) before they run, so a restart never
 repeats a ping. A step that is late (the bot was down) runs only inside its grace window.
 """
@@ -43,9 +46,10 @@ class DietPost:
     text: str
     attachments: tuple[object, ...]
     at: datetime
+    kind: str = "diet"  # 1.4.4: "exercise" for posts read from a separate exercise channel
 
 
-async def day_posts(channel: object, start: datetime, end: datetime) -> list[DietPost]:
+async def day_posts(channel: object, start: datetime, end: datetime, kind: str = "diet") -> list[DietPost]:
     posts = []
     async for message in channel.history(
         after=start, before=end, limit=HISTORY_LIMIT, oldest_first=True,
@@ -57,7 +61,7 @@ async def day_posts(channel: object, start: datetime, end: datetime) -> list[Die
             continue
         if not content and not attachments:
             continue
-        posts.append(DietPost(author.id, content, attachments, message.created_at))
+        posts.append(DietPost(author.id, content, attachments, message.created_at, kind))
     return posts
 
 
@@ -72,18 +76,22 @@ async def role_members(guild: object, role_id: int) -> list[int]:
     return sorted(found)
 
 
-Judge = Callable[[object, object, int, Sequence[int], Sequence[DietPost]], Awaitable[str]]
+# judge(guild, channel, role_id, missing, posts, *, exercise_posts, day) -> outcome
+Judge = Callable[..., Awaitable[str]]
+# advise(guild, channel, records, members) -> outcome (1.4.4, Sundays)
+Advise = Callable[..., Awaitable[str]]
 
 
 class DietScheduler:
     def __init__(
         self, store: SQLiteDietStore, get_guild: Callable[[int], object | None], *,
-        zone: ZoneInfo | None = None, judge: Judge | None = None,
+        zone: ZoneInfo | None = None, judge: Judge | None = None, advise: Advise | None = None,
     ) -> None:
         self.store = store
         self.get_guild = get_guild
         self.zone = zone or DEFAULT_ZONE
         self.judge = judge
+        self.advise = advise
 
     async def tick(self, now: datetime) -> None:
         """Run every step that is due now, for every server with a channel and a role."""
@@ -116,6 +124,42 @@ class DietScheduler:
                 continue
             outcome = await self._run(stage, guild_id, channel_id, role_id, midnight, now)
             await asyncio.to_thread(self.store.finish, guild_id, day, stage, outcome)
+        if local.weekday() == 6 and self.advise is not None:  # Sunday, after the review
+            await self._week(guild_id, channel_id, role_id, midnight, now)
+
+    async def _week(self, guild_id: int, channel_id: int, role_id: int, midnight: datetime,
+                    now: datetime) -> None:
+        monday = (midnight - timedelta(days=6)).date().isoformat()
+        if await asyncio.to_thread(self.store.week_done, guild_id, monday) is not None:
+            return
+        if not await asyncio.to_thread(self.store.claim_week, guild_id, monday, "running", now):
+            return
+        outcome = await self._advise(guild_id, channel_id, role_id, monday, midnight)
+        await asyncio.to_thread(self.store.finish_week, guild_id, monday, outcome)
+
+    async def _advise(self, guild_id: int, channel_id: int, role_id: int, monday: str,
+                      midnight: datetime) -> str:
+        guild = self.get_guild(guild_id)
+        if guild is None:
+            return self._log("week", "no_guild")
+        channel = guild.get_channel(channel_id)
+        if channel is None or not valid_channel(guild, channel_id):
+            return self._log("week", "no_channel")
+        try:
+            records = await asyncio.to_thread(
+                self.store.week, guild_id, monday, midnight.date().isoformat())
+            _channel, exercise_role = await asyncio.to_thread(self.store.exercise_target, guild_id)
+        except Exception:  # noqa: BLE001
+            return self._log("week", "read_failed")
+        members: set[int] = set()
+        try:
+            for role in {role_id, exercise_role} - {None}:
+                if guild.get_role(role) is not None:
+                    members.update(await role_members(guild, role))
+        except (discord.DiscordException, OSError):
+            LOGGER.info("diet_run stage=week members_read=False")
+        outcome = await self.advise(guild, channel, records, sorted(members))
+        return self._log("week", outcome, members=len(members), recorded=len(records))
 
     async def _run(
         self, stage: str, guild_id: int, channel_id: int, role_id: int, midnight: datetime,
@@ -160,9 +204,33 @@ class DietScheduler:
                 members=len(members), missing=len(missing))
         if self.judge is None:
             return self._log(stage, "unavailable")
+        exercise_posts = await self._exercise_posts(guild, channel_id, midnight, now)
         # 1.4.3a: everyone who posted that day is judged; `missing` stays the role's people
-        outcome = await self.judge(guild, channel, role_id, missing, posts)
-        return self._log(stage, outcome, members=len(members), missing=len(missing))
+        outcome = await self.judge(guild, channel, role_id, missing, posts,
+                                   exercise_posts=exercise_posts, day=midnight.date().isoformat())
+        return self._log(stage, outcome, members=len(members), missing=len(missing),
+                         exercise=len(exercise_posts))
+
+    async def _exercise_posts(
+        self, guild: object, diet_channel_id: int, midnight: datetime, now: datetime,
+    ) -> list[DietPost]:
+        """1.4.4: a separate exercise channel's posts that day; none when it is the diet channel."""
+        try:
+            channel_id, _role = await asyncio.to_thread(self.store.exercise_target, guild.id)
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("exercise_settings_unreadable")
+            return []
+        if channel_id is None or channel_id == diet_channel_id:
+            return []
+        channel = guild.get_channel(channel_id)
+        if channel is None or not valid_channel(guild, channel_id):
+            LOGGER.info("diet_run stage=judge exercise_channel=unavailable")
+            return []
+        try:
+            return await day_posts(channel, midnight.astimezone(UTC), now, "exercise")
+        except (discord.DiscordException, OSError):
+            LOGGER.warning("exercise_posts_unreadable")
+            return []
 
     async def _send(self, stage: str, channel: object, text: str,
                     mentions: discord.AllowedMentions, **counts: int | bool) -> str:
