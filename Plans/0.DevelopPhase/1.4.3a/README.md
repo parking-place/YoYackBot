@@ -1,6 +1,6 @@
 # 1.4.3a — 식단 평가 대상·호출 알림
 
-- 상태: **PLANNED** · 2단계·4검사
+- 상태: **IN_PROGRESS** · 2단계·4검사
 - 선행 버전: [1.4.3](../1.4.3/README.md) — 태그 `v1.4.3`, 코드 `b267c0055b75a096e69e8c3f7d99e8f7a183bbb2`, `main` 병합 `dd361f5`(2026-10-23). 개발 브랜치 `develop/1.4.3a`는 `main` `dd361f5`에서 시작한다.
 - 계획 근거: 2026-10-23 사용자 1.4.3a 요청과 질문 답
 
@@ -15,7 +15,7 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 평가 대상·호출 알림](01-judge-everyone-and-ping.md) | `T143a-P1-A/B` | PLANNED |
+| 1 | [P1 — 평가 대상·호출 알림](01-judge-everyone-and-ping.md) | `T143a-P1-A/B` | DONE |
 | 2 | [P2 — 통합·배포·출시](02-release.md) | `T143a-P2-A/B` | PLANNED |
 
 [검증 목록](TEST_MATRIX.md) · [상태](STATUS.md) · [Git 규칙](../GIT_WORKFLOW.md). 버전 표기는 계획·태그 `1.4.3a` / `v1.4.3a`, Python 패키지 `1.4.3.1`이다([버전 대응표](../PATCH_VERSIONING.md)).
