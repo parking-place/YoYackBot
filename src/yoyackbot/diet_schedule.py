@@ -43,9 +43,10 @@ class DietPost:
     text: str
     attachments: tuple[object, ...]
     at: datetime
+    kind: str = "diet"  # 1.4.4: "exercise" for posts read from a separate exercise channel
 
 
-async def day_posts(channel: object, start: datetime, end: datetime) -> list[DietPost]:
+async def day_posts(channel: object, start: datetime, end: datetime, kind: str = "diet") -> list[DietPost]:
     posts = []
     async for message in channel.history(
         after=start, before=end, limit=HISTORY_LIMIT, oldest_first=True,
@@ -57,7 +58,7 @@ async def day_posts(channel: object, start: datetime, end: datetime) -> list[Die
             continue
         if not content and not attachments:
             continue
-        posts.append(DietPost(author.id, content, attachments, message.created_at))
+        posts.append(DietPost(author.id, content, attachments, message.created_at, kind))
     return posts
 
 
@@ -72,7 +73,8 @@ async def role_members(guild: object, role_id: int) -> list[int]:
     return sorted(found)
 
 
-Judge = Callable[[object, object, int, Sequence[int], Sequence[DietPost]], Awaitable[str]]
+# judge(guild, channel, role_id, missing, posts, *, exercise_posts, day) -> outcome
+Judge = Callable[..., Awaitable[str]]
 
 
 class DietScheduler:
@@ -160,9 +162,33 @@ class DietScheduler:
                 members=len(members), missing=len(missing))
         if self.judge is None:
             return self._log(stage, "unavailable")
+        exercise_posts = await self._exercise_posts(guild, channel_id, midnight, now)
         # 1.4.3a: everyone who posted that day is judged; `missing` stays the role's people
-        outcome = await self.judge(guild, channel, role_id, missing, posts)
-        return self._log(stage, outcome, members=len(members), missing=len(missing))
+        outcome = await self.judge(guild, channel, role_id, missing, posts,
+                                   exercise_posts=exercise_posts, day=midnight.date().isoformat())
+        return self._log(stage, outcome, members=len(members), missing=len(missing),
+                         exercise=len(exercise_posts))
+
+    async def _exercise_posts(
+        self, guild: object, diet_channel_id: int, midnight: datetime, now: datetime,
+    ) -> list[DietPost]:
+        """1.4.4: a separate exercise channel's posts that day; none when it is the diet channel."""
+        try:
+            channel_id, _role = await asyncio.to_thread(self.store.exercise_target, guild.id)
+        except Exception:  # noqa: BLE001
+            LOGGER.warning("exercise_settings_unreadable")
+            return []
+        if channel_id is None or channel_id == diet_channel_id:
+            return []
+        channel = guild.get_channel(channel_id)
+        if channel is None or not valid_channel(guild, channel_id):
+            LOGGER.info("diet_run stage=judge exercise_channel=unavailable")
+            return []
+        try:
+            return await day_posts(channel, midnight.astimezone(UTC), now, "exercise")
+        except (discord.DiscordException, OSError):
+            LOGGER.warning("exercise_posts_unreadable")
+            return []
 
     async def _send(self, stage: str, channel: object, text: str,
                     mentions: discord.AllowedMentions, **counts: int | bool) -> str:

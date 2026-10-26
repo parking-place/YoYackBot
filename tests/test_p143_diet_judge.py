@@ -20,6 +20,7 @@ from yoyackbot.diet_judge import (
     FAILED,
     MAX_IMAGE_BYTES,
     NOBODY,
+    PersonTally,
     build_input,
     compose,
     diet_prompt,
@@ -33,7 +34,16 @@ from yoyackbot.tone_presets import BY_KEY
 
 NOW = datetime(2026, 10, 18, 13, tzinfo=UTC)
 A, B, C = 501, 502, 503
-GOOD = "P1: 샐러드라더니 드레싱이 주인공이구려.\nP2: 라면 국물까지 원샷한 게 보이오.\n총평: 오늘도 식단은 말뿐이었소."
+
+
+def line(person, roast, protein=30, sugar=10, foods="샐러드", exercise=None):
+    return json.dumps({"person": person, "roast": roast, "protein_g": protein, "sugar_g": sugar,
+                       "foods": foods, "exercise": exercise}, ensure_ascii=False)
+
+
+VERDICT_LINE = json.dumps({"verdict": "오늘도 식단은 말뿐이었소."}, ensure_ascii=False)
+GOOD = "\n".join([line("P1", "샐러드라더니 드레싱이 주인공이구려.", 25, 12, "샐러드", "러닝 20분"),
+                  line("P2", "라면 국물까지 원샷한 게 보이오.", 10, 5, "라면"), VERDICT_LINE])
 
 
 @pytest.fixture(autouse=True)
@@ -140,26 +150,38 @@ def test_the_server_tone_sets_the_voice() -> None:
 
 @pytest.mark.parametrize(("answer", "ok"), [
     (GOOD, True),
-    ("**P1**: 드레싱이 주인공이오.\n- P2: 국물 원샷이오.\n**총평**: 말뿐이오.", True),
-    ("P1: 하나만\n총평: 끝", False),                                  # a person missing
-    ("P1: 하나\nP1: 둘\nP2: 셋\n총평: 끝", False),                    # twice
-    ("P1: 하나\nP2: 둘\nP3: 셋\n총평: 끝", False),                    # nobody is P3
-    ("P1: 하나\nP2: 둘", False),                                      # no verdict
-    ("P1: " + "가" * 151 + "\nP2: 둘\n총평: 끝", False),
-    ("P1: 이 병신 식단\nP2: 둘\n총평: 끝", False),
-    ("P1: <@123> 같소\nP2: 둘\n총평: 끝", False),
-    ("P1: P2랑 똑같소\nP2: 둘\n총평: 끝", False),
+    ("```json\n" + GOOD + "\n```", True),                                   # fences are ignored
+    ("\n".join([line("P1", "하나", None, None, "식단 기록 없음", "푸시업 30개"), line("P2", "둘"), VERDICT_LINE]), True),
+    ("\n".join([line("P1", "하나"), VERDICT_LINE]), False),                # a person missing
+    ("\n".join([line("P1", "하나"), line("P1", "둘"), line("P2", "셋"), VERDICT_LINE]), False),
+    ("\n".join([line("P1", "하나"), line("P2", "둘"), line("P3", "셋"), VERDICT_LINE]), False),
+    ("\n".join([line("P1", "하나"), line("P2", "둘")]), False),             # no verdict
+    ("\n".join([line("P1", "가" * 151), line("P2", "둘"), VERDICT_LINE]), False),
+    ("\n".join([line("P1", "이 병신 식단"), line("P2", "둘"), VERDICT_LINE]), False),
+    ("\n".join([line("P1", "<@123> 같소"), line("P2", "둘"), VERDICT_LINE]), False),
+    ("\n".join([line("P1", "P2랑 똑같소"), line("P2", "둘"), VERDICT_LINE]), False),
+    ("\n".join([line("P1", "하나", 401), line("P2", "둘"), VERDICT_LINE]), False),   # out of range
+    ("\n".join([line("P1", "하나", -1), line("P2", "둘"), VERDICT_LINE]), False),
+    ("\n".join([line("P1", "하나", "많이"), line("P2", "둘"), VERDICT_LINE]), False),
+    ("\n".join([line("P1", "하나", 12.5), line("P2", "둘"), VERDICT_LINE]), False),
+    ("P1: 옛 모양\nP2: 둘\n총평: 끝", False),
+    ("{깨진 줄\n" + GOOD, False),
 ])
 def test_answers_are_parsed_and_checked(answer, ok) -> None:
     assert (parse_answer(answer, 2) is not None) is ok
 
 
 def test_post_layout_split_and_catalog() -> None:
-    parts = compose(1, [A, B], ["드레싱이 주인공이구려.", "국물까지 원샷했구려."], "말뿐이었소.", [C])
-    assert parts == [(f"🐷 **오늘의 식단 평가**\n\n<@{A}> 드레싱이 주인공이구려.\n<@{B}> 국물까지 원샷했구려.\n\n"
-                      f"📝 총평: 말뿐이었소.\n🙈 끝내 안 올린 사람: <@{C}>")]
-    assert [line for line in unmatched(parts[0]) if not line.startswith("<@")] == []
-    many = compose(1, list(range(1, 40)), ["가" * 140] * 39, "끝.", [])
+    tallies = [PersonTally("드레싱이 주인공이구려.", 25, 12, "샐러드", "러닝 20분"),
+               PersonTally("국물까지 원샷했구려.", None, None, "식단 기록 없음", None)]
+    parts = compose(1, [A, B], tallies, "말뿐이었소.", [C])
+    assert parts == [(f"🐷 **오늘의 식단 평가**\n\n<@{A}> 드레싱이 주인공이구려.\n"
+                      "└ 🥩 단백질 약 25g · 🍬 당류 약 12g · 🏃 러닝 20분\n"
+                      f"<@{B}> 국물까지 원샷했구려.\n\n"
+                      f"📝 총평: 말뿐이었소.\n🙈 끝내 안 올린 사람: <@{C}>\n"
+                      "ℹ️ 단백질·당류는 사진과 글로 어림한 추정치요.")]
+    assert [x for x in unmatched(parts[0]) if not x.startswith(("<@", "└ "))] == []
+    many = compose(1, list(range(1, 40)), [PersonTally("가" * 140, 1, 1, "x", None)] * 39, "끝.", [])
     assert len(many) > 1 and all(len(part) <= 1900 for part in many)
     for text in (NOBODY, FAILED):
         assert unmatched(text) == []

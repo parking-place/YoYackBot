@@ -707,10 +707,13 @@ class YoYackClient(discord.Client):
                     LOGGER.warning("diet_tick_failed")
             await asyncio.sleep(interval)
 
-    async def _diet_judge(self, guild, channel, role_id, missing, posts) -> str:
-        """1.4.3 22:30: review the day's diet posts in the server tone (photos attached)."""
-        engine = self._notice_engine() if posts else None
-        if posts and engine is None:
+    async def _diet_judge(self, guild, channel, role_id, missing, posts, *, exercise_posts=(),
+                          day=None) -> str:
+        """1.4.3 22:30: review the day's diet posts in the server tone (photos attached); 1.4.4:
+        with each person's protein/sugar/exercise tally, saved for the weekly advice."""
+        anything = bool(posts or exercise_posts)
+        engine = self._notice_engine() if anything else None
+        if anything and engine is None:
             try:
                 await channel.send(localize(guild.id, DIET_FAILED),
                                    allowed_mentions=discord.AllowedMentions.none())
@@ -723,10 +726,16 @@ class YoYackClient(discord.Client):
                 tone = await asyncio.to_thread(SQLiteToneStore(self.settings.database_path).get, guild.id)
             except Exception:  # noqa: BLE001 - the default tone then
                 LOGGER.warning("tone_read_failed")
+
+        async def save(records):
+            if self.diets is not None and day is not None:
+                await asyncio.to_thread(self.diets.save_daily, guild.id, day, records, self.clock())
+
         try:
             return await judge_day(
-                guild.id, channel, missing, posts, tone=tone,
+                guild.id, channel, missing, posts, tone=tone, exercise_posts=exercise_posts,
                 ask=lambda prompt, diet: engine.diet_review(prompt, diet.data, diet.photos),
+                save=save,
             )
         except (discord.DiscordException, OSError):
             return "send_failed"

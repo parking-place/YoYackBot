@@ -52,9 +52,11 @@ class World:
         )
         monkeypatch.setattr("yoyackbot.diet_schedule.valid_channel", lambda *_: valid)
         self.judged = []
+        self.judged_extra = []
 
-        async def judge(guild, channel, role_id, missing, posts):
+        async def judge(guild, channel, role_id, missing, posts, *, exercise_posts=(), day=None):
             self.judged.append((role_id, list(missing), posts))
+            self.judged_extra.append((list(exercise_posts), day))
             return "posted"
 
         self.scheduler = DietScheduler(self.store, lambda gid: self.guild if gid == 1 else None,

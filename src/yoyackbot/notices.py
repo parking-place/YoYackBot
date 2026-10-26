@@ -297,6 +297,7 @@ _ENTRIES = (
     Notice("diet.missing", "🙈 끝내 안 올린 사람: {members}"),
     Notice("diet.nobody", "🐷 오늘은 아무도 식단을 올리지 않았소. 다들 굶었소? 🙈"),
     Notice("diet.review_failed", "🤔 오늘은 식단 평가를 못 하겠소. 내일 다시 보겠소. 🔧"),
+    Notice("diet.estimate_note", "ℹ️ 단백질·당류는 사진과 글로 어림한 추정치요."),
     # 1.4.2 /셀프디스 (the jab itself is model output in the server tone, not a notice)
     Notice("self_roast.too_few", "🪞 셀프디스할 만큼 이 채널에서 한 말이 없소. 좀 더 떠들고 오시오. 💬"),
     Notice("self_roast.cooldown", "🧊 셀프디스는 숨 좀 돌리고 하시오. {seconds}초 뒤에 다시 부르시오. ⏰"),
