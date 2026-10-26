@@ -81,9 +81,11 @@ def test_the_call_goes_out_once_at_nine_pm(tmp_path, monkeypatch) -> None:
     world.tick(at(20, 59))
     assert world.sent() == []
     world.tick(at(21, 0), at(21, 1), at(21, 30))
-    assert world.sent() == [f"🐷 <@&{ROLE}> 오늘 식단을 올리시오! 🍽️"]
+    # 1.4.3a: the role and then each of its people (a personal mention always notifies)
+    assert world.sent() == [f"🐷 <@&{ROLE}> 오늘 식단을 올리시오! 🍽️\n<@{A}> <@{B}> <@{C}> <@{D}>"]
     mentions = world.channel.send.await_args.kwargs["allowed_mentions"]
-    assert [r.id for r in mentions.roles] == [ROLE] and not mentions.users and not mentions.everyone
+    assert [r.id for r in mentions.roles] == [ROLE] and not mentions.everyone
+    assert sorted(user.id for user in mentions.users) == [A, B, C, D]               # no bot, no E
     assert world.store.done(1, "2026-10-18") == {"call": "posted"}
 
 
@@ -111,7 +113,8 @@ def test_no_nag_when_everyone_posted_and_the_judge_sees_role_posts_only(tmp_path
     assert len(world.sent()) == 1 and world.store.done(1, "2026-10-18")["nag"] == "all_posted"
     world.tick(at(22, 30), at(22, 31))
     (role_id, missing, posts), = world.judged
-    assert role_id == ROLE and missing == [] and sorted(p.author_id for p in posts) == [A, B, C, D]
+    # 1.4.3a: everyone who posted is judged, E (no role) too; `missing` is the role's people only
+    assert role_id == ROLE and missing == [] and sorted(p.author_id for p in posts) == [A, B, C, D, E]
     assert world.store.done(1, "2026-10-18")["judge"] == "posted"
 
 
@@ -210,3 +213,49 @@ def test_the_client_loop_ticks_only_when_connected(tmp_path, monkeypatch) -> Non
 
     asyncio.run(scenario())
     assert ticks
+
+
+# T143a-P1 (1.4.3a) ---------------------------------------------------------------------------
+
+def test_the_call_falls_back_to_the_role_when_members_cannot_be_read(tmp_path, monkeypatch, caplog) -> None:
+    caplog.set_level(logging.INFO)
+    world = World(tmp_path, monkeypatch)
+
+    async def broken(limit=None):
+        raise discord.HTTPException(SimpleNamespace(status=403, reason="x"), "x")
+        yield
+
+    world.guild.fetch_members = broken
+    world.tick(at(21))
+    assert world.sent() == [f"🐷 <@&{ROLE}> 오늘 식단을 올리시오! 🍽️"]
+    mentions = world.channel.send.await_args.kwargs["allowed_mentions"]
+    assert [r.id for r in mentions.roles] == [ROLE] and not mentions.users
+    assert "diet_run stage=call outcome=posted members_read=False" in caplog.text
+
+
+def test_the_call_caps_personal_mentions(tmp_path, monkeypatch) -> None:
+    world = World(tmp_path, monkeypatch)
+    role = world.guild.get_role(ROLE)
+    crowd = [SimpleNamespace(id=1000 + n, bot=False, roles=[role]) for n in range(65)]
+
+    async def many(limit=None):
+        for person in crowd:
+            yield person
+
+    world.guild.fetch_members = many
+    world.tick(at(21))
+    second = world.sent()[0].split("\n")[1]
+    assert second.count("<@") == 60 and second.endswith(" 외 5명")
+    assert len(world.channel.send.await_args.kwargs["allowed_mentions"].users) == 60
+
+
+def test_non_role_posters_are_judged_but_never_called(tmp_path, monkeypatch) -> None:
+    world = World(tmp_path, monkeypatch)
+    world.messages = [message(E, "역할 없이 올린 김밥", when=at(21, 5)),
+                      message(BOT, "봇", when=at(21, 6), bot=True),
+                      message(E, "!!요약좀", when=at(21, 7))]
+    world.tick(at(21), at(22), at(22, 30))
+    nag = world.sent()[1]
+    assert f"<@{E}>" not in nag and all(f"<@{m}>" in nag for m in (A, B, C, D))
+    (_role, missing, posts), = world.judged
+    assert missing == [A, B, C, D] and [(p.author_id, p.text) for p in posts] == [(E, "역할 없이 올린 김밥")]

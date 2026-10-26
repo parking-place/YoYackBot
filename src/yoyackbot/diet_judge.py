@@ -1,5 +1,6 @@
-"""1.4.3 식단 평가 (22:30): the role members' posts of the day, photos attached, judged in one
-call — one sarcastic line per person and a verdict, in the server tone.
+"""1.4.3 식단 평가 (22:30): the day's diet posts (1.4.3a: everyone's, in the role or not),
+photos attached, judged in one call — one sarcastic line per person and a verdict, in the
+server tone.
 
 Photos are read from Discord into the request's private folder, attached read-only and removed
 with it; nothing about them is stored or logged. People are labelled P1, P2 … for the model and

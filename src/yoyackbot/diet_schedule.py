@@ -1,5 +1,8 @@
 """1.4.3 식단 schedule: 21:00 call the role, 22:00 call those who posted nothing, 22:30 judge.
 
+1.4.3a: the 21:00 call also mentions each of the role's people (a personal mention always
+notifies), and the judge sees everyone who posted that day, in the role or not.
+
 Each server's steps are recorded once per day (`diet_runs`) before they run, so a restart never
 repeats a ping. A step that is late (the bot was down) runs only inside its grace window.
 """
@@ -129,8 +132,17 @@ class DietScheduler:
             return self._log(stage, "no_role")
         if stage == "call":
             text = localize(guild_id, CALL.format(role=f"<@&{role_id}>"))
+            try:
+                members = await role_members(guild, role_id)
+            except (discord.DiscordException, OSError):
+                return await self._send(stage, channel, text, discord.AllowedMentions(
+                    everyone=False, users=False, roles=[role]), members_read=False)
+            shown = members[:NAG_LIMIT]
+            if shown:
+                text += "\n" + _mentions(members, shown)
             return await self._send(stage, channel, text, discord.AllowedMentions(
-                everyone=False, users=False, roles=[role]))
+                everyone=False, roles=[role], users=[discord.Object(id=member) for member in shown]),
+                members=len(members))
         try:
             members = await role_members(guild, role_id)
             posts = await day_posts(channel, midnight.astimezone(UTC), now)
@@ -142,21 +154,18 @@ class DietScheduler:
             if not missing:
                 return self._log(stage, "all_posted", members=len(members))
             shown = missing[:NAG_LIMIT]
-            mentions = " ".join(f"<@{member}>" for member in shown)
-            if len(missing) > len(shown):
-                mentions += f" 외 {len(missing) - len(shown)}명"
-            text = localize(guild_id, NAG.format(members=mentions))
+            text = localize(guild_id, NAG.format(members=_mentions(missing, shown)))
             return await self._send(stage, channel, text, discord.AllowedMentions(
                 everyone=False, roles=False, users=[discord.Object(id=member) for member in shown]),
                 members=len(members), missing=len(missing))
         if self.judge is None:
             return self._log(stage, "unavailable")
-        outcome = await self.judge(guild, channel, role_id, missing,
-                                   [post for post in posts if post.author_id in set(members)])
+        # 1.4.3a: everyone who posted that day is judged; `missing` stays the role's people
+        outcome = await self.judge(guild, channel, role_id, missing, posts)
         return self._log(stage, outcome, members=len(members), missing=len(missing))
 
     async def _send(self, stage: str, channel: object, text: str,
-                    mentions: discord.AllowedMentions, **counts: int) -> str:
+                    mentions: discord.AllowedMentions, **counts: int | bool) -> str:
         try:
             await channel.send(text, allowed_mentions=mentions)
         except (discord.DiscordException, OSError):
@@ -164,7 +173,14 @@ class DietScheduler:
         return self._log(stage, "posted", **counts)
 
     @staticmethod
-    def _log(stage: str, outcome: str, **counts: int) -> str:
+    def _log(stage: str, outcome: str, **counts: int | bool) -> str:
         extra = "".join(f" {name}={value}" for name, value in sorted(counts.items()))
         LOGGER.info("diet_run stage=%s outcome=%s%s", stage, outcome, extra)
         return outcome
+
+
+def _mentions(everyone: Sequence[int], shown: Sequence[int]) -> str:
+    text = " ".join(f"<@{member}>" for member in shown)
+    if len(everyone) > len(shown):
+        text += f" 외 {len(everyone) - len(shown)}명"
+    return text
