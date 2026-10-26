@@ -281,6 +281,14 @@ _ENTRIES = (
     Notice("diet_settings.channel_cleared", "🧹 식단 채널을 비웠소. 저장을 눌러 확정하시오. 👇"),
     Notice("diet_settings.role_cleared", "🧹 식단 역할을 비웠소. 저장을 눌러 확정하시오. 👇"),
     Notice("diet_settings.role_hint", "🛠️ 역할을 고르고 저장하거나 해제하시오. 👇"),
+    # 1.4.4 운동 설정
+    Notice("exercise_settings.no_channel", "🏃 운동 채널: 없음(식단 채널을 씀)"),
+    Notice("exercise_settings.channel", "🏃 운동 채널: {channel}"),
+    Notice("exercise_settings.no_role", "🏃 운동 역할: 없음(돼지역할을 씀)"),
+    Notice("exercise_settings.role", "🏃 운동 역할: {role}"),
+    Notice("exercise_settings.schedule", "📊 운동은 매일 22:30 식단 평가에서 함께 정산하고, 일요일에는 주간 훈수를 하오."),
+    Notice("exercise_settings.channel_cleared", "🧹 운동 채널을 비웠소(식단 채널을 씀). 저장을 눌러 확정하시오. 👇"),
+    Notice("exercise_settings.role_cleared", "🧹 운동 역할을 비웠소(돼지역할을 씀). 저장을 눌러 확정하시오. 👇"),
     # 1.4.3 식단 재촉
     Notice("diet.call", "🐷 {role} 오늘 식단을 올리시오! 🍽️"),
     Notice("diet.nag", "🐷 {members} 아직 식단이 안 올라왔소! 30분 남았소. ⏰"),
