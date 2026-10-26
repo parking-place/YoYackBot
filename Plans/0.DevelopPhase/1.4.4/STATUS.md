@@ -8,6 +8,6 @@
 | [1.4.4-P2](02-daily-tally.md) | 일간 영양·운동 정산 | DONE | C `a83c88d376900efea3045c1d5a2276db35a27542` / E [`86ccc52`](https://github.com/parking-place/YoYackBot/commit/86ccc524aeb21fc42bb4818a56e83e2d7d2831dc) | P1 D, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/40291995457), [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/40292238100), 종료 D push 확인 |
 | [1.4.4-P3](03-weekly-advice.md) | 주간 훈수 | DONE | C `e40c6e390a82b7fe9cc7c90e2158747d2a79324b` / E [`d255024`](https://github.com/parking-place/YoYackBot/commit/d25502494b9fdeaafe3339a553a25d788b9bba0d) | P2 D, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/40293391108), [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/40293687780), 종료 D push 확인 |
 | [1.4.4-P4](04-evaluation.md) | 실제 모델 평가 | DONE | C `4b874ad8accad42c48a52526d0834e95c8c8a462` / E [`b779d77`](https://github.com/parking-place/YoYackBot/commit/b779d7725ed6afe3b44e2f3ca7ee220ff77db70d) | P3 D, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/40295099859), 사용자 확인, [E CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/40331359958), 종료 D push 확인 |
-| [1.4.4-P5](05-release.md) | 통합·배포·출시 | PLANNED | — | P4 D, 사용자 Discord 확인 |
+| [1.4.4-P5](05-release.md) | 통합·배포·출시 | PUSH_PENDING | C `1034a3a` / E 증거 push 뒤 기록 | P4 D, [C CI 성공](https://github.com/parking-place/YoYackBot/actions/runs/40331856127) |
 
 [버전 개요](README.md) · [공통 Git 규칙](../GIT_WORKFLOW.md)
