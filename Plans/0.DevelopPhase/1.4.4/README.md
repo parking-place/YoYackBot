@@ -1,6 +1,6 @@
 # 1.4.4 — 영양·운동 정산과 주간 훈수
 
-- 상태: **PLANNED** · 5단계·10검사
+- 상태: **IN_PROGRESS** · 5단계·10검사
 - 선행 버전: [1.4.3a](../1.4.3a/README.md) — 태그 `v1.4.3a`, 코드 `4e4933dd749808178a5936e9b7b55ce5d8947db3`, `main` 병합 `5d6120c`(2026-10-26). 개발 브랜치 `develop/1.4.4`는 `main` `5d6120c`에서 시작한다.
 - 계획 근거: 2026-10-26 사용자 1.4.4 요청과 질문 답
 
@@ -17,7 +17,7 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 운동 설정·기록 저장소](01-exercise-settings.md) | `T144-P1-A/B` | PLANNED |
+| 1 | [P1 — 운동 설정·기록 저장소](01-exercise-settings.md) | `T144-P1-A/B` | DONE |
 | 2 | [P2 — 일간 영양·운동 정산](02-daily-tally.md) | `T144-P2-A/B` | PLANNED |
 | 3 | [P3 — 주간 훈수](03-weekly-advice.md) | `T144-P3-A/B` | PLANNED |
 | 4 | [P4 — 실제 모델 평가](04-evaluation.md) | `T144-P4-A/B` | PLANNED |
