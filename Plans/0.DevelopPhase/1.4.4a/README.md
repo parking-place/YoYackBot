@@ -15,7 +15,7 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — CLI 고정값·호환 확인](01-cli-update.md) | `T144a-P1-A/B` | PLANNED |
+| 1 | [P1 — CLI 고정값·호환 확인](01-cli-update.md) | `T144a-P1-A/B` | DONE |
 | 2 | [P2 — 통합·배포·출시](02-release.md) | `T144a-P2-A/B` | PLANNED |
 
 [검증 목록](TEST_MATRIX.md) · [상태](STATUS.md) · [Git 규칙](../GIT_WORKFLOW.md). 버전 표기는 계획·태그 `1.4.4a` / `v1.4.4a`, Python 패키지 `1.4.4.1`이다([버전 대응표](../PATCH_VERSIONING.md)).
