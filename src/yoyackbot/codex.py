@@ -11,7 +11,7 @@ from pathlib import Path
 
 from yoyackbot.config import Settings
 
-PINNED_CLI_VERSION = "codex-cli 0.158.0"
+PINNED_CLI_VERSION = "codex-cli 0.164.0"
 REQUIRED_MODEL = "gpt-6-luna"
 # low is the default; operators may raise it to medium in the service environment.
 ALLOWED_EFFORTS = frozenset({"low", "medium"})
