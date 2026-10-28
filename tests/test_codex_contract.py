@@ -72,7 +72,7 @@ def test_version_and_authentication_probe_do_not_retain_diagnostics(monkeypatch:
     def fake_run(args: list[str], **_kwargs: object) -> CompletedProcess[str]:
         calls.append(args)
         if args[-1] == "--version":
-            return CompletedProcess(args, 0, "codex-cli 0.158.0\n", "")
+            return CompletedProcess(args, 0, "codex-cli 0.164.0\n", "")
         return CompletedProcess(args, 1, "", "secret-bearing diagnostic")
 
     monkeypatch.setattr("yoyackbot.codex.subprocess.run", fake_run)
