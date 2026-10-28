@@ -6,5 +6,5 @@
 |---|---|---|---|---|
 | `T144c-P1-A` | [P1](01-diet-effort.md) | LXC 합성 | 서비스 설정 low·medium 모두 식단 두 호출은 medium(대체 포함), 나머지 강도 규칙 그대로, 회귀 | PASS |
 | `T144c-P1-B` | [P1](01-diet-effort.md) | LXC 실제 모델 | 서비스 설정을 low로 둔 실행에서 식단 두 호출이 Terra·medium으로 나가고 통과 | PASS |
-| `T144c-P2-A` | [P2](02-release.md) | LXC/CI | 전체 회귀·버전·문서·2/4 집계, 복귀 호환 | NOT_RUN |
-| `T144c-P2-B` | [P2](02-release.md) | LXC/CI | 배포, 사용자 출시 지시, main CI, 태그·Release | NOT_RUN |
+| `T144c-P2-A` | [P2](02-release.md) | LXC/CI | 전체 회귀·버전·문서·2/4 집계, 복귀 호환 | PASS |
+| `T144c-P2-B` | [P2](02-release.md) | LXC/CI | 배포, 사용자 출시 지시, main CI, 태그·Release | PASS |
