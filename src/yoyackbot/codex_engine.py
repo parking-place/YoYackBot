@@ -3,13 +3,14 @@
 import asyncio
 import dataclasses
 import json
+import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Self
 
-from yoyackbot.codex import CodexContract, CodexContractError, CodexFailure
-from yoyackbot.codex_runner import CodexRunError, SandboxedCodex, call_effort, fast_tier
+from yoyackbot.codex import DIET_MODEL, CodexContract, CodexContractError, CodexFailure
+from yoyackbot.codex_runner import CodexRunError, SandboxedCodex, call_effort, call_model, fast_tier
 from yoyackbot.config import Settings
 from yoyackbot.domain import MessageRecord, SummaryMode, SummaryResult
 from yoyackbot.idiom import (
@@ -48,6 +49,8 @@ from yoyackbot.summary_prompt import (
     rating_judge_prompt,
 )
 from yoyackbot.timing import codex_call
+
+LOGGER = logging.getLogger(__name__)
 
 # 1.3.3 user decision: the judge and the idiom pick run at low; every other call keeps the
 # configured effort. Low is the lowest allowed, so this never raises a call above the setting.
@@ -318,29 +321,49 @@ class CodexSummaryEngine:
         timeout_seconds: float = 300,
     ) -> str:
         """1.4.3: the day's diet posts with their photos attached, one call. Photos take longer,
-        so this call may run up to `timeout_seconds`."""
+        so this call may run up to `timeout_seconds`. 1.4.4b: on GPT-6.1 Terra."""
         root = self.settings.input_directory.absolute()
-        workspace = InputWorkspace.create(root, data, inline=True)
-        try:
-            workspace.add_images(list(photos))
-        except BaseException:
-            workspace.close()
-            raise
+
+        def workspace() -> InputWorkspace:
+            created = InputWorkspace.create(root, data, inline=True)
+            try:
+                created.add_images(list(photos))
+            except BaseException:
+                created.close()
+                raise
+            return created
+
         runner = self.runner
         if dataclasses.is_dataclass(runner):
             runner = dataclasses.replace(
                 runner, timeout_seconds=max(runner.timeout_seconds, timeout_seconds),
             )
         async with self._slots:
-            return await self._execute("diet", workspace, with_data(prompt, data), runner=runner)
+            return await self._on_diet_model("diet", workspace, with_data(prompt, data), runner)
 
     async def diet_advice(self, prompt: str, data: bytes) -> str:
-        """1.4.4: the week's advice from the bot's daily tallies; text only, no conversation."""
+        """1.4.4: the week's advice from the bot's daily tallies; text only, no conversation.
+        1.4.4b: on GPT-6.1 Terra."""
         root = self.settings.input_directory.absolute()
         async with self._slots:
-            return await self._execute(
-                "diet_week", InputWorkspace.create(root, data, inline=True), with_data(prompt, data),
+            return await self._on_diet_model(
+                "diet_week", lambda: InputWorkspace.create(root, data, inline=True),
+                with_data(prompt, data),
             )
+
+    async def _on_diet_model(
+        self, label: str, workspace: Callable[[], InputWorkspace], prompt: str,
+        runner: object = None,
+    ) -> str:
+        """1.4.4b: Terra first; if the account cannot use it, the same request once on the
+        configured model. Every other failure is the caller's as before."""
+        try:
+            return await self._execute(label, workspace(), prompt, runner=runner, model=DIET_MODEL)
+        except CodexRunError as exc:
+            if exc.kind is not CodexFailure.MODEL:
+                raise
+        LOGGER.warning("codex_model_fallback call=%s", label)
+        return await self._execute(label, workspace(), prompt, runner=runner)
 
     async def rewrite_notices(self, prompt: str, data: bytes) -> str:
         """1.4.0: one batch of a server's notices in its tone; no conversation is involved."""
@@ -357,14 +380,16 @@ class CodexSummaryEngine:
 
     async def _execute(
         self, label: str, workspace: InputWorkspace, prompt: str, *, runner: object = None,
+        model: str | None = None,
     ) -> str:
-        """One Codex run, timed under its call name (1.3.2) with its call's effort (1.3.3)."""
+        """One Codex run, timed under its call name (1.3.2) with its call's effort (1.3.3) and,
+        for some calls, another model (1.4.4b)."""
         configured = getattr(getattr(self.runner, "contract", None), "reasoning_effort", None)
         effort = (
             "low" if label in LOW_EFFORT_CALLS else "high" if label in HIGH_EFFORT_CALLS
             else configured
         )
-        async with codex_call(label, effort), call_effort(effort):
+        async with codex_call(label, effort), call_effort(effort), call_model(model):
             return await (runner or self.runner).execute(workspace, prompt)
 
     async def _ask(

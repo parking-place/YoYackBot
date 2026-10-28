@@ -15,6 +15,7 @@ from pathlib import Path
 
 from yoyackbot.codex import (
     CALL_EFFORTS,
+    CALL_MODELS,
     FAST_SERVICE_TIER,
     CodexContract,
     CodexFailure,
@@ -44,6 +45,23 @@ class call_effort:
 
     async def __aexit__(self, *_exc: object) -> None:
         _EFFORT.reset(self._token)
+
+
+# 1.4.4b: the engine runs some calls (the diet review, the weekly advice) on another model.
+_MODEL = ContextVar("yoyack_call_model", default=None)
+
+
+class call_model:
+    """Run the Codex calls inside this block on this model (only the allowed ones)."""
+
+    def __init__(self, model: str | None) -> None:
+        self.model = model if model in CALL_MODELS else None
+
+    async def __aenter__(self) -> None:
+        self._token = _MODEL.set(self.model)
+
+    async def __aexit__(self, *_exc: object) -> None:
+        _MODEL.reset(self._token)
 
 
 class fast_tier:
@@ -222,7 +240,7 @@ class SandboxedCodex:
         ):
             raise CodexRunError(CodexFailure.PROCESS)
         cli = replace(
-            self.contract, executable="/bin/codex",
+            self.contract, executable="/bin/codex", model=_MODEL.get() or self.contract.model,
             service_tier=FAST_SERVICE_TIER if _FAST.get() else None,
             reasoning_effort=_EFFORT.get() or self.contract.reasoning_effort,
         ).arguments(
