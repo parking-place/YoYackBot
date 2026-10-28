@@ -15,7 +15,7 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 식단 호출 강도 고정](01-diet-effort.md) | `T144c-P1-A/B` | PLANNED |
+| 1 | [P1 — 식단 호출 강도 고정](01-diet-effort.md) | `T144c-P1-A/B` | DONE |
 | 2 | [P2 — 통합·배포·출시](02-release.md) | `T144c-P2-A/B` | PLANNED |
 
 [검증 목록](TEST_MATRIX.md) · [상태](STATUS.md) · [Git 규칙](../GIT_WORKFLOW.md). 버전 표기는 계획·태그 `1.4.4c` / `v1.4.4c`, Python 패키지 `1.4.4.3`이다([버전 대응표](../PATCH_VERSIONING.md)).
