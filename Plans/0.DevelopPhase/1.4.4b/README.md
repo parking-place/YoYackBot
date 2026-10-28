@@ -15,7 +15,7 @@
 
 | 순서 | 단계 | 검증 ID | 상태 |
 |---|---|---|---|
-| 1 | [P1 — 호출별 모델·실제 모델 평가](01-diet-model.md) | `T144b-P1-A/B` | PLANNED |
+| 1 | [P1 — 호출별 모델·실제 모델 평가](01-diet-model.md) | `T144b-P1-A/B` | DONE |
 | 2 | [P2 — 통합·배포·출시](02-release.md) | `T144b-P2-A/B` | PLANNED |
 
 [검증 목록](TEST_MATRIX.md) · [상태](STATUS.md) · [Git 규칙](../GIT_WORKFLOW.md). 버전 표기는 계획·태그 `1.4.4b` / `v1.4.4b`, Python 패키지 `1.4.4.2`이다([버전 대응표](../PATCH_VERSIONING.md)).
