@@ -1,0 +1,14 @@
+# 1.4.4c-P2 — 통합·배포·출시
+
+- 상태: **DONE** · 검사: `T144c-P2-A/B` **PASS** ([증거](../evidence/1.4.4c-P2.md)) · 환경: 개발 LXC, GitHub CI
+
+## 작업
+
+패키지를 `1.4.4.3`(`VERSION`), 계획·태그를 `1.4.4c`로 올리고 저장소 검증기·README·CHANGELOG·`docs/channel-settings.md`·`docs/upgrade-rollback-1.4.4c.md`를 갱신한다. 사용자 지시대로 배포 뒤 바로 출시한다.
+
+## 검증·완료 기준
+
+- `T144c-P2-A`: 같은 SHA의 전체 회귀·버전·문서·2단계/4검사 집계, 복귀 대상 호환.
+- `T144c-P2-B`: 배포·서비스 SHA 대조, 사용자 출시 지시, `main` PR·리뷰·병합·main CI, 태그 `v1.4.4c`·Release.
+
+[버전 개요](README.md) · [상태](STATUS.md)

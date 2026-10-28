@@ -57,6 +57,9 @@ LOGGER = logging.getLogger(__name__)
 LOW_EFFORT_CALLS = frozenset({"judge", "idiom_select"})
 # 1.4.0 user decision: a server's notices are rewritten for its tone at high.
 HIGH_EFFORT_CALLS = frozenset({"notices"})
+# 1.4.4c user decision: the diet review and the weekly advice (GPT-6.1 Terra) always run at medium,
+# whatever the configured effort.
+MEDIUM_EFFORT_CALLS = frozenset({"diet", "diet_week"})
 # Fixed instructions, notes and quoted request/tone around the data block (well above today's).
 PROMPT_ALLOWANCE_BYTES = 65_536
 
@@ -387,7 +390,7 @@ class CodexSummaryEngine:
         configured = getattr(getattr(self.runner, "contract", None), "reasoning_effort", None)
         effort = (
             "low" if label in LOW_EFFORT_CALLS else "high" if label in HIGH_EFFORT_CALLS
-            else configured
+            else "medium" if label in MEDIUM_EFFORT_CALLS else configured
         )
         async with codex_call(label, effort), call_effort(effort), call_model(model):
             return await (runner or self.runner).execute(workspace, prompt)
