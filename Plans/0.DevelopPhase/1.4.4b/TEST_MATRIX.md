@@ -4,7 +4,7 @@
 
 | 검사 ID | 단계 | 환경 | 통과 기준 | 결과 |
 |---|---|---|---|---|
-| `T144b-P1-A` | [P1](01-diet-model.md) | LXC 합성 | 식단 평가·주간 훈수만 Terra, 나머지 Luna, 허용 모델 외 무시, 모델 오류 때 Luna 대체·다른 실패는 그대로, 회귀 | NOT_RUN |
-| `T144b-P1-B` | [P1](01-diet-model.md) | LXC 실제 모델 | Terra로 일간 정산·주간 훈수(말투 3종): 형식 통과, 숫자 방향·운동 정산, 근거 있는 훈수, 금지선 0, 시간 | NOT_RUN |
+| `T144b-P1-A` | [P1](01-diet-model.md) | LXC 합성 | 식단 평가·주간 훈수만 Terra, 나머지 Luna, 허용 모델 외 무시, 모델 오류 때 Luna 대체·다른 실패는 그대로, 회귀 | PASS |
+| `T144b-P1-B` | [P1](01-diet-model.md) | LXC 실제 모델 | Terra로 일간 정산·주간 훈수(말투 3종): 형식 통과, 숫자 방향·운동 정산, 근거 있는 훈수, 금지선 0, 시간 | PASS |
 | `T144b-P2-A` | [P2](02-release.md) | LXC/CI | 전체 회귀·버전·문서·2/4 집계, 복귀 호환 | NOT_RUN |
 | `T144b-P2-B` | [P2](02-release.md) | LXC/CI | 배포, 사용자 출시 지시, main CI, 태그·Release | NOT_RUN |
