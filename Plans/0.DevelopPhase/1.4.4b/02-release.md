@@ -1,6 +1,6 @@
 # 1.4.4b-P2 — 통합·배포·출시
 
-- 상태: **PLANNED** · 검사: `T144b-P2-A/B` · 환경: 개발 LXC, GitHub CI
+- 상태: **PUSH_PENDING** · 검사: `T144b-P2-A/B` **PASS** ([증거](../evidence/1.4.4b-P2.md)) · 환경: 개발 LXC, GitHub CI
 
 ## 작업
 
