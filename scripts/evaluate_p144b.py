@@ -1,7 +1,9 @@
-"""T144b-P1-B: the 1.4.4-P4 evaluation (daily tally, weekly advice) with each CLI run's model.
+"""T144b-P1-B / T144c-P1-B: the 1.4.4-P4 evaluation (daily tally, weekly advice) with each CLI
+run's model and reasoning effort.
 
-Runs `evaluate_p144` unchanged and prints `invoke model=…` to stderr for every Codex CLI run, so
-the report shows which model actually answered; warnings (e.g. a model fallback) go to stderr too.
+Runs `evaluate_p144` unchanged and prints `invoke model=… model_reasoning_effort=…` to stderr for
+every Codex CLI run, so the report shows which model and effort actually answered; warnings (e.g.
+a model fallback) go to stderr too.
 LXC only; nothing is posted.
 """
 
@@ -20,7 +22,8 @@ _invoke = codex_runner._invoke
 
 
 async def recorded(command, *args, **kwargs):
-    print("invoke model=" + command[command.index("--model") + 1], file=sys.stderr, flush=True)
+    effort = next((arg for arg in command if arg.startswith("model_reasoning_effort=")), "")
+    print(f"invoke model={command[command.index('--model') + 1]} {effort}", file=sys.stderr, flush=True)
     return await _invoke(command, *args, **kwargs)
 
 
