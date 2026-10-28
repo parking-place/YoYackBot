@@ -13,6 +13,9 @@ from yoyackbot.config import Settings
 
 PINNED_CLI_VERSION = "codex-cli 0.164.0"
 REQUIRED_MODEL = "gpt-6-luna"
+# 1.4.4b user decision: the diet review and the weekly advice run on GPT-6.1 Terra, per call only.
+DIET_MODEL = "gpt-6.1-terra"
+CALL_MODELS = frozenset({REQUIRED_MODEL, DIET_MODEL})
 # low is the default; operators may raise it to medium in the service environment.
 ALLOWED_EFFORTS = frozenset({"low", "medium"})
 # 1.4.0 user decision: rewriting a server's notices runs at high; only per call, never configured.
